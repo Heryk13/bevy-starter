@@ -10,6 +10,26 @@ bevy = "0.19.1"
 default = ["dev"]
 dev = ["bevy/dynamic_linking", "bevy/bevy_dev_tools"]
 
+[lints.rust]
+unsafe_code = "deny"
+unused_qualifications = "warn"
+
+[lints.clippy]
+# systems receive their params via dependency injection, so many arguments is normal
+too_many_arguments = "allow"
+# queries naturally have complex types
+type_complexity = "allow"
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+doc_markdown = "warn"
+manual_let_else = "warn"
+nonstandard_macro_braces = "warn"
+print_stderr = "warn"
+print_stdout = "warn"
+redundant_closure_for_method_calls = "warn"
+redundant_else = "warn"
+semicolon_if_nothing_returned = "warn"
+
 [profile.dev]
 opt-level = 1
 
