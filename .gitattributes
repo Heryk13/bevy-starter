@@ -1,0 +1,24 @@
+* text=auto eol=lf
+
+# images
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ktx2 binary
+*.dds binary
+*.hdr binary
+*.exr binary
+
+# audio
+*.ogg binary
+*.wav binary
+*.mp3 binary
+*.flac binary
+
+# models
+*.glb binary
+*.blend binary
+
+# fonts
+*.ttf binary
+*.otf binary
