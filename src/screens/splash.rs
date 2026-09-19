@@ -139,9 +139,17 @@ fn logo_alpha(elapsed_secs: f32) -> f32 {
 mod tests {
     use super::*;
 
+    const TOLERANCE: f32 = 1e-5;
+
     #[test]
     fn logo_is_invisible_at_the_start() {
         assert_eq!(logo_alpha(0.0), 0.0);
+    }
+
+    #[test]
+    fn logo_is_half_visible_mid_fade_in() {
+        let alpha = logo_alpha(LOGO_WAIT_SECS + LOGO_FADE_IN_SECS / 2.0);
+        assert!((alpha - 0.5).abs() < TOLERANCE, "alpha was {alpha}");
     }
 
     #[test]
