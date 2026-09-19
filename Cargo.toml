@@ -9,7 +9,7 @@ bevy = "0.19.1"
 
 [features]
 default = ["dev"]
-dev = ["bevy/dynamic_linking", "bevy/bevy_dev_tools"]
+dev = ["bevy/dynamic_linking", "bevy/dev"]
 
 [lints.rust]
 unsafe_code = "deny"

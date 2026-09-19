@@ -7,7 +7,7 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 - Splash screen with fade in/out, skippable with keyboard or mouse
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies
-- FPS overlay in dev builds
+- FPS overlay and asset hot reloading in dev builds
 - Fast linking on Windows with `rust-lld`
 - Release packaging into a ready-to-ship `dist/` folder
 - Third-party license notices generated on every release
@@ -48,9 +48,9 @@ justfile            project commands
 
 ## Cargo features
 
-| Feature | Default | Description                                                     |
-| ------- | ------- | --------------------------------------------------------------- |
-| `dev`   | yes     | Dynamic linking, FPS overlay and a console window on Windows    |
+| Feature | Default | Description                                                                          |
+| ------- | ------- | ------------------------------------------------------------------------------------ |
+| `dev`   | yes     | Dynamic linking, FPS overlay, asset hot reloading and a console window on Windows    |
 
 Release builds must disable it with `--no-default-features`, which `just release` already does.
 A binary built with `dev` depends on the Bevy dynamic library and won't run on other machines.
