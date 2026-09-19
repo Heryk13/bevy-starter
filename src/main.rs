@@ -8,7 +8,13 @@ mod screens;
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "Bevy Starter".into(),
+            ..default()
+        }),
+        ..default()
+    }));
 
     #[cfg(feature = "dev")]
     app.add_plugins(FpsOverlayPlugin::default());
