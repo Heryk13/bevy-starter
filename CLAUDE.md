@@ -14,7 +14,7 @@ Whenever a change is made, by the user or by you, before calling it done:
 
 1. Read the diff and check it against every rule in `CONTRIBUTING.md`:
    the loop, file layout, separators, comments, Bevy patterns, naming, tests and docs.
-2. Run `just check` and `cargo test` yourself. Never report them as passing without running them.
+2. Run `just check` yourself. Never report it as passing without running it.
 3. Report a short checklist: what follows the conventions, what is missing,
    and a suggested commit message.
 

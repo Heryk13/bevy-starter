@@ -11,11 +11,12 @@ fix:
     cargo clippy --fix --allow-dirty
     cargo fmt
 
-# check formatting and lints in dev and release configs
+# check formatting, lints in dev and release configs, and run the tests
 check:
     cargo fmt --check
     cargo clippy -- -D warnings
     cargo clippy --no-default-features -- -D warnings
+    cargo test
 
 # build an optimized release and package it into dist/
 release:

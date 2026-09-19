@@ -108,6 +108,14 @@ fn skip_splash_screen(
 fn fade_splash_logo(logo: Single<(&mut ImageNode, &SplashTimer)>) {
     let (mut logo, splash_timer) = logo.into_inner();
     let elapsed_secs = splash_timer.timer.elapsed_secs();
+    let alpha = logo_alpha(elapsed_secs);
+    logo.color.set_alpha(alpha);
+}
+
+// ==== Helpers ================================================================
+
+/// Returns the logo alpha at the given time of the animation, with easing applied.
+fn logo_alpha(elapsed_secs: f32) -> f32 {
     let linear_alpha = if elapsed_secs < LOGO_WAIT_SECS {
         // waiting
         0.0
@@ -119,9 +127,36 @@ fn fade_splash_logo(logo: Single<(&mut ImageNode, &SplashTimer)>) {
         1.0
     } else {
         // fading out
-        let remaining_secs = splash_timer.timer.remaining_secs();
+        let remaining_secs = LOGO_TOTAL_SECS - elapsed_secs;
         remaining_secs / LOGO_FADE_OUT_SECS
     };
-    let alpha = LOGO_EASING.sample_clamped(linear_alpha);
-    logo.color.set_alpha(alpha);
+    LOGO_EASING.sample_clamped(linear_alpha)
+}
+
+// ==== Tests ==================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn logo_is_invisible_at_the_start() {
+        assert_eq!(logo_alpha(0.0), 0.0);
+    }
+
+    #[test]
+    fn logo_is_fully_visible_while_holding() {
+        assert_eq!(logo_alpha(LOGO_FADE_IN_END_SECS), 1.0);
+        assert_eq!(logo_alpha(LOGO_HOLD_END_SECS - 0.01), 1.0);
+    }
+
+    #[test]
+    fn logo_is_fully_visible_when_fade_out_starts() {
+        assert_eq!(logo_alpha(LOGO_HOLD_END_SECS), 1.0);
+    }
+
+    #[test]
+    fn logo_is_invisible_at_the_end() {
+        assert_eq!(logo_alpha(LOGO_TOTAL_SECS), 0.0);
+    }
 }

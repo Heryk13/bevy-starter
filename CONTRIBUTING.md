@@ -8,7 +8,7 @@ How every change in this project is made. Follow the loop for each feature, scre
    each screen or feature is a plugin in its own file (e.g. `src/screens/menu.rs`).
 2. **Write** following the [code conventions](#code-conventions).
 3. **Test** the logic (see [Tests](#tests)).
-4. **Fix and check**: `just fix`, then `just check` and `cargo test`.
+4. **Fix and check**: `just fix`, then `just check`.
 5. **Run**: `just run` and try the change in the game.
 6. **Docs**: update `README.md` if features, commands, requirements or the project structure changed.
 7. **Commit** (see [Commits](#commits)).
@@ -25,7 +25,20 @@ Every `.rs` file follows the same order, skipping the sections it doesn't have:
 4. `Plugin`: the `plugin` function, a summary of what the file does
 5. types: `State`, `Components`, `Resources`
 6. `Systems`: in the order they run (spawn, update, ...)
-7. `Tests`
+7. `Helpers`: pure functions used by the systems, next to the tests that cover them
+8. `Tests`
+
+### Splitting files
+
+- Split by feature, never by kind of code: `player.rs` and `enemy.rs`,
+  not `components.rs` and `systems.rs`.
+- Keep a feature in one file while it reads as one thing.
+  Split when a part makes sense on its own, usually around 300 to 400 lines
+  or when you find yourself scrolling to look for "the part about X".
+  That part becomes its own file.
+- A split module follows the `screens.rs` pattern: `player.rs` next to a `player/` folder
+  with the parts (`player/movement.rs`), never `mod.rs`.
+- Unit tests stay in the file they test, `tests/` is only for integration tests.
 
 ### Separators
 

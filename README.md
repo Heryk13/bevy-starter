@@ -28,7 +28,7 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 | -------------- | ------------------------------------------------------ |
 | `just run`     | Run the game in dev mode                               |
 | `just fix`     | Apply clippy fixes and format the code                 |
-| `just check`   | Check formatting and lints in dev and release configs  |
+| `just check`   | Check formatting and lints, and run the tests          |
 | `just release` | Build an optimized release and package it into `dist/` |
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the development loop and code conventions.
