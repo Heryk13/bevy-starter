@@ -2,13 +2,10 @@ use bevy::prelude::*;
 
 use super::Screen;
 
-#[derive(Resource)]
+#[derive(Component)]
 struct SplashTimer {
     timer: Timer,
 }
-
-#[derive(Component)]
-struct SplashLogo;
 
 const SKIP_MOUSE_BUTTONS: [MouseButton; 2] = [MouseButton::Left, MouseButton::Right];
 
@@ -34,9 +31,13 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Screen::Splash), spawn_splash_screen);
     app.add_systems(
         Update,
-        (tick_splash_timer, skip_splash_screen, fade_splash_logo).run_if(in_state(Screen::Splash)),
+        (
+            tick_splash_timer,
+            skip_splash_screen,
+            fade_splash_logo.after(tick_splash_timer),
+        )
+            .run_if(in_state(Screen::Splash)),
     );
-    app.add_systems(OnExit(Screen::Splash), remove_splash_timer);
 }
 
 /// spawn the splash screen and initialize the splash timer
@@ -56,25 +57,26 @@ fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             ImageNode::new(asset_server.load("splash/bevy_logo_dark.png"))
                 .with_color(Color::WHITE.with_alpha(0.0)),
-            SplashLogo,
+            SplashTimer {
+                timer: Timer::from_seconds(LOGO_TOTAL_SECS, TimerMode::Once),
+            },
         )],
         DespawnOnExit(Screen::Splash),
     ));
-    commands.insert_resource(SplashTimer {
-        timer: Timer::from_seconds(LOGO_TOTAL_SECS, TimerMode::Once),
-    });
 }
 
 /// tick the splash timer and transition to the next screen when finished
 fn tick_splash_timer(
-    mut splash_timer: ResMut<SplashTimer>,
+    mut splash_timer_query: Query<&mut SplashTimer>,
     time: Res<Time>,
     mut next_state: ResMut<NextState<Screen>>,
-) {
+) -> Result {
+    let mut splash_timer = splash_timer_query.single_mut()?;
     splash_timer.timer.tick(time.delta());
     if splash_timer.timer.is_finished() {
         next_state.set(Screen::Menu);
     }
+    Ok(())
 }
 
 /// skip the splash screen on interaction
@@ -91,11 +93,8 @@ fn skip_splash_screen(
 }
 
 /// fade in and out the bevy logo
-fn fade_splash_logo(
-    mut logo_query: Query<&mut ImageNode, With<SplashLogo>>,
-    splash_timer: Res<SplashTimer>,
-) -> Result {
-    let mut logo = logo_query.single_mut()?;
+fn fade_splash_logo(mut logo_query: Query<(&mut ImageNode, &SplashTimer)>) -> Result {
+    let (mut logo, splash_timer) = logo_query.single_mut()?;
     let elapsed_secs = splash_timer.timer.elapsed_secs();
     let linear_alpha = if elapsed_secs < LOGO_WAIT_SECS {
         0.0
@@ -110,9 +109,4 @@ fn fade_splash_logo(
     let alpha = LOGO_EASING.sample_clamped(linear_alpha);
     logo.color.set_alpha(alpha);
     Ok(())
-}
-
-/// remove the splash timer resource when exiting the splash screen
-fn remove_splash_timer(mut commands: Commands) {
-    commands.remove_resource::<SplashTimer>();
 }
