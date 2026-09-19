@@ -2,7 +2,9 @@ use bevy::prelude::*;
 
 use super::Screen;
 
-// input that skips the splash screen
+// ==== Config =================================================================
+
+// ---- skip input -------------------------------------------------------------
 const SKIP_KEYS: [KeyCode; 5] = [
     KeyCode::Escape,
     KeyCode::Space,
@@ -12,17 +14,19 @@ const SKIP_KEYS: [KeyCode; 5] = [
 ];
 const SKIP_MOUSE_BUTTONS: [MouseButton; 2] = [MouseButton::Left, MouseButton::Right];
 
-// logo animation: wait, fade in, hold, fade out
+// ---- logo animation: wait, fade in, hold, fade out --------------------------
 const LOGO_WAIT_SECS: f32 = 0.5;
 const LOGO_FADE_IN_SECS: f32 = 0.8;
 const LOGO_HOLD_SECS: f32 = 1.2;
 const LOGO_FADE_OUT_SECS: f32 = 0.5;
 const LOGO_EASING: EaseFunction = EaseFunction::SmoothStep;
 
-// when each animation phase ends, derived from the durations above
+// ---- when each phase ends, derived from the durations above -----------------
 const LOGO_FADE_IN_END_SECS: f32 = LOGO_WAIT_SECS + LOGO_FADE_IN_SECS;
 const LOGO_HOLD_END_SECS: f32 = LOGO_FADE_IN_END_SECS + LOGO_HOLD_SECS;
 const LOGO_TOTAL_SECS: f32 = LOGO_HOLD_END_SECS + LOGO_FADE_OUT_SECS;
+
+// ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Screen::Splash), spawn_splash_screen);
@@ -38,11 +42,15 @@ pub(super) fn plugin(app: &mut App) {
     );
 }
 
+// ==== Components =============================================================
+
 /// Drives the logo animation and the transition out of the splash screen.
 #[derive(Component)]
 struct SplashTimer {
     timer: Timer,
 }
+
+// ==== Systems ================================================================
 
 /// Spawns the splash screen: a full-screen container with the logo centered in it.
 fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
