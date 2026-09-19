@@ -31,6 +31,8 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 | `just check`   | Check formatting and lints in dev and release configs  |
 | `just release` | Build an optimized release and package it into `dist/` |
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development loop and code conventions.
+
 ## Project structure
 
 ```
@@ -44,6 +46,8 @@ src/
 about.toml          accepted dependency licenses
 about.hbs           template for the license notices
 justfile            project commands
+CONTRIBUTING.md     development loop and code conventions
+CLAUDE.md           instructions for Claude Code
 ```
 
 ## Cargo features

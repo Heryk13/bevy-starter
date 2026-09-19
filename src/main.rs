@@ -7,10 +7,12 @@ use bevy::prelude::*;
 
 mod screens;
 
+// ==== App ====================================================================
+
 fn main() {
     let mut app = App::new();
 
-    // engine
+    // ---- engine -------------------------------------------------------------
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             title: "Bevy Starter".into(),
@@ -19,16 +21,18 @@ fn main() {
         ..default()
     }));
 
-    // dev tools, left out of release builds
+    // ---- dev tools, left out of release builds ------------------------------
     #[cfg(feature = "dev")]
     app.add_plugins(FpsOverlayPlugin::default());
 
-    // game
+    // ---- game ---------------------------------------------------------------
     app.add_plugins(screens::plugin);
     app.add_systems(Startup, spawn_camera);
 
     app.run();
 }
+
+// ==== Systems ================================================================
 
 /// Spawns the camera that renders the game and the UI.
 fn spawn_camera(mut commands: Commands) {
