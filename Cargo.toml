@@ -9,6 +9,7 @@ bevy = "0.19.1"
 
 [features]
 default = ["dev"]
+# dev-only helpers, release builds turn them off with --no-default-features
 dev = ["bevy/dynamic_linking", "bevy/dev"]
 
 [lints.rust]
@@ -31,12 +32,15 @@ redundant_closure_for_method_calls = "warn"
 redundant_else = "warn"
 semicolon_if_nothing_returned = "warn"
 
+# light optimization for our code, so dev builds run smoothly and still compile fast
 [profile.dev]
 opt-level = 1
 
+# full optimization for dependencies, they rarely change so this cost is paid once
 [profile.dev.package."*"]
 opt-level = 3
 
+# slower to build, but a faster and smaller binary
 [profile.release]
 codegen-units = 1
 lto = "thin"

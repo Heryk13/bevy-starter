@@ -1,2 +1,3 @@
+# rust-lld links much faster than the default MSVC linker
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"

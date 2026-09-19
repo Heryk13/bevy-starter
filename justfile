@@ -1,18 +1,23 @@
+# executable name, must match the package name in Cargo.toml
 game := "bevy-starter"
 exe := if os_family() == "windows" { ".exe" } else { "" }
 
+# run the game in dev mode
 run:
     cargo run
 
+# apply clippy fixes and format the code
 fix:
     cargo clippy --fix --allow-dirty
     cargo fmt
 
+# check formatting and lints in dev and release configs
 check:
     cargo fmt --check
     cargo clippy -- -D warnings
     cargo clippy --no-default-features -- -D warnings
 
+# build an optimized release and package it into dist/
 release:
     cargo build --release --no-default-features
     rm -rf dist && mkdir -p dist

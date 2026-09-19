@@ -1,3 +1,4 @@
+// hide the console window on Windows release builds
 #![cfg_attr(not(feature = "dev"), windows_subsystem = "windows")]
 
 #[cfg(feature = "dev")]
@@ -8,6 +9,8 @@ mod screens;
 
 fn main() {
     let mut app = App::new();
+
+    // engine
     app.add_plugins(DefaultPlugins.set(WindowPlugin {
         primary_window: Some(Window {
             title: "Bevy Starter".into(),
@@ -16,16 +19,18 @@ fn main() {
         ..default()
     }));
 
+    // dev tools, left out of release builds
     #[cfg(feature = "dev")]
     app.add_plugins(FpsOverlayPlugin::default());
 
+    // game
     app.add_plugins(screens::plugin);
-
     app.add_systems(Startup, spawn_camera);
 
     app.run();
 }
 
+/// Spawns the camera that renders the game and the UI.
 fn spawn_camera(mut commands: Commands) {
     commands.spawn(Camera2d);
 }
