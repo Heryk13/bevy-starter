@@ -67,16 +67,14 @@ fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// tick the splash timer and transition to the next screen when finished
 fn tick_splash_timer(
-    mut splash_timer_query: Query<&mut SplashTimer>,
+    mut splash_timer: Single<&mut SplashTimer>,
     time: Res<Time>,
     mut next_state: ResMut<NextState<Screen>>,
-) -> Result {
-    let mut splash_timer = splash_timer_query.single_mut()?;
+) {
     splash_timer.timer.tick(time.delta());
     if splash_timer.timer.is_finished() {
         next_state.set(Screen::Menu);
     }
-    Ok(())
 }
 
 /// skip the splash screen on interaction
@@ -93,8 +91,8 @@ fn skip_splash_screen(
 }
 
 /// fade in and out the bevy logo
-fn fade_splash_logo(mut logo_query: Query<(&mut ImageNode, &SplashTimer)>) -> Result {
-    let (mut logo, splash_timer) = logo_query.single_mut()?;
+fn fade_splash_logo(logo: Single<(&mut ImageNode, &SplashTimer)>) {
+    let (mut logo, splash_timer) = logo.into_inner();
     let elapsed_secs = splash_timer.timer.elapsed_secs();
     let linear_alpha = if elapsed_secs < LOGO_WAIT_SECS {
         0.0
@@ -108,5 +106,4 @@ fn fade_splash_logo(mut logo_query: Query<(&mut ImageNode, &SplashTimer)>) -> Re
     };
     let alpha = LOGO_EASING.sample_clamped(linear_alpha);
     logo.color.set_alpha(alpha);
-    Ok(())
 }
