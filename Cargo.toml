@@ -2,6 +2,7 @@
 name = "bevy-starter"
 version = "0.1.0"
 edition = "2024"
+publish = false
 
 [dependencies]
 bevy = "0.19.1"
