@@ -1,4 +1,4 @@
-# Menu, Intro, Settings, Credits and Gameplay screens
+# The menu and the screens it reaches
 
 Status: **approved** — no code written yet.
 Date: 2026-09-21
@@ -20,7 +20,7 @@ scope stays minimal — see "Out of scope".
 | Question | Decision |
 | --- | --- |
 | Buttons | Play, Settings, Credits, Quit |
-| Play leads to | `Screen::Intro`, then `Screen::Gameplay` (background colour only) |
+| Play leads to | `Screen::Loading`, then `Intro`, then `Gameplay` |
 | Intro | 91 stills on a timer plus its soundtrack — Bevy plays no video |
 | Settings controls | Fullscreen on/off, and a 0–100 volume slider |
 | Widgets | `bevy_ui_widgets` for `Button`, `Slider` and `Checkbox` — experimental, accepted |
@@ -31,6 +31,8 @@ scope stays minimal — see "Out of scope".
 | Menu layout | Buttons in a column on the left, over a background image |
 | Menu title | Part of the background artwork, not a `Text` node |
 | Menu entrance | A black veil fades out, on every entry into the menu |
+| Menu exit | Play fades the menu to black first; the intro then starts on a cut |
+| Loading screen | Real work today — it waits for the 91 intro frames, with a progress bar |
 | Button sounds | A click on press and a tick on hover, for every button in the app |
 | `src/ui.rs` | Approved. Shared code, named after its domain — see below |
 
@@ -58,6 +60,7 @@ enum Screen {
     #[default]
     Splash,
     Menu,
+    Loading,
     Intro,
     Gameplay,
 }
@@ -143,9 +146,9 @@ not rest on that subtlety.
 ## Flow
 
 ```
-Splash --> Menu --> Play --> Intro --> Gameplay --> Esc --> Menu
-             |                  |
-             |                  +--> skipped, same keys as the splash
+Splash --> Menu --> Play --> Loading --> Intro --> Gameplay --> Esc --> Menu
+             |               waits for      |
+             |               the frames     +--> skipped, same keys as the splash
              |
              +--> Quit --> AppExit
 
@@ -163,8 +166,9 @@ Overlay, over whatever screen is below it:
 
 | File | Change |
 | --- | --- |
-| `src/screens.rs` | `Intro` and `Gameplay` variants, registers the screen plugins |
-| `src/screens/menu.rs` | new — background, scrim, the 4 buttons, entrance fade |
+| `src/screens.rs` | `Loading`, `Intro` and `Gameplay` variants, registers the plugins |
+| `src/screens/menu.rs` | new — background, scrim, the 4 buttons, the veil both ways |
+| `src/screens/loading.rs` | new — the progress bar and the wait for the intro frames |
 | `src/screens/intro.rs` | new — the frame sequence, its audio and the skip |
 | `src/screens/gameplay.rs` | new — background colour only |
 | `src/overlays.rs` | new — the `Overlay` state, its plugins, and the Esc system |
@@ -349,20 +353,108 @@ LinearGradient::to_right(vec![
 Dark where the text is, clear where the artwork is. One component, the same cost as a
 flat scrim, and it is what makes the left-hand layout worth choosing.
 
-**The entrance.** A black node covering the screen, alpha going from 1.0 to 0.0, then
-despawned. It follows `splash.rs` exactly: a `Timer` on the component, an `EaseFunction`,
-and a pure `veil_alpha(elapsed_secs) -> f32` sitting next to its tests.
+**The veil.** A black node covering the screen, running in one direction or the other:
+
+```rust
+#[derive(Component)]
+struct Veil {
+    timer: Timer,
+    fading_out: bool,
+}
+```
+
+It follows `splash.rs`: a `Timer` on the component, an `EaseFunction`, and a pure
+function next to its tests — `veil_alpha(elapsed_secs, fading_out) -> f32`.
 
 Nothing is factored out of `splash.rs` to share with it. That fade has four phases and
-this one has a single ramp; a common helper would be an abstraction over two things that
-only look alike.
+this one has a single ramp in either direction; a common helper would be an abstraction
+over two things that only look alike.
 
-It spawns on every `OnEnter(Screen::Menu)`, the return from gameplay included. There is
-no check for where the player came from, which is the same principle the overlay follows.
+**Coming in.** Spawned opaque on every `OnEnter(Screen::Menu)`, the return from gameplay
+included, fading to nothing and then despawned. There is no check for where the player
+came from, which is the same principle the overlay follows.
 
-While the veil is alive it also blocks clicks — for free, by the `Pickable` default
-above — so no button can be pressed mid-transition. It despawns when the timer finishes,
-and the block goes with it.
+**Going out.** Play does *not* change the state. It spawns a second veil, this one
+`fading_out`, and the veil's own system sets `Screen::Loading` when the timer finishes.
+That indirection is the entire cost of the effect, and it is one `if` at the end of a
+system that already exists.
+
+The destination is hardcoded. `Play` is the only button that fades, so there is nothing
+to remember: Quit exits, Settings and Credits open an overlay over a menu that stays put.
+
+**Despawning between the two matters.** A veil left sitting at alpha 0 would be invisible
+and still block every click, by the same `Pickable` default that makes it useful. So the
+entrance veil is removed when it finishes, and Play spawns a fresh one.
+
+That blocking is what makes the exit safe, too: once the menu starts fading out, no
+further button can be pressed, so there is no way to hit Quit halfway through leaving.
+
+## Loading
+
+Between the menu and whatever it launches, one screen whose only job is to hold the flow
+until the next destination is ready.
+
+```
+Menu --[Play]--> Loading --> Intro --> Gameplay
+       fade out   waits for
+                  the frames
+```
+
+It is not a placeholder for a future need: it has real work today. The intro is 91 files
+and 16 MB, they load asynchronously, and starting the frame timer before they arrive
+would show blank frames. That wait has to live somewhere, and a screen that shows what is
+happening beats hiding it inside `intro.rs`.
+
+The menu has already faded to black by the time this screen appears, so a fast load shows
+nothing flickering — black to black.
+
+**The bar.** Count the handles that are ready and draw the proportion:
+
+```rust
+asset_server.is_loaded_with_dependencies(id)   // bevy_asset-0.19.1/src/server/mod.rs:1331
+```
+
+```rust
+/// Returns how far along the load is, from 0.0 to 1.0.
+fn loading_progress(loaded: usize, total: usize) -> f32
+```
+
+The pure function earns its tests on the edge that is easy to get wrong: `total` of zero
+returns 1.0, not a division by zero.
+
+**A failed asset must not hang the screen.** `LoadState` has a `Failed(Arc<AssetLoadError>)`
+variant (`mod.rs:2261`), and counting only successes means one missing file leaves the
+player stuck on a bar at 99% with no way out. Failures count as finished, with a `warn!`
+naming the file. A frame missing from an intro is cosmetic; a screen that never ends is
+not.
+
+**Where the handles live.** Not on an entity with `DespawnOnExit(Screen::Loading)` —
+that would drop them the instant the intro needs them. They go in a resource, inserted
+here and removed on `OnExit(Screen::Intro)`, which is what gives the 177 MB back.
+
+**The soundtrack loads here too**, once it exists. It is one more handle in the same
+resource and one more item in the same count, so nothing about this screen changes to
+accommodate it. Waiting for it matters more than waiting for the frames: audio that
+starts late is audio out of sync with the picture for the whole intro.
+
+### Load Game will not play the intro
+
+Starting a new game and resuming a saved one do not want the same thing: the intro plays
+once, at the beginning, not every time someone continues.
+
+```
+New Game  --> Loading --> Intro --> Gameplay
+Load Game --> Loading ------------> Gameplay
+```
+
+So `Loading` has a destination, and it comes from the button that opened it. Today there
+is only Play, so the destination is `Screen::Intro` and nothing reads a field to know it.
+When saves arrive, that becomes a small resource set alongside the handles, and it is the
+only structural change — the screen, the bar and the waiting stay exactly as written.
+
+This is not the "remember where I came from" problem the overlay was built to avoid. That
+one was about going *back*, which is why dissolving it was better than tracking it. This
+one goes *forward*, and only the caller can know where.
 
 ## Intro
 
@@ -373,9 +465,9 @@ nobody can tell the difference — it *is* what a video file holds, minus the co
 **91 frames**, `assets/intro/frame_000.png` to `frame_090.png`, 960x540, 16 MB on disk.
 
 ```
-Menu --[Play]--> Intro --> Gameplay
-                   |
-                   +-- any skip key or click, same set splash.rs already defines
+Loading --> Intro --> Gameplay
+              |
+              +-- any skip key or click, same set splash.rs already defines
 ```
 
 It is a `Screen`, not part of gameplay: it has a beginning, an end, and it can be
@@ -384,20 +476,17 @@ skipped — the same shape as the splash. `src/screens/intro.rs` ends up reading
 
 **Memory.** 91 textures at 960x540 come to roughly **177 MB of video memory** —
 uncompressed RGBA is what the GPU holds, whatever the file on disk was. That is fine
-while the intro runs and pure waste afterwards, so the handles live on an entity carrying
-`DespawnOnExit(Screen::Intro)`. Leaving the screen drops them and the memory goes back.
-Nothing new to write: it is what `splash.rs` already does with its logo.
+while the intro runs and pure waste afterwards, so the resource holding the handles is
+removed on `OnExit(Screen::Intro)` and the memory goes back.
 
-**Loading.** 91 files load asynchronously, and starting the timer before they arrive
-would flash blank frames. The guard is one line before the clock starts:
+**Loading happens before this screen**, in `Screen::Loading`, so by the time `intro.rs`
+runs, every frame is in memory and the timer can just start. That also means `intro.rs`
+never touches the asset server: it receives handles and plays them.
 
-```rust
-handles.iter().all(|h| asset_server.is_loaded_with_dependencies(h))
-```
-
-This is exactly the case `bevy_asset_loader` exists for, and it was re-examined now that
-the count went from 3 assets to 94. It still loses: the whole benefit here is that one
-line, and a loading-state plugin costs more than it removes.
+`bevy_asset_loader` was re-examined here, now that the count went from 3 assets to 94 and
+there is a real loading screen to drive. It still loses: what it would replace is one
+`is_loaded_with_dependencies` call and a `count()`, and the progress bar has to be drawn
+either way.
 
 **Rate.** One constant, `INTRO_FPS`, and a pure function next to its tests:
 
@@ -447,6 +536,9 @@ ffmpeg -i intro.mp4 assets/intro/frame_%03d.png
 
 One pass, correct order, and the same command emits the soundtrack.
 
+While authoring it: **start and end on black.** That is what replaces a fade out on both
+sides of the intro — see "Transitions, and the two cuts left".
+
 Worth knowing while the code is written: `intro.rs` should build its handle list by
 index, `frame_{i:03}.png`, not by reading the directory. Directory order is the thing
 that went wrong here, and a loop over `0..FRAME_COUNT` cannot go wrong the same way.
@@ -463,24 +555,57 @@ exists to be renamed. The menu does not read it, since its title is painted into
 
 ## Transitions, and the two cuts left
 
-Every screen change in this design is a hard cut except one: entering the menu, which
-fades up from black. Where that leaves things:
+The menu fades at both ends. Every other screen change is a cut:
 
 | Change | What the player sees |
 | --- | --- |
-| Gameplay → Menu | covered — the menu's own entrance fade |
-| Menu → Intro | a cut into `frame_000` |
+| Menu → Loading | the menu fades to black, and the loading screen is black too — nothing |
+| Loading → Intro | a cut into `frame_000`, off a black screen |
 | Intro → Gameplay | a cut out of `frame_090` |
+| Gameplay → Menu | a cut to black, then the menu fades up out of it |
 
-The intro took care of the case this section was originally written about. Play used to
-drop straight into gameplay; now it opens a film countdown, which is a transition by
-nature.
+The loading screen landing between the menu and the intro helps rather than hurts: the
+menu's fade out ends on black and the loading screen starts on black, so that join is
+invisible without anyone arranging it.
 
-The two cuts that remain stay as they are. Fading *out* of a screen means holding the
-state change until the animation finishes — a small state machine, and one that would
-have to live in every screen that wants it. Worth building only if the cuts actually
-bother you once you watch it run, and the cheap half-measure is available anyway: the
-intro's first and last frames can be authored dark, and then there is nothing to fade.
+**The menu fades on both sides. Nothing else fades.**
+
+```
+Splash ──fade out──>│<──fade in── Menu
+                                    │
+                               [Play]
+                                    │
+                          fade out ─┤   the menu goes to black
+                                    │
+                               Loading   black already, so nothing shows
+                                    │
+                               (cut)
+                                    │
+                                 Intro
+                                    │
+                               (cut)
+                                    │
+                               Gameplay
+                                    │
+                                [Esc]
+                                    │
+                            fade in ─┘   the menu comes back faded
+```
+
+The veil belongs to the menu, and only the menu. The intro gets no fade of its own: it is
+a placeholder, and the real one will handle its own opening. Leaving it out also keeps
+the veil inside `menu.rs` instead of turning it into shared machinery every screen has to
+know about.
+
+The cut *into* the intro is not a problem to solve. The menu has already gone black by
+then, so the only visible change is whatever `frame_000` happens to be — and when the
+real intro is exported, starting it dark makes the join invisible for free.
+
+**Coming back from gameplay works the same way, and needs no extra code.** Esc cuts
+straight to black and the menu then draws itself in. There is no separate "cut to black"
+step: the menu spawns with the veil already at alpha 1.0, so the first frame after the
+state change *is* the black screen. The cut and the start of the fade are the same
+instant. Gameplay never fades out; it does not have to.
 
 ## Button actions
 
@@ -520,7 +645,8 @@ fn activate_menu_button(activate: On<Activate>, actions: Query<&MenuAction>, ...
 }
 ```
 
-It sets `NextState<Screen>` for Play, `NextState<Overlay>` for Settings and Credits, or
+It spawns the fading-out veil for Play, sets `NextState<Overlay>` for Settings and
+Credits, or
 writes `AppExit` for Quit.
 
 This is an observer rather than a polling system, but it keeps what mattered about the
@@ -650,6 +776,9 @@ structural one: no state, file or spawn code moves because of it.
 
 Esc does nothing in `Menu`, where quitting is the Quit button's job.
 
+Esc does nothing in `Loading` either. There is nothing to skip: the screen ends when the
+files are in memory, and leaving early would only mean arriving at the intro without them.
+
 **In `Splash` and `Intro` Esc is not "back" at all** — it is one of the skip keys, and
 skipping moves forward. `SKIP_KEYS` in `splash.rs` already includes `KeyCode::Escape`,
 so pressing it during the splash goes to the menu and during the intro goes to gameplay.
@@ -725,14 +854,15 @@ The rule stands: logic in pure functions, systems stay thin. What gets covered:
 | Function | Cases |
 | --- | --- |
 | `ui::button_color` | idle, hovered, pressed |
-| `screens::menu::veil_alpha` | opaque at the start, half way at the midpoint, clear at the end |
+| `screens::menu::veil_alpha` | both directions: opaque/clear at each end, half way at the midpoint |
+| `screens::loading::loading_progress` | none loaded, half, all, and a total of zero |
 | `screens::intro::frame_index` | first frame at 0, last frame at the end, clamped past it |
 | `overlays::settings::toggled_window_mode` | windowed to borderless, borderless to windowed |
 | `overlays::settings::volume_from_slider` | silent at 0, unchanged at 100, a quarter at 50 |
 
 Floats compared with a tolerance, as in `splash.rs`.
 
-Five pure functions is all the logic there is. Everything else is spawning nodes and
+Six pure functions is all the logic there is. Everything else is spawning nodes and
 setting a state, which a unit test would only restate.
 
 ## Documentation split
@@ -769,13 +899,18 @@ Each step ends green (`just check`) and is its own commit:
 2. `src/screens/gameplay.rs` plus the `Gameplay` variant — the simplest screen, proves
    the pattern end to end
 3. `src/screens/menu.rs` — background, scrim, the four buttons with Play and Quit
-   working, and the entrance fade with its test
+   working, and the veil fading both ways with its tests. Play sends the player to
+   `Screen::Gameplay` for now, because that is the only destination that exists yet;
+   step 6 slots `Loading` and `Intro` in between, and the line it changes is the one
+   at the end of the veil system
 4. `src/overlays.rs` plus `src/overlays/credits.rs` — the `Overlay` state, the Esc
    system and the simplest overlay, together because the state needs one user
 5. `src/overlays/settings.rs` — the fullscreen checkbox and the volume slider, with tests
-6. `src/screens/intro.rs` plus the `Intro` variant — the frame sequence, the skip and
-   `frame_index` with its tests. Last of the code because it is the only step waiting on
-   an asset that does not exist yet
+6. `src/screens/loading.rs` and `src/screens/intro.rs`, plus the `Loading` and `Intro`
+   variants — the progress bar, the frame sequence and the skip, with `loading_progress`
+   and `frame_index` tested. Together because neither is worth anything alone: a loading
+   screen with nothing to load, or an intro whose frames may not have arrived. Last of
+   the code because it is the only step waiting on assets that are not final yet
 7. `docs/flow.md` — the finished flow, plus one new bullet under Features in the
    `README.md`, and in `docs/template.md` the new files in the project structure and the
    line marking which assets are placeholders
