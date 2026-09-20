@@ -10,7 +10,8 @@ How every change in this project is made. Follow the loop for each feature, scre
 3. **Test** the logic (see [Tests](#tests)).
 4. **Fix and check**: `just fix`, then `just check`.
 5. **Run**: `just run` and try the change in the game.
-6. **Docs**: update `README.md` if features, commands, requirements or the project structure changed.
+6. **Docs**: update `README.md` if features, commands or requirements changed,
+   and `docs/` if the project structure or the way a feature works changed.
 7. **Commit** (see [Commits](#commits)).
 
 ## Code conventions
