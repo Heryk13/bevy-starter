@@ -2,6 +2,11 @@
 
 How every change in this project is made. Follow the loop for each feature, screen or fix.
 
+Every rule below exists for a reason. When the rule and its reason disagree, the reason
+wins: do what makes the code better, and write the exception down in a comment where it
+lives, saying why the usual rule does not fit there. An exception with its reason beside
+it is a decision. An exception without one is drift.
+
 ## The loop
 
 1. **Plan**: find where the change belongs. Code is organized by feature, not by who wrote it:
@@ -33,6 +38,15 @@ Every `.rs` file follows the same order, skipping the sections it doesn't have:
 
 - Split by feature, never by kind of code: `player.rs` and `enemy.rs`,
   not `components.rs` and `systems.rs`.
+- Code that several features share is expected, and it gets its own file at the top of
+  `src/`, named after its domain: `ui.rs`, `audio.rs`, `save.rs`. Being at the top of
+  `src/` is already what marks it as shared, so it needs no `common/` or `shared/`
+  folder around it. Names like `common`, `utils` or `global` describe status instead of
+  content: everything fits in them and nothing ever leaves. A domain name still answers
+  "does this belong here?", so the file can be kept honest — and split the usual way
+  when it grows (`ui.rs` next to `ui/`).
+- Move something there once a third feature needs it. With one user it stays inside that
+  feature; with two, it stays with the first and waits.
 - Keep a feature in one file while it reads as one thing.
   Split when a part makes sense on its own, usually around 300 to 400 lines
   or when you find yourself scrolling to look for "the part about X".

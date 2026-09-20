@@ -5,7 +5,9 @@ edition = "2024"
 publish = false
 
 [dependencies]
-bevy = "0.19.1"
+# jpeg for photographic backgrounds, wav for short UI sounds.
+# bevy's defaults only cover png and ogg vorbis.
+bevy = { version = "0.19.1", features = ["jpeg", "wav"] }
 
 [features]
 default = ["dev"]
