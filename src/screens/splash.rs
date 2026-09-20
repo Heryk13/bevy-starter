@@ -164,6 +164,12 @@ mod tests {
     }
 
     #[test]
+    fn logo_is_half_visible_mid_fade_out() {
+        let alpha = logo_alpha(LOGO_HOLD_END_SECS + LOGO_FADE_OUT_SECS / 2.0);
+        assert!((alpha - 0.5).abs() < TOLERANCE, "alpha was {alpha}");
+    }
+
+    #[test]
     fn logo_is_invisible_at_the_end() {
         assert_eq!(logo_alpha(LOGO_TOTAL_SECS), 0.0);
     }
