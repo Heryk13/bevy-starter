@@ -139,6 +139,8 @@ fn logo_alpha(elapsed_secs: f32) -> f32 {
 mod tests {
     use super::*;
 
+    // the ends are compared exactly: `sample_clamped` returns exactly 0.0 and 1.0 there,
+    // so only the points in between need the tolerance
     const TOLERANCE: f32 = 1e-5;
 
     #[test]

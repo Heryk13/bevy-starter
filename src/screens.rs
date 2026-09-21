@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 mod gameplay;
+mod menu;
 mod splash;
 
 // ==== Plugin =================================================================
@@ -8,6 +9,7 @@ mod splash;
 pub(super) fn plugin(app: &mut App) {
     app.init_state::<Screen>();
     app.add_plugins(splash::plugin);
+    app.add_plugins(menu::plugin);
     app.add_plugins(gameplay::plugin);
 }
 

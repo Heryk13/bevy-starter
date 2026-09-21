@@ -30,7 +30,6 @@ pub(super) fn plugin(app: &mut App) {
 // here, so it reads wrong under `Helpers`, which is for what this file's own systems use
 
 /// Returns a button with the given label, ready for a screen to spawn.
-#[expect(dead_code, reason = "the menu in step 3 is its first caller")]
 pub(crate) fn button(text: &str) -> impl Bundle {
     (
         Node {
