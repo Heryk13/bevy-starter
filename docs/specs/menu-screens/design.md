@@ -206,8 +206,9 @@ real risk in this change, so it lives in one module:
   `settings.rs` are not children of `ui`
 - One system painting `BackgroundColor` from `Hovered` and `Pressed`, for every button
   in the app, with no `run_if`: it is generic over any button, on any screen or overlay
-- `pub fn button_color(hovered: bool, pressed: bool) -> Color` — the pure function the
-  system calls, and what the tests cover
+- `fn button_color(hovered: bool, pressed: bool) -> Color` — the pure function the system
+  calls, and what the tests cover. Private, like `splash.rs`'s `logo_alpha`: its caller
+  and its tests are both in this file
 - A second system playing the click and hover sounds off the same two components
 
 ### Which `Button`
@@ -248,6 +249,44 @@ Keyboard activation ships with the widget but needs focus, and `TabNavigationPlu
 **not** in `DefaultPlugins` (Bevy's own example adds it by hand). So keyboard navigation
 stays out of scope as planned, one line away from working.
 
+### Three names the prelude does not give you
+
+Verified against the local 0.19.1 sources, because each of these fails in a way the
+compiler will not warn about:
+
+| Name | Where it lives | The trap |
+| --- | --- | --- |
+| `Button` | `bevy::ui_widgets` | `bevy::prelude::Button` is the *classic* one |
+| `Hovered` | `bevy::picking::hover` | Nothing inserts it for you |
+| `Pressed` | `bevy::ui` | A marker with no field — read it with `Has<Pressed>` |
+
+`Button` is the mild one: an explicit `use` shadows the prelude's glob, so
+`use bevy::ui_widgets::Button;` compiles and means the widget. Wrong import, wrong
+interaction model, and the `Hovered`/`Pressed` query silently matches nothing.
+
+**`Hovered` is the one that costs an afternoon.** The engine's own updater only touches
+entities that already carry the component (`bevy_picking-0.19.1/src/hover.rs:400`):
+
+```rust
+for (entity, hoverable) in hovers.iter_mut() {   // only those that already have it
+    let is_hovering = hover_ancestors.contains(&entity);
+    if hoverable.0 != is_hovering {
+        commands.entity(entity).insert(Hovered(is_hovering));
+    }
+}
+```
+
+So `button()` spawns `Hovered::default()` itself, or hover never happens: no panic, no
+warning, just a button that never lights up. `Hovered` and not `DirectlyHovered` on
+purpose — it counts descendants, so the pointer over the button's `Text` child still reads
+as hovering the button.
+
+That `if` is also what makes the sound system's filters honest: the component is
+`#[component(immutable)]` and only ever replaced when the value really changes, so
+`Changed<Hovered>` means "entered or left", never "still hovering". It does fire once at
+spawn, with `Hovered(false)`, which is why the system checks the value before playing
+anything.
+
 ### Button sounds
 
 `assets/ui/click.wav` and `assets/ui/hover.wav` (moved from `assets/ui_click.wav` and
@@ -255,7 +294,9 @@ stays out of scope as planned, one line away from working.
 `assets/ui/` — the same way `splash.rs` and `assets/splash/` already line up. The folder
 names the domain, so the files do not repeat it.
 
-The handles load once into a resource; the system spawns a one-shot player per press:
+The handles load once into a `ButtonSounds` resource — not `UiSounds`, because the module
+is already `ui.rs` and the prefix would repeat it, the same redundancy the `BUTTON_*`
+constants avoid. The system spawns a one-shot player per press:
 
 ```rust
 commands.spawn((AudioPlayer::new(sounds.click.clone()), PlaybackSettings::DESPAWN));
@@ -1042,7 +1083,15 @@ Each step ends green (`just check`) and is its own commit:
 
 0. `README.md` and `docs/template.md` — the documentation split above. **Done**
 1. `src/ui.rs` — button widget, colour system with its tests, and the click and hover
-   sounds
+   sounds. `button()` has no caller until step 3, and `just check` runs
+   `cargo clippy -- -D warnings`, so this step ends red without one line on it:
+
+   ```rust
+   #[expect(dead_code, reason = "the menu in step 3 is its first caller")]
+   ```
+
+   The line is the cheapest of the three ways out, and the only one that cannot rot —
+   see "Shared code that arrives before its caller"
 2. `src/screens/gameplay.rs` plus the `Gameplay` variant — the simplest screen, proves
    the pattern end to end
 3. `src/screens/menu.rs` — background, scrim, the four buttons with Play and Quit
@@ -1064,3 +1113,52 @@ Each step ends green (`just check`) and is its own commit:
 7. `docs/flow.md` — the finished flow, plus one new bullet under Features in the
    `README.md`, and in `docs/template.md` the new files in the project structure and the
    line marking which assets are placeholders
+
+### Shared code that arrives before its caller
+
+Splitting `ui.rs` from the menu is what creates this, and it will happen again to any
+shared module that lands before the feature that needs it. `dead_code` is a rustc lint,
+a warning by default and harmless under `cargo run` — `just check` is what makes it fatal:
+
+```
+cargo clippy -- -D warnings
+```
+
+Two things about the lint decide the answer, and both were checked with `rustc` rather
+than assumed:
+
+- **Visibility is what triggers it.** The lint walks outward from roots, and a `pub` item
+  is a root: the compiler cannot know whether something outside the crate calls it. A
+  `pub(crate)` item is not, so the compiler sees every possible caller and sees none.
+  `pub(crate) fn button` warns; the same function as `pub` does not, even in a binary.
+- **It is transitive.** With `button()` dead, the sizing constants only it reads are dead
+  too, and each one is its own error.
+
+Three ways out:
+
+| | Result |
+| --- | --- |
+| `#[expect(dead_code, reason = ...)]` on `button` | One line, and it covers the constants |
+| Land `ui.rs` inside step 3, with the menu | No dead code ever, one bigger commit |
+| Widen `pub(crate)` to `pub` | Rejected — silences the lint permanently, and lies about who may call |
+
+The first wins on a property `allow` does not have: **`expect` fails once the expectation
+comes true.** In step 3, the frame the menu calls `button()`, the build stops with `this
+lint expectation is unfulfilled` and prints the reason back. It is not a note to remember;
+it is the compiler handing the line back to be deleted. That an item with `expect` is also
+treated as a root is what keeps it to one line instead of one per constant.
+
+It also happens to be the idiom this project already chose: `allow_attributes` and
+`allow_attributes_without_reason` are both `warn` in `Cargo.toml`, which is the same
+policy — a lint attribute is allowed to exist, with its reason written beside it.
+
+The third option is worth naming only because it is the tempting one. It ends with the
+narrowest correct visibility replaced by the widest, to quiet a lint that was right.
+Prefer the narrowest visibility that compiles, everywhere: `pub(super)` for the plugins,
+`pub(crate)` for `button`, private for `button_color` and the other pure functions, which
+the systems in their own file call.
+
+Skipping `just check` until step 3 was considered and turned down. It would mean three
+commits that fail the project's own gate, and — because `cargo test` runs inside `check` —
+three steps without running the tests written along the way. The point of a step ending
+green is the short loop, not the green.
