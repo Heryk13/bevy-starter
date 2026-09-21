@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+mod gameplay;
 mod splash;
 
 // ==== Plugin =================================================================
@@ -7,6 +8,7 @@ mod splash;
 pub(super) fn plugin(app: &mut App) {
     app.init_state::<Screen>();
     app.add_plugins(splash::plugin);
+    app.add_plugins(gameplay::plugin);
 }
 
 // ==== State ==================================================================
@@ -18,4 +20,5 @@ enum Screen {
     #[default]
     Splash,
     Menu,
+    Gameplay,
 }

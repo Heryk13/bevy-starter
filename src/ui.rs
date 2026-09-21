@@ -74,6 +74,13 @@ fn load_button_sounds(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(button_sounds);
 }
 
+/// Paints every button in the app from its hover and press state.
+fn paint_buttons(mut buttons: Query<(&mut BackgroundColor, &Hovered, Has<Pressed>), With<Button>>) {
+    for (mut background_color, hovered, pressed) in &mut buttons {
+        background_color.0 = button_color(hovered.get(), pressed);
+    }
+}
+
 /// Plays the tick when a pointer enters a button, and the click when one is pressed.
 fn play_button_sounds(
     hovered_buttons: Query<&Hovered, (Changed<Hovered>, With<Button>)>,
@@ -97,13 +104,6 @@ fn play_button_sounds(
             AudioPlayer::new(sounds.click.clone()),
             PlaybackSettings::DESPAWN,
         ));
-    }
-}
-
-/// Paints every button in the app from its hover and press state.
-fn paint_buttons(mut buttons: Query<(&mut BackgroundColor, &Hovered, Has<Pressed>), With<Button>>) {
-    for (mut background_color, hovered, pressed) in &mut buttons {
-        background_color.0 = button_color(hovered.get(), pressed);
     }
 }
 
