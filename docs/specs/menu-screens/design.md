@@ -34,6 +34,8 @@ scope stays minimal — see "Out of scope".
 | Menu exit | Play fades the menu to black first; the intro then starts on a cut |
 | Loading screen | Real work today — it waits for the 91 intro frames, with a progress bar |
 | Button sounds | A click on press and a tick on hover, for every button in the app |
+| Menu music | `assets/menu/music.ogg`, looping for as long as the menu is on screen |
+| Menu music volume | It follows the veil: up on the way in, down on the way out |
 | `src/ui.rs` | Approved. Shared code, named after its domain — see below |
 
 ## Out of scope
@@ -47,8 +49,10 @@ Each of these is a separate design cycle, not a "while we are here":
 - Keyboard and gamepad navigation (focus state, selected-item highlight)
 - Any actual gameplay inside `Screen::Gameplay`
 - The pause menu itself. Its *shape* is accounted for below; its code is not written
-- Looping music and ambience. The sounds in this cycle are all one-shots: two UI clicks
-  and the intro's soundtrack, which starts and ends with the intro
+- Ambience, and music anywhere but the menu. The menu's looping track is in this cycle;
+  gameplay music and a soundtrack that survives a screen change are not. Every other
+  sound here is a one-shot: two UI clicks and the intro's soundtrack, which starts and
+  ends with the intro
 
 ## Structure
 
@@ -167,7 +171,7 @@ Overlay, over whatever screen is below it:
 | File | Change |
 | --- | --- |
 | `src/screens.rs` | `Loading`, `Intro` and `Gameplay` variants, registers the plugins |
-| `src/screens/menu.rs` | new — background, scrim, the 4 buttons, the veil both ways |
+| `src/screens/menu.rs` | new — background, scrim, the 4 buttons, the veil both ways, the music |
 | `src/screens/loading.rs` | new — the progress bar and the wait for the intro frames |
 | `src/screens/intro.rs` | new — the frame sequence, its audio and the skip |
 | `src/screens/gameplay.rs` | new — background colour only |
@@ -178,6 +182,7 @@ Overlay, over whatever screen is below it:
 | `src/main.rs` | `mod ui;`, `mod overlays;`, and the `GAME_TITLE` constant |
 | `Cargo.toml` | `features = ["jpeg", "wav"]` on the bevy dependency |
 | `assets/menu/background.jpg` | moved from `assets/sample.jpg` — placeholder art |
+| `assets/menu/music.ogg` | new — the looping menu track, converted from mp3, placeholder |
 | `assets/intro/frame_000.png` … `frame_090.png` | 91 frames, moved out of `assets/` |
 | `assets/ui/click.wav` | moved from `assets/ui_click.wav` |
 | `assets/ui/hover.wav` | moved from `assets/ui_hover.wav` |
@@ -294,7 +299,7 @@ bevy = { version = "0.19.1", features = ["jpeg", "wav"] }
 | Photographic background | JPEG | No alpha to keep, and roughly 10x smaller on disk |
 | Frame sequence | PNG | Lossless across 91 stills; JPEG artefacts would crawl frame to frame |
 | Short UI sound | WAV | Already small at this length, and no lossy pass over the original |
-| Anything longer than a second | OGG | Where compression finally matters, and it needs no extra feature |
+| Music, and anything longer than a second | OGG | Where compression finally matters, and it needs no extra feature |
 
 On the GPU a PNG and a JPEG both end up as uncompressed RGBA, so the format only decides
 the size of what you ship, never the video memory. The placeholder background is 38 KB as
@@ -304,6 +309,30 @@ what PNG compresses worst.
 Licences were checked, not assumed: `hound` (wav) is Apache-2.0 and `zune-jpeg` is
 MIT/Apache-2.0/Zlib, all three already in `about.toml`, and `cargo about generate --fail`
 passes unchanged.
+
+### The music was an mp3
+
+It arrived as `assets/mainmenu-music.mp3`, 5.8 MB, and was converted rather than kept.
+Size is the smaller of the two reasons — 4.2 MB as vorbis, at the same 7:34:
+
+```
+ffmpeg -i mainmenu-music.mp3 -vn -c:a libvorbis -q:a 2 assets/menu/music.ogg
+```
+
+The real reason is that **mp3 is a feature this project does not have**. `audio` pulls in
+`vorbis` and nothing else (`bevy-0.19.1/Cargo.toml:2645`), so keeping the mp3 would mean
+adding `"mp3"` next to `"jpeg"` and `"wav"`, another decoder in the tree and another
+licence to review — for a file with no reason to stay mp3. Converting costs one command
+and leaves `Cargo.toml` alone.
+
+`-vn` is not optional: the mp3 carried its cover art as a second stream, which has no
+business in the game's assets.
+
+Two notes for whoever replaces it. The re-encode is lossy over a lossy source, which is
+the price of the format it arrived in, not of vorbis — author the real track straight to
+ogg and the question disappears. And mp3 keeps encoder padding at both ends, so this
+file's loop seam is unlikely to be clean; a track meant to loop should be trimmed to the
+loop point in the editor that produced it.
 
 ## Menu look
 
@@ -388,6 +417,112 @@ entrance veil is removed when it finishes, and Play spawns a fresh one.
 
 That blocking is what makes the exit safe, too: once the menu starts fading out, no
 further button can be pressed, so there is no way to hit Quit halfway through leaving.
+
+## Menu music
+
+`assets/menu/music.ogg`, looping for as long as the menu is on screen:
+
+```rust
+commands.spawn((
+    AudioPlayer::new(asset_server.load("menu/music.ogg")),
+    PlaybackSettings::LOOP,
+    MenuMusic,
+    DespawnOnExit(Screen::Menu),
+));
+```
+
+It belongs to `menu.rs` and to nothing else. `DespawnOnExit(Screen::Menu)` is the whole
+lifetime rule: the track starts when the menu does and dies when the player leaves it,
+and coming back from gameplay starts it again from the top. Remembering the position
+across a whole game session would mean a resource outliving the screen, for an effect
+nobody notices after three minutes of gameplay.
+
+**The overlays do not stop it**, and that needed no arranging: opening Settings or
+Credits never leaves `Screen::Menu`, so the entity is never despawned. The overlay
+decision at the top of this page is what pays for that.
+
+**No loading screen is involved.** Spawning an `AudioPlayer` whose handle is still
+loading is not an error — `play_queued_audio_system` skips it and tries again next frame
+(`bevy_audio-0.19.1/src/audio_output.rs:110`), because its query is `Without<AudioSink>`:
+
+```rust
+let Some(audio_source) = audio_sources.get(&source_handle.0) else {
+    continue;
+};
+```
+
+So the music simply starts a beat late on a cold disk, and there is nothing to wait for.
+
+### The volume has to be written every frame
+
+The slider in Settings writes `GlobalVolume`, and that is enough for the button sounds:
+each click spawns a fresh sink and reads the value on the way in. **It is not enough for
+anything already playing**, and the engine says so in its own doc comment
+(`bevy_audio-0.19.1/src/volume.rs:7`):
+
+```rust
+/// Note: Changing [`GlobalVolume`] does not affect already playing audio.
+```
+
+The reason is one line in `audio_output.rs:193` — `sink.set_volume(settings.volume *
+global_volume.volume)` runs once, when the sink is created, and never again. With only
+one-shots in the app that was invisible. With a track that plays for minutes it means
+dragging the slider does nothing until the player leaves the menu and comes back: a
+broken-looking slider, and no compile error anywhere.
+
+So the music owns its own volume, in one system next to it:
+
+```rust
+/// Keeps the music at the player's volume, fading it with the veil.
+fn update_menu_music_volume(
+    music: Single<&mut AudioSink, With<MenuMusic>>,
+    veil: Option<Single<&Veil>>,
+    global_volume: Res<GlobalVolume>,
+)
+```
+
+`Volume` multiplies with `Volume` (`volume.rs:250`), so the two factors compose with no
+arithmetic of ours:
+
+```rust
+sink.set_volume(global_volume.volume * Volume::Linear(fade));
+```
+
+The alternative was a shared system re-applying `GlobalVolume` to every live sink
+whenever it changes. Turned down: there is exactly **one** long-lived sink in this app, so
+that is a general mechanism built for a single case, and it would fight the fade below for
+ownership of the same value.
+
+`Single` is right here even though the sink appears late: no sink, no match, the system
+skips the frame, and that is exactly the behaviour wanted while the file is still loading.
+
+### The fade falls out of it
+
+Because that system already writes the volume every frame, the fade costs one factor:
+
+```rust
+let fade = veil.map_or(1.0, |veil| {
+    1.0 - veil_alpha(veil.timer.elapsed_secs(), veil.fading_out)
+});
+```
+
+Which gives, for free and in both directions:
+
+| When | Veil | Music |
+| --- | --- | --- |
+| Entering the menu | opaque, fading out | silent, rising to the player's volume |
+| Sitting in the menu | despawned | the player's volume, unchanged |
+| Play pressed | clear, fading in | falling to silence as the screen goes black |
+
+`veil_alpha` is reused, not re-derived, so the picture and the sound share one curve and
+one set of tests. The veil being despawned between the two fades is what makes
+`map_or(1.0, ...)` the whole rule rather than a special case: no veil means no fade.
+
+**The ramp is linear in amplitude**, not in perceived loudness — the same thing
+`volume_from_slider` exists to correct further down. It is left as it is: over a fade
+this short the difference is hard to hear, and `veil_alpha` is already eased. If the exit
+ever sounds like it drops early and then lingers, squaring the factor is the fix, and it
+is one `powi(2)` in the line above.
 
 ## Loading
 
@@ -568,7 +703,9 @@ The loading screen landing between the menu and the intro helps rather than hurt
 menu's fade out ends on black and the loading screen starts on black, so that join is
 invisible without anyone arranging it.
 
-**The menu fades on both sides. Nothing else fades.**
+**The menu fades on both sides. Nothing else fades.** The music rides the same veil, so
+every fade above is heard as well as seen — see "Menu music". No other sound is involved:
+the two UI clicks are one-shots and the intro's soundtrack starts with the intro.
 
 ```
 Splash ──fade out──>│<──fade in── Menu
@@ -706,6 +843,10 @@ the percentage to write into the thumb's `left`.
 Dragging fires `ValueChange<f32>`; an observer writes it to `GlobalVolume`. No new
 resource — Bevy already owns this state.
 
+That resource reaches every sound spawned *after* the drag, which is all of them but one.
+The menu music is already playing while the slider moves, and it reads `GlobalVolume`
+itself every frame for that reason — see "The volume has to be written every frame".
+
 **The slider is not wired straight to the amplitude.** Volume is perceived roughly
 logarithmically, and the engine's own doc comment shows why a linear mapping feels
 broken (`bevy_audio-0.19.1/src/volume.rs:54`):
@@ -752,9 +893,9 @@ current; a hand-written copy in the game would start rotting on the next `cargo 
 
 ## Assets are placeholders
 
-`assets/menu/background.jpg`, `assets/ui/click.wav`, `assets/ui/hover.wav` and the 91
-frames in `assets/intro/` are here so the screens have something to show and something to
-play. They are meant to be replaced —
+`assets/menu/background.jpg`, `assets/menu/music.ogg`, `assets/ui/click.wav`,
+`assets/ui/hover.wav` and the 91 frames in `assets/intro/` are here so the screens have
+something to show and something to play. They are meant to be replaced —
 a game's own art and sounds are most of its personality, and none of it should come from
 a starter template.
 
@@ -801,6 +942,7 @@ the local 0.19.1 sources, and one of them was actually compiled.
 | `EaseFunction` | the animation curves |
 | `GlobalVolume`, `Window` | the state itself, so no resource of ours holds a copy |
 | `PlaybackSettings::DESPAWN` | cleaning up finished sounds |
+| `PlaybackSettings::LOOP` | looping the menu music, with no timer of ours |
 | `bevy_ui` flexbox | all of the layout |
 | `DespawnOnExit` | tearing a screen down |
 
@@ -865,6 +1007,11 @@ Floats compared with a tolerance, as in `splash.rs`.
 Six pure functions is all the logic there is. Everything else is spawning nodes and
 setting a state, which a unit test would only restate.
 
+The music's volume is deliberately not a seventh. It is `global_volume * (1.0 - alpha)`,
+and both halves are already covered: `veil_alpha` by its own tests above, and the
+multiplication by `Volume`'s implementation. A `music_volume` function would exist only to
+give the multiplication a name and a test file.
+
 ## Documentation split
 
 The `README.md` is the front door: what this is, what you need installed, and the
@@ -899,9 +1046,12 @@ Each step ends green (`just check`) and is its own commit:
 2. `src/screens/gameplay.rs` plus the `Gameplay` variant — the simplest screen, proves
    the pattern end to end
 3. `src/screens/menu.rs` — background, scrim, the four buttons with Play and Quit
-   working, and the veil fading both ways with its tests. Play sends the player to
-   `Screen::Gameplay` for now, because that is the only destination that exists yet;
-   step 6 slots `Loading` and `Intro` in between, and the line it changes is the one
+   working, the veil fading both ways with its tests, and the looping music fading with
+   it. The music's volume system lands here rather than with the slider in step 5:
+   `GlobalVolume` already exists and defaults to full, so the system is correct from this
+   commit on, and step 5 only gives the player a way to move the value. Play sends the
+   player to `Screen::Gameplay` for now, because that is the only destination that exists
+   yet; step 6 slots `Loading` and `Intro` in between, and the line it changes is the one
    at the end of the veil system
 4. `src/overlays.rs` plus `src/overlays/credits.rs` — the `Overlay` state, the Esc
    system and the simplest overlay, together because the state needs one user
