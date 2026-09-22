@@ -5,6 +5,7 @@
 use bevy::dev_tools::fps_overlay::FpsOverlayPlugin;
 use bevy::prelude::*;
 
+mod overlays;
 mod screens;
 mod ui;
 
@@ -29,6 +30,7 @@ fn main() {
     // ---- game ---------------------------------------------------------------
     app.add_plugins(screens::plugin);
     app.add_plugins(ui::plugin);
+    app.add_plugins(overlays::plugin);
     app.add_systems(Startup, spawn_camera);
 
     app.run();

@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
 use super::Screen;
+use crate::overlays::Overlay;
 use crate::ui::button;
 
 // ==== Config =================================================================
@@ -135,6 +136,7 @@ fn activate_menu_button(
     activate: On<Activate>,
     mut commands: Commands,
     actions: Query<&MenuAction>,
+    mut next_overlay: ResMut<NextState<Overlay>>,
 ) {
     if let Ok(action) = actions.get(activate.entity) {
         match action {
@@ -145,9 +147,11 @@ fn activate_menu_button(
                     GlobalZIndex(VEIL_Z_INDEX),
                 ));
             }
-            // the overlays these open arrive in step 4
+            // the settings overlay arrives in step 5
             MenuAction::Settings => {}
-            MenuAction::Credits => {}
+            MenuAction::Credits => {
+                next_overlay.set(Overlay::Credits);
+            }
             MenuAction::Quit => {
                 commands.write_message(AppExit::Success);
             }
