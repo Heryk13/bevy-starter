@@ -12,11 +12,13 @@ const SLIDE_FADE_SECS: f32 = 0.5;
 
 // ---- loading bar: a track along the bottom, filled as the intro loads -------
 const LOADING_BAR_BOTTOM_PX: f32 = 48.0;
-const LOADING_BAR_LEFT_PERCENT: f32 = 10.0;
 const LOADING_BAR_WIDTH_PERCENT: f32 = 80.0;
 const LOADING_BAR_HEIGHT_PX: f32 = 8.0;
 const LOADING_BAR_TRACK_COLOR: Color = Color::BLACK;
 const LOADING_BAR_FILL_COLOR: Color = Color::WHITE;
+
+// ---- derived from the width above, so the bar stays centred -----------------
+const LOADING_BAR_LEFT_PERCENT: f32 = (100.0 - LOADING_BAR_WIDTH_PERCENT) / 2.0;
 
 // ==== Plugin =================================================================
 
@@ -186,8 +188,8 @@ fn leave_loading_screen(
     asset_server: Res<AssetServer>,
     mut next_screen: ResMut<NextState<Screen>>,
 ) {
-    let state = asset_server.recursive_dependency_load_state(&intro_frames.folder);
-    if state.is_loaded() || state.is_failed() {
+    let load_state = asset_server.recursive_dependency_load_state(&intro_frames.folder);
+    if load_state.is_loaded() || load_state.is_failed() {
         next_screen.set(Screen::Gameplay);
     }
 }
