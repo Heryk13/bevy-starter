@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use super::Screen;
+use crate::fade::Fade;
 
 // ==== Config =================================================================
 
@@ -19,12 +20,16 @@ const LOGO_WAIT_SECS: f32 = 0.5;
 const LOGO_FADE_IN_SECS: f32 = 0.8;
 const LOGO_HOLD_SECS: f32 = 1.2;
 const LOGO_FADE_OUT_SECS: f32 = 0.5;
-const LOGO_EASING: EaseFunction = EaseFunction::SmoothStep;
 
-// ---- when each phase ends, derived from the durations above -----------------
-const LOGO_FADE_IN_END_SECS: f32 = LOGO_WAIT_SECS + LOGO_FADE_IN_SECS;
-const LOGO_HOLD_END_SECS: f32 = LOGO_FADE_IN_END_SECS + LOGO_HOLD_SECS;
-const LOGO_TOTAL_SECS: f32 = LOGO_HOLD_END_SECS + LOGO_FADE_OUT_SECS;
+// ---- derived from the durations above ---------------------------------------
+const LOGO_FADE: Fade = Fade {
+    delay_secs: LOGO_WAIT_SECS,
+    fade_in_secs: LOGO_FADE_IN_SECS,
+    hold_secs: LOGO_HOLD_SECS,
+    fade_out_secs: LOGO_FADE_OUT_SECS,
+};
+const LOGO_TOTAL_SECS: f32 =
+    LOGO_WAIT_SECS + LOGO_FADE_IN_SECS + LOGO_HOLD_SECS + LOGO_FADE_OUT_SECS;
 
 // ==== Plugin =================================================================
 
@@ -108,71 +113,6 @@ fn skip_splash_screen(
 fn fade_splash_logo(logo: Single<(&mut ImageNode, &SplashTimer)>) {
     let (mut logo, splash_timer) = logo.into_inner();
     let elapsed_secs = splash_timer.timer.elapsed_secs();
-    let alpha = logo_alpha(elapsed_secs);
+    let alpha = LOGO_FADE.alpha(elapsed_secs);
     logo.color.set_alpha(alpha);
-}
-
-// ==== Helpers ================================================================
-
-/// Returns the logo alpha at the given time of the animation, with easing applied.
-fn logo_alpha(elapsed_secs: f32) -> f32 {
-    let linear_alpha = if elapsed_secs < LOGO_WAIT_SECS {
-        // waiting
-        0.0
-    } else if elapsed_secs < LOGO_FADE_IN_END_SECS {
-        // fading in
-        (elapsed_secs - LOGO_WAIT_SECS) / LOGO_FADE_IN_SECS
-    } else if elapsed_secs < LOGO_HOLD_END_SECS {
-        // holding
-        1.0
-    } else {
-        // fading out
-        let remaining_secs = LOGO_TOTAL_SECS - elapsed_secs;
-        remaining_secs / LOGO_FADE_OUT_SECS
-    };
-    LOGO_EASING.sample_clamped(linear_alpha)
-}
-
-// ==== Tests ==================================================================
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // the ends are compared exactly: `sample_clamped` returns exactly 0.0 and 1.0 there,
-    // so only the points in between need the tolerance
-    const TOLERANCE: f32 = 1e-5;
-
-    #[test]
-    fn logo_is_invisible_at_the_start() {
-        assert_eq!(logo_alpha(0.0), 0.0);
-    }
-
-    #[test]
-    fn logo_is_half_visible_mid_fade_in() {
-        let alpha = logo_alpha(LOGO_WAIT_SECS + LOGO_FADE_IN_SECS / 2.0);
-        assert!((alpha - 0.5).abs() < TOLERANCE, "alpha was {alpha}");
-    }
-
-    #[test]
-    fn logo_is_fully_visible_while_holding() {
-        assert_eq!(logo_alpha(LOGO_FADE_IN_END_SECS), 1.0);
-        assert_eq!(logo_alpha(LOGO_HOLD_END_SECS - 0.01), 1.0);
-    }
-
-    #[test]
-    fn logo_is_fully_visible_when_fade_out_starts() {
-        assert_eq!(logo_alpha(LOGO_HOLD_END_SECS), 1.0);
-    }
-
-    #[test]
-    fn logo_is_half_visible_mid_fade_out() {
-        let alpha = logo_alpha(LOGO_HOLD_END_SECS + LOGO_FADE_OUT_SECS / 2.0);
-        assert!((alpha - 0.5).abs() < TOLERANCE, "alpha was {alpha}");
-    }
-
-    #[test]
-    fn logo_is_invisible_at_the_end() {
-        assert_eq!(logo_alpha(LOGO_TOTAL_SECS), 0.0);
-    }
 }

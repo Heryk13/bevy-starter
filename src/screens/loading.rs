@@ -3,12 +3,21 @@ use bevy::prelude::*;
 use rand::seq::SliceRandom;
 
 use super::Screen;
+use crate::fade::Fade;
 
 // ==== Config =================================================================
 
 // ---- slideshow: each picture fades in, holds, then fades out ----------------
 const SLIDE_SECS: f32 = 5.5;
 const SLIDE_FADE_SECS: f32 = 0.5;
+
+// ---- derived: what the two fades leave of a slide is spent fully shown ------
+const SLIDE_FADE: Fade = Fade {
+    delay_secs: 0.0,
+    fade_in_secs: SLIDE_FADE_SECS,
+    hold_secs: SLIDE_SECS - 2.0 * SLIDE_FADE_SECS,
+    fade_out_secs: SLIDE_FADE_SECS,
+};
 
 // ---- loading bar: a track along the bottom, filled as the intro loads -------
 const LOADING_BAR_BOTTOM_PX: f32 = 48.0;
@@ -159,7 +168,7 @@ fn advance_slideshow(slideshow: Single<(&mut Slideshow, &mut ImageNode)>, time: 
 fn fade_slideshow(slideshow: Single<(&mut ImageNode, &Slideshow)>) {
     let (mut image_node, slideshow) = slideshow.into_inner();
     let elapsed_secs = slideshow.timer.elapsed_secs();
-    let alpha = slide_alpha(elapsed_secs);
+    let alpha = SLIDE_FADE.alpha(elapsed_secs);
     image_node.color.set_alpha(alpha);
 }
 
@@ -211,19 +220,6 @@ fn next_slide(index: usize, count: usize) -> usize {
     (index + 1) % count
 }
 
-/// Returns a slide's alpha at the given time on screen: fading in, fully shown, then
-/// fading out, so every change of picture passes through black.
-fn slide_alpha(elapsed_secs: f32) -> f32 {
-    let remaining_secs = SLIDE_SECS - elapsed_secs;
-    if elapsed_secs < SLIDE_FADE_SECS {
-        elapsed_secs / SLIDE_FADE_SECS
-    } else if remaining_secs < SLIDE_FADE_SECS {
-        remaining_secs / SLIDE_FADE_SECS
-    } else {
-        1.0
-    }
-}
-
 /// Returns how far along the load is, from 0.0 to 1.0. Nothing to load counts as
 /// done, rather than dividing by zero.
 fn loading_progress(loaded: usize, total: usize) -> f32 {
@@ -250,31 +246,6 @@ mod tests {
     #[test]
     fn last_slide_wraps_to_the_first() {
         assert_eq!(next_slide(4, 5), 0);
-    }
-
-    #[test]
-    fn slide_is_invisible_at_the_start() {
-        assert!((slide_alpha(0.0) - 0.0).abs() < TOLERANCE);
-    }
-
-    #[test]
-    fn slide_is_half_visible_mid_fade_in() {
-        assert!((slide_alpha(SLIDE_FADE_SECS / 2.0) - 0.5).abs() < TOLERANCE);
-    }
-
-    #[test]
-    fn slide_is_fully_visible_between_fades() {
-        assert!((slide_alpha(SLIDE_SECS / 2.0) - 1.0).abs() < TOLERANCE);
-    }
-
-    #[test]
-    fn slide_is_half_visible_mid_fade_out() {
-        assert!((slide_alpha(SLIDE_SECS - SLIDE_FADE_SECS / 2.0) - 0.5).abs() < TOLERANCE);
-    }
-
-    #[test]
-    fn slide_is_invisible_at_the_end() {
-        assert!((slide_alpha(SLIDE_SECS) - 0.0).abs() < TOLERANCE);
     }
 
     #[test]

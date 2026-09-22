@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
 use super::Screen;
+use crate::fade::Fade;
 use crate::overlays::Overlay;
 use crate::ui::button;
 
@@ -18,8 +19,21 @@ const COLUMN_PADDING_LEFT_PX: f32 = 32.0;
 
 // ---- veil: black cover that fades the menu in and out -----------------------
 const VEIL_FADE_SECS: f32 = 0.8;
-const VEIL_EASING: EaseFunction = EaseFunction::SmoothStep;
 const VEIL_Z_INDEX: i32 = 1;
+
+// ---- veil fades: the closing one holds black until the screen changes -------
+const VEIL_OPENING: Fade = Fade {
+    delay_secs: 0.0,
+    fade_in_secs: 0.0,
+    hold_secs: 0.0,
+    fade_out_secs: VEIL_FADE_SECS,
+};
+const VEIL_CLOSING: Fade = Fade {
+    delay_secs: 0.0,
+    fade_in_secs: VEIL_FADE_SECS,
+    hold_secs: f32::INFINITY,
+    fade_out_secs: 0.0,
+};
 
 // ==== Plugin =================================================================
 
@@ -216,11 +230,13 @@ fn veil(fading_out: bool) -> impl Bundle {
     )
 }
 
-/// Returns the veil alpha at the given time of its fade, with easing applied.
+/// Returns the veil alpha at the given time, from the opening or the closing fade.
 fn veil_alpha(elapsed_secs: f32, fading_out: bool) -> f32 {
-    let progress = elapsed_secs / VEIL_FADE_SECS;
-    let linear_alpha = if fading_out { progress } else { 1.0 - progress };
-    VEIL_EASING.sample_clamped(linear_alpha)
+    if fading_out {
+        VEIL_CLOSING.alpha(elapsed_secs)
+    } else {
+        VEIL_OPENING.alpha(elapsed_secs)
+    }
 }
 
 // ==== Tests ==================================================================

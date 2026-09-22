@@ -5,6 +5,7 @@
 use bevy::dev_tools::fps_overlay::FpsOverlayPlugin;
 use bevy::prelude::*;
 
+mod fade;
 mod overlays;
 mod screens;
 mod ui;
