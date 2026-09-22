@@ -147,8 +147,9 @@ fn activate_menu_button(
                     GlobalZIndex(VEIL_Z_INDEX),
                 ));
             }
-            // the settings overlay arrives in step 5
-            MenuAction::Settings => {}
+            MenuAction::Settings => {
+                next_overlay.set(Overlay::Settings);
+            }
             MenuAction::Credits => {
                 next_overlay.set(Overlay::Credits);
             }

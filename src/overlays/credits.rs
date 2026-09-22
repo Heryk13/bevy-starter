@@ -1,13 +1,11 @@
 use bevy::prelude::*;
 
 use super::CloseOverlay;
+use super::OVERLAY_Z;
 use super::Overlay;
 use crate::ui::button;
 
 // ==== Config =================================================================
-
-// room left above it on purpose, for anything that must draw over an overlay
-const OVERLAY_Z: GlobalZIndex = GlobalZIndex(100);
 
 const CREDITS_TEXT: &str = "Made with Bevy\nHeryk13";
 

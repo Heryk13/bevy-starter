@@ -4,12 +4,19 @@ use bevy::ui_widgets::Activate;
 use crate::screens::Screen;
 
 mod credits;
+mod settings;
+
+// ==== Config =================================================================
+
+// room left above it on purpose, for anything that must draw over an overlay
+const OVERLAY_Z: GlobalZIndex = GlobalZIndex(100);
 
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
     app.init_state::<Overlay>();
     app.add_plugins(credits::plugin);
+    app.add_plugins(settings::plugin);
     app.add_observer(close_overlay);
     app.add_systems(Update, go_back_on_esc);
 }
@@ -22,6 +29,7 @@ pub(crate) enum Overlay {
     #[default]
     None,
     Credits,
+    Settings,
 }
 
 // ==== Components =============================================================
