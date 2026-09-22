@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use rand::seq::SliceRandom;
 
 use super::Screen;
+use crate::assets::images_in;
 use crate::fade::Fade;
 
 // ==== Config =================================================================
@@ -136,11 +137,7 @@ fn fill_slideshow(
         return;
     };
 
-    for handle in &folder.handles {
-        if let Ok(image) = handle.clone().try_typed::<Image>() {
-            slideshow.slides.push(image);
-        }
-    }
+    slideshow.slides = images_in(folder);
 
     // ponytail: shuffled once, so a second lap repeats the same order; reshuffle per
     // lap (keeping the last slide off the front) if loads ever get long enough to see it

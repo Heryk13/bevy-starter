@@ -21,7 +21,7 @@ impl Fade {
     pub(crate) fn alpha(&self, elapsed_secs: f32) -> f32 {
         let fade_in_end_secs = self.delay_secs + self.fade_in_secs;
         let hold_end_secs = fade_in_end_secs + self.hold_secs;
-        let total_secs = hold_end_secs + self.fade_out_secs;
+        let total_secs = self.total_secs();
 
         let linear_alpha = if elapsed_secs < self.delay_secs {
             // waiting
@@ -41,6 +41,11 @@ impl Fade {
             0.0
         };
         FADE_EASING.sample_clamped(linear_alpha)
+    }
+
+    /// Returns how long the whole fade lasts, delay and all.
+    pub(crate) const fn total_secs(&self) -> f32 {
+        self.delay_secs + self.fade_in_secs + self.hold_secs + self.fade_out_secs
     }
 }
 

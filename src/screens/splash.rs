@@ -1,6 +1,8 @@
+use bevy::asset::LoadedFolder;
 use bevy::prelude::*;
 
 use super::Screen;
+use crate::assets::images_in;
 use crate::fade::Fade;
 
 // ==== Config =================================================================
@@ -28,8 +30,6 @@ const LOGO_FADE: Fade = Fade {
     hold_secs: LOGO_HOLD_SECS,
     fade_out_secs: LOGO_FADE_OUT_SECS,
 };
-const LOGO_TOTAL_SECS: f32 =
-    LOGO_WAIT_SECS + LOGO_FADE_IN_SECS + LOGO_HOLD_SECS + LOGO_FADE_OUT_SECS;
 
 // ==== Plugin =================================================================
 
@@ -37,28 +37,35 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Screen::Splash), spawn_splash_screen);
     app.add_systems(
         Update,
+        // chained: a skip ends the current logo, a new logo needs the folder in the
+        // list, and the fade reads the timer the advance just ticked
         (
-            tick_splash_timer,
-            skip_splash_screen,
-            // read the timer after this frame's tick, so the fade never lags a frame behind
-            fade_splash_logo.after(tick_splash_timer),
+            skip_splash_logo,
+            fill_splash_logos,
+            advance_splash_logos,
+            fade_splash_logo,
         )
+            .chain()
             .run_if(in_state(Screen::Splash)),
     );
 }
 
 // ==== Components =============================================================
 
-/// Drives the logo animation and the transition out of the splash screen.
+/// The logos to show in order, which one is on screen, and how far into it we are.
 #[derive(Component)]
-struct SplashTimer {
+struct SplashSequence {
+    folder: Handle<LoadedFolder>,
+    logos: Vec<Handle<Image>>,
+    index: usize,
     timer: Timer,
 }
 
 // ==== Systems ================================================================
 
-/// Spawns the splash screen: a full-screen container with the logo centered in it.
+/// Spawns the splash screen with the Bevy logo first, the folder's logos to follow.
 fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let bevy_logo = asset_server.load("splash/bevy.png");
     commands.spawn((
         Node {
             width: percent(100),
@@ -73,46 +80,100 @@ fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             // starts invisible, `fade_splash_logo` fades it in
-            ImageNode::new(asset_server.load("splash/bevy.png"))
-                .with_color(Color::WHITE.with_alpha(0.0)),
-            SplashTimer {
-                timer: Timer::from_seconds(LOGO_TOTAL_SECS, TimerMode::Once),
+            ImageNode::new(bevy_logo.clone()).with_color(Color::WHITE.with_alpha(0.0)),
+            SplashSequence {
+                folder: asset_server.load_folder("splash/logos"),
+                logos: vec![bevy_logo.clone()],
+                index: 0,
+                timer: Timer::from_seconds(LOGO_FADE.total_secs(), TimerMode::Once),
             },
         )],
-        // despawns the whole screen, logo and timer included, when leaving the splash
+        // despawns the whole screen, the logo and its sequence included, on the way out
         DespawnOnExit(Screen::Splash),
     ));
 }
 
-/// Ticks the splash timer and moves to the menu when it finishes.
-fn tick_splash_timer(
-    mut splash_timer: Single<&mut SplashTimer>,
-    time: Res<Time>,
-    mut next_screen: ResMut<NextState<Screen>>,
+// ponytail: a folder still loading when the Bevy logo ends is skipped; wait on its
+// load state before leaving if slow disks or large logos ever make that happen
+/// Adds the folder's logos after the Bevy one, sorted by file name, once it loads.
+fn fill_splash_logos(
+    mut sequence: Single<&mut SplashSequence>,
+    folders: Res<Assets<LoadedFolder>>,
 ) {
-    splash_timer.timer.tick(time.delta());
-    if splash_timer.timer.is_finished() {
-        next_screen.set(Screen::Menu);
+    if sequence.logos.len() > 1 {
+        return;
+    }
+    if let Some(folder) = folders.get(&sequence.folder) {
+        sequence.logos.extend(images_in(folder));
     }
 }
 
-/// Skips to the menu when a skip key or mouse button is pressed.
-fn skip_splash_screen(
+/// Shows the next logo when the current one's time is up, or leaves for the menu
+/// once the last one has been shown.
+fn advance_splash_logos(
+    sequence: Single<(&mut SplashSequence, &mut ImageNode)>,
+    time: Res<Time>,
+    mut next_screen: ResMut<NextState<Screen>>,
+) {
+    let (mut sequence, mut logo) = sequence.into_inner();
+    sequence.timer.tick(time.delta());
+    if sequence.timer.is_finished() {
+        if let Some(next_index) = next_logo(sequence.index, sequence.logos.len()) {
+            sequence.index = next_index;
+            logo.image = sequence.logos[next_index].clone();
+            sequence.timer.reset();
+        } else {
+            next_screen.set(Screen::Menu);
+        }
+    }
+}
+
+/// Ends the current logo early on a skip key or mouse button, letting
+/// `advance_splash_logos` move on to the next one or leave.
+fn skip_splash_logo(
     mouse_input: Res<ButtonInput<MouseButton>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut next_screen: ResMut<NextState<Screen>>,
+    mut sequence: Single<&mut SplashSequence>,
 ) {
     if keyboard_input.any_just_pressed(SKIP_KEYS)
         || mouse_input.any_just_pressed(SKIP_MOUSE_BUTTONS)
     {
-        next_screen.set(Screen::Menu);
+        sequence.timer.finish();
     }
 }
 
 /// Fades the logo in and out following the splash timer.
-fn fade_splash_logo(logo: Single<(&mut ImageNode, &SplashTimer)>) {
-    let (mut logo, splash_timer) = logo.into_inner();
-    let elapsed_secs = splash_timer.timer.elapsed_secs();
+fn fade_splash_logo(logo: Single<(&mut ImageNode, &SplashSequence)>) {
+    let (mut logo, sequence) = logo.into_inner();
+    let elapsed_secs = sequence.timer.elapsed_secs();
     let alpha = LOGO_FADE.alpha(elapsed_secs);
     logo.color.set_alpha(alpha);
+}
+
+// ==== Helpers ================================================================
+
+/// Returns the logo after `index`, or `None` when the last one has been shown.
+fn next_logo(index: usize, count: usize) -> Option<usize> {
+    if index + 1 < count {
+        Some(index + 1)
+    } else {
+        None
+    }
+}
+
+// ==== Tests ==================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn logo_advances_while_more_remain() {
+        assert_eq!(next_logo(0, 3), Some(1));
+    }
+
+    #[test]
+    fn logo_ends_after_the_last_one() {
+        assert_eq!(next_logo(2, 3), None);
+    }
 }

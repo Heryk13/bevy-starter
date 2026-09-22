@@ -4,6 +4,7 @@ use bevy::prelude::*;
 use super::Screen;
 use super::loading::IntroAssets;
 use super::splash::{SKIP_KEYS, SKIP_MOUSE_BUTTONS};
+use crate::assets::images_in;
 
 // ==== Config =================================================================
 
@@ -43,15 +44,10 @@ fn spawn_intro_screen(
     intro_assets: Res<IntroAssets>,
     folders: Res<Assets<LoadedFolder>>,
 ) {
-    let mut frames = Vec::new();
-    if let Some(folder) = folders.get(&intro_assets.frames) {
-        for handle in &folder.handles {
-            if let Ok(image) = handle.clone().try_typed::<Image>() {
-                frames.push(image);
-            }
-        }
-        frames.sort_by_key(|frame| frame.path().map(ToString::to_string));
-    }
+    let frames = folders
+        .get(&intro_assets.frames)
+        .map(images_in)
+        .unwrap_or_default();
     let frame_count = frames.len();
     commands.spawn((
         Node {
