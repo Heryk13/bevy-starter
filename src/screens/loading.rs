@@ -1,0 +1,287 @@
+use bevy::asset::LoadedFolder;
+use bevy::prelude::*;
+use rand::seq::SliceRandom;
+
+use super::Screen;
+
+// ==== Config =================================================================
+
+// ---- slideshow: each picture fades in, holds, then fades out ----------------
+const SLIDE_SECS: f32 = 5.5;
+const SLIDE_FADE_SECS: f32 = 0.5;
+
+// ---- loading bar: a track along the bottom, filled as the intro loads -------
+const LOADING_BAR_BOTTOM_PX: f32 = 48.0;
+const LOADING_BAR_LEFT_PERCENT: f32 = 10.0;
+const LOADING_BAR_WIDTH_PERCENT: f32 = 80.0;
+const LOADING_BAR_HEIGHT_PX: f32 = 8.0;
+const LOADING_BAR_TRACK_COLOR: Color = Color::BLACK;
+const LOADING_BAR_FILL_COLOR: Color = Color::WHITE;
+
+// ==== Plugin =================================================================
+
+pub(super) fn plugin(app: &mut App) {
+    app.add_systems(
+        OnEnter(Screen::Loading),
+        (spawn_loading_screen, load_intro_frames),
+    );
+    app.add_systems(
+        Update,
+        (
+            (fill_slideshow, advance_slideshow, fade_slideshow).chain(),
+            (update_loading_bar, leave_loading_screen),
+        )
+            .run_if(in_state(Screen::Loading)),
+    );
+}
+
+// ==== Components =============================================================
+
+/// Cycles the loading screen's image through every picture in a folder.
+#[derive(Component)]
+struct Slideshow {
+    folder: Handle<LoadedFolder>,
+    slides: Vec<Handle<Image>>,
+    index: usize,
+    timer: Timer,
+}
+
+/// Marks the part of the loading bar that grows as the intro loads.
+#[derive(Component)]
+struct LoadingBarFill;
+
+// ==== Resources ==============================================================
+
+/// The intro's frames, loaded here and kept past this screen, since despawning with
+/// it would unload them just as the intro needs them.
+#[derive(Resource)]
+struct IntroFrames {
+    folder: Handle<LoadedFolder>,
+}
+
+// ==== Systems ================================================================
+
+/// Spawns the loading screen: a full-window slideshow over black, the colour the
+/// menu fades out to.
+fn spawn_loading_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.spawn((
+        Node {
+            width: percent(100),
+            height: percent(100),
+            ..default()
+        },
+        ImageNode::default(),
+        Slideshow {
+            folder: asset_server.load_folder("loading"),
+            slides: Vec::new(),
+            index: 0,
+            timer: Timer::from_seconds(SLIDE_SECS, TimerMode::Repeating),
+        },
+        children![(
+            Node {
+                bottom: px(LOADING_BAR_BOTTOM_PX),
+                left: percent(LOADING_BAR_LEFT_PERCENT),
+                width: percent(LOADING_BAR_WIDTH_PERCENT),
+                height: px(LOADING_BAR_HEIGHT_PX),
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+            BackgroundColor(LOADING_BAR_TRACK_COLOR),
+            children![(
+                Node {
+                    width: percent(0),
+                    height: percent(100),
+                    ..default()
+                },
+                BackgroundColor(LOADING_BAR_FILL_COLOR),
+                LoadingBarFill
+            )]
+        )],
+        BackgroundColor(Color::BLACK),
+        DespawnOnExit(Screen::Loading),
+    ));
+}
+
+/// Starts loading every intro frame, the work this screen waits on.
+fn load_intro_frames(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(IntroFrames {
+        folder: asset_server.load_folder("intro"),
+    });
+}
+
+/// Fills the slideshow once its folder has loaded: every image in it, shuffled,
+/// starting on the first.
+fn fill_slideshow(
+    slideshow: Single<(&mut Slideshow, &mut ImageNode)>,
+    folders: Res<Assets<LoadedFolder>>,
+) {
+    let (mut slideshow, mut image_node) = slideshow.into_inner();
+    if !slideshow.slides.is_empty() {
+        return;
+    }
+    let Some(folder) = folders.get(&slideshow.folder) else {
+        return;
+    };
+
+    for handle in &folder.handles {
+        if let Ok(image) = handle.clone().try_typed::<Image>() {
+            slideshow.slides.push(image);
+        }
+    }
+
+    // ponytail: shuffled once, so a second lap repeats the same order; reshuffle per
+    // lap (keeping the last slide off the front) if loads ever get long enough to see it
+    slideshow.slides.shuffle(&mut rand::rng());
+    if let Some(first) = slideshow.slides.first() {
+        image_node.image = first.clone();
+    }
+}
+
+/// Moves the slideshow to its next picture every `SLIDE_SECS`.
+fn advance_slideshow(slideshow: Single<(&mut Slideshow, &mut ImageNode)>, time: Res<Time>) {
+    let (mut slideshow, mut image_node) = slideshow.into_inner();
+    if slideshow.slides.is_empty() {
+        return;
+    }
+
+    slideshow.timer.tick(time.delta());
+    if slideshow.timer.just_finished() {
+        slideshow.index = next_slide(slideshow.index, slideshow.slides.len());
+        image_node.image = slideshow.slides[slideshow.index].clone();
+    }
+}
+
+/// Fades the current picture in and out following the slideshow timer.
+fn fade_slideshow(slideshow: Single<(&mut ImageNode, &Slideshow)>) {
+    let (mut image_node, slideshow) = slideshow.into_inner();
+    let elapsed_secs = slideshow.timer.elapsed_secs();
+    let alpha = slide_alpha(elapsed_secs);
+    image_node.color.set_alpha(alpha);
+}
+
+/// Fills the loading bar with the share of intro frames that have finished loading.
+fn update_loading_bar(
+    intro_frames: Res<IntroFrames>,
+    folders: Res<Assets<LoadedFolder>>,
+    asset_server: Res<AssetServer>,
+    mut loading_bar_fill: Single<&mut Node, With<LoadingBarFill>>,
+) {
+    let Some(folder) = folders.get(&intro_frames.folder) else {
+        return;
+    };
+    let mut loaded = 0;
+    for handle in &folder.handles {
+        if asset_server.is_loaded_with_dependencies(handle.id()) {
+            loaded += 1;
+        }
+    }
+    let progress = loading_progress(loaded, folder.handles.len());
+    loading_bar_fill.width = percent(progress * 100.0);
+}
+
+/// Leaves once every intro frame is in, counting failures as done: Bevy already logs
+/// them, and a missing frame is cosmetic where a screen that never ends is not.
+fn leave_loading_screen(
+    intro_frames: Res<IntroFrames>,
+    asset_server: Res<AssetServer>,
+    mut next_screen: ResMut<NextState<Screen>>,
+) {
+    let state = asset_server.recursive_dependency_load_state(&intro_frames.folder);
+    if state.is_loaded() || state.is_failed() {
+        next_screen.set(Screen::Gameplay);
+    }
+}
+
+// ==== Helpers ================================================================
+
+/// Returns the slide after `index`, wrapping back to the first after the last.
+fn next_slide(index: usize, count: usize) -> usize {
+    (index + 1) % count
+}
+
+/// Returns a slide's alpha at the given time on screen: fading in, fully shown, then
+/// fading out, so every change of picture passes through black.
+fn slide_alpha(elapsed_secs: f32) -> f32 {
+    let remaining_secs = SLIDE_SECS - elapsed_secs;
+    if elapsed_secs < SLIDE_FADE_SECS {
+        elapsed_secs / SLIDE_FADE_SECS
+    } else if remaining_secs < SLIDE_FADE_SECS {
+        remaining_secs / SLIDE_FADE_SECS
+    } else {
+        1.0
+    }
+}
+
+/// Returns how far along the load is, from 0.0 to 1.0. Nothing to load counts as
+/// done, rather than dividing by zero.
+fn loading_progress(loaded: usize, total: usize) -> f32 {
+    if total == 0 {
+        1.0
+    } else {
+        loaded as f32 / total as f32
+    }
+}
+
+// ==== Tests ==================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TOLERANCE: f32 = 1e-5;
+
+    #[test]
+    fn slide_advances_to_the_next_one() {
+        assert_eq!(next_slide(0, 5), 1);
+    }
+
+    #[test]
+    fn last_slide_wraps_to_the_first() {
+        assert_eq!(next_slide(4, 5), 0);
+    }
+
+    #[test]
+    fn slide_is_invisible_at_the_start() {
+        assert!((slide_alpha(0.0) - 0.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn slide_is_half_visible_mid_fade_in() {
+        assert!((slide_alpha(SLIDE_FADE_SECS / 2.0) - 0.5).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn slide_is_fully_visible_between_fades() {
+        assert!((slide_alpha(SLIDE_SECS / 2.0) - 1.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn slide_is_half_visible_mid_fade_out() {
+        assert!((slide_alpha(SLIDE_SECS - SLIDE_FADE_SECS / 2.0) - 0.5).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn slide_is_invisible_at_the_end() {
+        assert!((slide_alpha(SLIDE_SECS) - 0.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn loading_progress_is_zero_when_nothing_loaded() {
+        assert!((loading_progress(0, 5) - 0.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn loading_progress_is_half_when_half_loaded() {
+        assert!((loading_progress(2, 4) - 0.5).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn loading_progress_is_done_when_all_loaded() {
+        assert!((loading_progress(5, 5) - 1.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn loading_progress_is_done_when_nothing_to_load() {
+        assert!((loading_progress(0, 0) - 1.0).abs() < TOLERANCE);
+    }
+}

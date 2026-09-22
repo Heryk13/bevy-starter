@@ -174,7 +174,7 @@ fn animate_veils(
 
         if veil.timer.is_finished() {
             if veil.fading_out {
-                next_state.set(Screen::Gameplay);
+                next_state.set(Screen::Loading);
             } else {
                 commands.entity(entity).despawn();
             }
