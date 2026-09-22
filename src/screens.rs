@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 mod gameplay;
+mod intro;
 mod loading;
 mod menu;
 mod splash;
@@ -12,6 +13,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins(splash::plugin);
     app.add_plugins(menu::plugin);
     app.add_plugins(loading::plugin);
+    app.add_plugins(intro::plugin);
     app.add_plugins(gameplay::plugin);
 }
 
@@ -25,5 +27,6 @@ pub(crate) enum Screen {
     Splash,
     Menu,
     Loading,
+    Intro,
     Gameplay,
 }

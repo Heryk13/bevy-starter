@@ -1,9 +1,9 @@
 use bevy::audio::Volume;
 use bevy::prelude::*;
 use bevy::ui::Checked;
-use bevy::ui_widgets::Checkbox;
-use bevy::ui_widgets::ValueChange;
-use bevy::ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick};
+use bevy::ui_widgets::{
+    Checkbox, Slider, SliderRange, SliderThumb, SliderValue, TrackClick, ValueChange,
+};
 use bevy::window::WindowMode;
 
 use super::CloseOverlay;
@@ -19,7 +19,7 @@ const LABEL_GAP_PX: f32 = 12.0;
 
 // ---- fullscreen checkbox ----------------------------------------------------
 const CHECKBOX_SIZE_PX: f32 = 24.0;
-const CHECKBOX_CHECKED_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
+const CHECKBOX_CHECKED_COLOR: Color = Color::WHITE;
 const CHECKBOX_UNCHECKED_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
 
 // ---- volume slider: the thumb travels the track minus its own width ---------
@@ -27,7 +27,7 @@ const SLIDER_WIDTH_PX: f32 = 200.0;
 const SLIDER_HEIGHT_PX: f32 = 8.0;
 const SLIDER_THUMB_SIZE_PX: f32 = 16.0;
 const SLIDER_TRACK_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
-const SLIDER_THUMB_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
+const SLIDER_THUMB_COLOR: Color = Color::WHITE;
 
 // ==== Plugin =================================================================
 

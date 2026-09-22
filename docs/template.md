@@ -40,7 +40,7 @@ CLAUDE.md           instructions for Claude Code
 
 ## Assets
 
-`assets/splash/bevy_logo_dark.png` is the Bevy logo, shown on purpose so players know the game is made with Bevy.
+`assets/splash/bevy.png` is the Bevy logo, shown on purpose so players know the game is made with Bevy.
 It has no formal license; unmodified use in splash screens was
 [informally allowed](https://github.com/bevyengine/bevy/discussions/10861) by the Bevy project lead,
 so keep it unmodified.

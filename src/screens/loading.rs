@@ -25,7 +25,7 @@ const LOADING_BAR_LEFT_PERCENT: f32 = (100.0 - LOADING_BAR_WIDTH_PERCENT) / 2.0;
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(
         OnEnter(Screen::Loading),
-        (spawn_loading_screen, load_intro_frames),
+        (spawn_loading_screen, load_intro_assets),
     );
     app.add_systems(
         Update,
@@ -54,11 +54,12 @@ struct LoadingBarFill;
 
 // ==== Resources ==============================================================
 
-/// The intro's frames, loaded here and kept past this screen, since despawning with
-/// it would unload them just as the intro needs them.
+/// The intro's frames and music, loaded here and kept past this screen, since
+/// despawning with it would unload them just as the intro needs them.
 #[derive(Resource)]
-struct IntroFrames {
-    folder: Handle<LoadedFolder>,
+pub(super) struct IntroAssets {
+    pub(super) frames: Handle<LoadedFolder>,
+    pub(super) music: Handle<AudioSource>,
 }
 
 // ==== Systems ================================================================
@@ -104,10 +105,11 @@ fn spawn_loading_screen(mut commands: Commands, asset_server: Res<AssetServer>) 
     ));
 }
 
-/// Starts loading every intro frame, the work this screen waits on.
-fn load_intro_frames(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(IntroFrames {
-        folder: asset_server.load_folder("intro"),
+/// Starts loading the intro's frames and music, the work this screen waits on.
+fn load_intro_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(IntroAssets {
+        frames: asset_server.load_folder("intro/frames"),
+        music: asset_server.load("intro/music.ogg"),
     });
 }
 
@@ -161,14 +163,15 @@ fn fade_slideshow(slideshow: Single<(&mut ImageNode, &Slideshow)>) {
     image_node.color.set_alpha(alpha);
 }
 
-/// Fills the loading bar with the share of intro frames that have finished loading.
+/// Fills the loading bar with the share of the intro's frames and music that have
+/// finished loading, the music counting as one more item.
 fn update_loading_bar(
-    intro_frames: Res<IntroFrames>,
+    intro_assets: Res<IntroAssets>,
     folders: Res<Assets<LoadedFolder>>,
     asset_server: Res<AssetServer>,
     mut loading_bar_fill: Single<&mut Node, With<LoadingBarFill>>,
 ) {
-    let Some(folder) = folders.get(&intro_frames.folder) else {
+    let Some(folder) = folders.get(&intro_assets.frames) else {
         return;
     };
     let mut loaded = 0;
@@ -177,20 +180,27 @@ fn update_loading_bar(
             loaded += 1;
         }
     }
-    let progress = loading_progress(loaded, folder.handles.len());
+    if asset_server.is_loaded_with_dependencies(&intro_assets.music) {
+        loaded += 1;
+    }
+    let progress = loading_progress(loaded, folder.handles.len() + 1);
     loading_bar_fill.width = percent(progress * 100.0);
 }
 
-/// Leaves once every intro frame is in, counting failures as done: Bevy already logs
-/// them, and a missing frame is cosmetic where a screen that never ends is not.
+/// Leaves once the intro's frames and music are in, counting failures as done: Bevy
+/// already logs them, and a missing file is cosmetic where a screen that never ends
+/// is not.
 fn leave_loading_screen(
-    intro_frames: Res<IntroFrames>,
+    intro_assets: Res<IntroAssets>,
     asset_server: Res<AssetServer>,
     mut next_screen: ResMut<NextState<Screen>>,
 ) {
-    let load_state = asset_server.recursive_dependency_load_state(&intro_frames.folder);
-    if load_state.is_loaded() || load_state.is_failed() {
-        next_screen.set(Screen::Gameplay);
+    let frames_load_state = asset_server.recursive_dependency_load_state(&intro_assets.frames);
+    let music_load_state = asset_server.load_state(&intro_assets.music);
+    let frames_done = frames_load_state.is_loaded() || frames_load_state.is_failed();
+    let music_done = music_load_state.is_loaded() || music_load_state.is_failed();
+    if frames_done && music_done {
+        next_screen.set(Screen::Intro);
     }
 }
 

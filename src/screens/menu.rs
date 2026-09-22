@@ -165,7 +165,7 @@ fn animate_veils(
     mut veils: Query<(Entity, &mut Veil, &mut BackgroundColor)>,
     time: Res<Time>,
     mut commands: Commands,
-    mut next_state: ResMut<NextState<Screen>>,
+    mut next_screen: ResMut<NextState<Screen>>,
 ) {
     for (entity, mut veil, mut background_color) in &mut veils {
         veil.timer.tick(time.delta());
@@ -174,7 +174,7 @@ fn animate_veils(
 
         if veil.timer.is_finished() {
             if veil.fading_out {
-                next_state.set(Screen::Loading);
+                next_screen.set(Screen::Loading);
             } else {
                 commands.entity(entity).despawn();
             }

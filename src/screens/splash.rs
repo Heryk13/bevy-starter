@@ -4,15 +4,15 @@ use super::Screen;
 
 // ==== Config =================================================================
 
-// ---- skip input -------------------------------------------------------------
-const SKIP_KEYS: [KeyCode; 5] = [
+// ---- skip input, shared with the intro so both skip the same way ------------
+pub(super) const SKIP_KEYS: [KeyCode; 5] = [
     KeyCode::Escape,
     KeyCode::Space,
     KeyCode::Enter,
     KeyCode::KeyE,
     KeyCode::KeyF,
 ];
-const SKIP_MOUSE_BUTTONS: [MouseButton; 2] = [MouseButton::Left, MouseButton::Right];
+pub(super) const SKIP_MOUSE_BUTTONS: [MouseButton; 2] = [MouseButton::Left, MouseButton::Right];
 
 // ---- logo animation: wait, fade in, hold, fade out --------------------------
 const LOGO_WAIT_SECS: f32 = 0.5;
@@ -68,7 +68,7 @@ fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             // starts invisible, `fade_splash_logo` fades it in
-            ImageNode::new(asset_server.load("splash/bevy_logo_dark.png"))
+            ImageNode::new(asset_server.load("splash/bevy.png"))
                 .with_color(Color::WHITE.with_alpha(0.0)),
             SplashTimer {
                 timer: Timer::from_seconds(LOGO_TOTAL_SECS, TimerMode::Once),
@@ -83,11 +83,11 @@ fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn tick_splash_timer(
     mut splash_timer: Single<&mut SplashTimer>,
     time: Res<Time>,
-    mut next_state: ResMut<NextState<Screen>>,
+    mut next_screen: ResMut<NextState<Screen>>,
 ) {
     splash_timer.timer.tick(time.delta());
     if splash_timer.timer.is_finished() {
-        next_state.set(Screen::Menu);
+        next_screen.set(Screen::Menu);
     }
 }
 
@@ -95,12 +95,12 @@ fn tick_splash_timer(
 fn skip_splash_screen(
     mouse_input: Res<ButtonInput<MouseButton>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut next_state: ResMut<NextState<Screen>>,
+    mut next_screen: ResMut<NextState<Screen>>,
 ) {
     if keyboard_input.any_just_pressed(SKIP_KEYS)
         || mouse_input.any_just_pressed(SKIP_MOUSE_BUTTONS)
     {
-        next_state.set(Screen::Menu);
+        next_screen.set(Screen::Menu);
     }
 }
 
