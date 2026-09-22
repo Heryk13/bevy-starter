@@ -1,7 +1,9 @@
+use bevy::audio::Volume;
 use bevy::prelude::*;
 use bevy::ui::Checked;
 use bevy::ui_widgets::Checkbox;
 use bevy::ui_widgets::ValueChange;
+use bevy::ui_widgets::{Slider, SliderRange, SliderThumb, SliderValue, TrackClick};
 use bevy::window::WindowMode;
 
 use super::CloseOverlay;
@@ -11,20 +13,31 @@ use crate::ui::button;
 
 // ==== Config =================================================================
 
+// ---- layout -----------------------------------------------------------------
+const PANEL_GAP_PX: f32 = 12.0;
+const LABEL_GAP_PX: f32 = 12.0;
+
+// ---- fullscreen checkbox ----------------------------------------------------
+const CHECKBOX_SIZE_PX: f32 = 24.0;
 const CHECKBOX_CHECKED_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 const CHECKBOX_UNCHECKED_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
 
-const CHECKBOX_SIZE_PX: f32 = 24.0;
-const ROW_GAP_PX: f32 = 12.0;
+// ---- volume slider: the thumb travels the track minus its own width ---------
+const SLIDER_WIDTH_PX: f32 = 200.0;
+const SLIDER_HEIGHT_PX: f32 = 8.0;
+const SLIDER_THUMB_SIZE_PX: f32 = 16.0;
+const SLIDER_TRACK_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
+const SLIDER_THUMB_COLOR: Color = Color::srgb(1.0, 1.0, 1.0);
 
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Overlay::Settings), spawn_settings_overlay);
     app.add_observer(toggle_fullscreen);
+    app.add_observer(update_volume);
     app.add_systems(
         Update,
-        update_fullscreen_checkbox.run_if(in_state(Overlay::Settings)),
+        (update_fullscreen_checkbox, update_volume_thumb).run_if(in_state(Overlay::Settings)),
     );
 }
 
@@ -34,10 +47,15 @@ pub(super) fn plugin(app: &mut App) {
 #[derive(Component)]
 struct FullscreenToggle;
 
+/// Marks the slider that sets the game's volume.
+#[derive(Component)]
+struct VolumeSlider;
+
 // ==== Systems ================================================================
 
 /// Spawns the settings panel over the current screen, blocking clicks to it.
-fn spawn_settings_overlay(mut commands: Commands) {
+fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolume>) {
+    let slider_value = slider_from_volume(global_volume.volume.to_linear());
     commands.spawn((
         Node {
             width: percent(100),
@@ -45,6 +63,7 @@ fn spawn_settings_overlay(mut commands: Commands) {
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            row_gap: px(PANEL_GAP_PX),
             ..default()
         },
         children![
@@ -52,10 +71,11 @@ fn spawn_settings_overlay(mut commands: Commands) {
             (
                 Node {
                     flex_direction: FlexDirection::Row,
-                    column_gap: px(ROW_GAP_PX),
+                    column_gap: px(LABEL_GAP_PX),
                     ..default()
                 },
                 children![
+                    Text::new("Fullscreen"),
                     (
                         Node {
                             width: px(CHECKBOX_SIZE_PX),
@@ -67,14 +87,62 @@ fn spawn_settings_overlay(mut commands: Commands) {
                         FullscreenToggle,
                         AccessibleLabel::new("Fullscreen"),
                     ),
-                    Text::new("Fullscreen"),
                 ]
+            ),
+            (
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(LABEL_GAP_PX),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                children![
+                    Text::new("Volume"),
+                    (
+                        Node {
+                            width: px(SLIDER_WIDTH_PX),
+                            height: px(SLIDER_HEIGHT_PX),
+                            ..default()
+                        },
+                        BackgroundColor(SLIDER_TRACK_COLOR),
+                        Slider {
+                            track_click: TrackClick::Snap,
+                            ..default()
+                        },
+                        SliderRange::new(0.0, 100.0),
+                        SliderValue(slider_value),
+                        AccessibleLabel::new("Volume"),
+                        children![(
+                            Node {
+                                width: px(SLIDER_THUMB_SIZE_PX),
+                                height: px(SLIDER_THUMB_SIZE_PX),
+                                top: px((SLIDER_HEIGHT_PX - SLIDER_THUMB_SIZE_PX) / 2.0),
+                                position_type: PositionType::Absolute,
+                                ..default()
+                            },
+                            BackgroundColor(SLIDER_THUMB_COLOR),
+                            SliderThumb
+                        )],
+                        VolumeSlider
+                    ),
+                ],
             ),
             (button("Close"), CloseOverlay),
         ],
         OVERLAY_Z,
         DespawnOnExit(Overlay::Settings),
     ));
+}
+
+/// Switches the window in or out of fullscreen when the fullscreen checkbox is clicked.
+fn toggle_fullscreen(
+    value_change: On<ValueChange<bool>>,
+    fullscreen_toggles: Query<(), With<FullscreenToggle>>,
+    mut window: Single<&mut Window>,
+) {
+    if fullscreen_toggles.contains(value_change.source) {
+        window.mode = toggled_window_mode(window.mode);
+    }
 }
 
 /// Paints the fullscreen checkbox and sets its checked state from the window mode.
@@ -93,15 +161,31 @@ fn update_fullscreen_checkbox(
     }
 }
 
-/// Switches the window in or out of fullscreen when the fullscreen checkbox is clicked.
-fn toggle_fullscreen(
-    value_change: On<ValueChange<bool>>,
-    fullscreen_toggles: Query<(), With<FullscreenToggle>>,
-    mut window: Single<&mut Window>,
+/// Sets the game's volume from the volume slider, and stores the slider's new value,
+/// since the widget only reports a drag and never updates itself.
+fn update_volume(
+    value_change: On<ValueChange<f32>>,
+    volume_sliders: Query<(), With<VolumeSlider>>,
+    mut global_volume: ResMut<GlobalVolume>,
+    mut commands: Commands,
 ) {
-    if fullscreen_toggles.contains(value_change.source) {
-        window.mode = toggled_window_mode(window.mode);
+    if volume_sliders.contains(value_change.source) {
+        global_volume.volume = Volume::Linear(volume_from_slider(value_change.value));
+        commands
+            .entity(value_change.source)
+            .insert(SliderValue(value_change.value));
     }
+}
+
+/// Moves the volume slider's thumb to match its value, since the widget draws nothing.
+fn update_volume_thumb(
+    slider: Single<(&SliderValue, &SliderRange), With<VolumeSlider>>,
+    mut thumb: Single<&mut Node, With<SliderThumb>>,
+) {
+    let (slider_value, slider_range) = slider.into_inner();
+    let thumb_position = slider_range.thumb_position(slider_value.0);
+    let distance = SLIDER_WIDTH_PX - SLIDER_THUMB_SIZE_PX;
+    thumb.left = px(thumb_position * distance);
 }
 
 // ==== Helpers ================================================================
@@ -115,11 +199,24 @@ fn toggled_window_mode(mode: WindowMode) -> WindowMode {
     }
 }
 
+/// Returns the linear volume for a slider position in 0..=100, squared so the slider
+/// feels even to the ear instead of bunching all the change near zero.
+fn volume_from_slider(percent: f32) -> f32 {
+    (percent / 100.0).powi(2)
+}
+
+/// Returns the slider position for a linear volume, undoing `volume_from_slider`.
+fn slider_from_volume(volume: f32) -> f32 {
+    volume.sqrt() * 100.0
+}
+
 // ==== Tests ==================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const TOLERANCE: f32 = 1e-5;
 
     #[test]
     fn windowed_becomes_borderless_fullscreen() {
@@ -135,5 +232,35 @@ mod tests {
             toggled_window_mode(WindowMode::BorderlessFullscreen(MonitorSelection::Current)),
             WindowMode::Windowed
         );
+    }
+
+    #[test]
+    fn slider_at_zero_is_silent() {
+        assert!((volume_from_slider(0.0) - 0.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn slider_at_half_is_a_quarter_volume() {
+        assert!((volume_from_slider(50.0) - 0.25).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn slider_at_full_is_full_volume() {
+        assert!((volume_from_slider(100.0) - 1.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn volume_at_zero_is_slider_at_zero() {
+        assert!((slider_from_volume(0.0) - 0.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn volume_at_quarter_is_slider_at_half() {
+        assert!((slider_from_volume(0.25) - 50.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn volume_at_full_is_slider_at_full() {
+        assert!((slider_from_volume(1.0) - 100.0).abs() < TOLERANCE);
     }
 }
