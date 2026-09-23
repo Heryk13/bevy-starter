@@ -21,7 +21,11 @@ pub(super) fn plugin(app: &mut App) {
     );
     app.add_systems(
         Update,
-        ((play_intro, leave_intro).chain(), skip_intro_screen).run_if(in_state(Screen::Intro)),
+        (
+            (show_intro_frame, leave_intro_screen).chain(),
+            skip_intro_screen,
+        )
+            .run_if(in_state(Screen::Intro)),
     );
     app.add_systems(OnExit(Screen::Intro), unload_intro_assets);
 }
@@ -75,7 +79,7 @@ fn play_intro_music(mut commands: Commands, intro_assets: Res<IntroAssets>) {
 }
 
 /// Shows the frame that matches how long the intro has been playing.
-fn play_intro(time: Res<Time>, intro: Single<(&mut IntroPlayback, &mut ImageNode)>) {
+fn show_intro_frame(time: Res<Time>, intro: Single<(&mut IntroPlayback, &mut ImageNode)>) {
     let (mut playback, mut image_node) = intro.into_inner();
     playback.timer.tick(time.delta());
     let frame = frame_index(playback.timer.elapsed_secs(), playback.frames.len());
@@ -85,7 +89,10 @@ fn play_intro(time: Res<Time>, intro: Single<(&mut IntroPlayback, &mut ImageNode
 }
 
 /// Moves on to gameplay once the last frame has had its time on screen.
-fn leave_intro(playback: Single<&IntroPlayback>, mut next_screen: ResMut<NextState<Screen>>) {
+fn leave_intro_screen(
+    playback: Single<&IntroPlayback>,
+    mut next_screen: ResMut<NextState<Screen>>,
+) {
     if playback.timer.is_finished() {
         next_screen.set(Screen::Gameplay);
     }
