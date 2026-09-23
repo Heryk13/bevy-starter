@@ -1,6 +1,7 @@
 # The menu and the screens it reaches
 
-Status: **approved** — no code written yet.
+Status: **approved** — built, in `9ad7b1f`..`4dd1ddc`. What the build changed is at the
+bottom, under "What changed while building it"; everything above it is the design as approved.
 Date: 2026-09-21
 Bevy: 0.19.1
 
@@ -179,11 +180,17 @@ Overlay, over whatever screen is below it:
 | `src/overlays/settings.rs` | new — fullscreen checkbox, volume slider, Close |
 | `src/overlays/credits.rs` | new — static text, Close |
 | `src/ui.rs` | new — button widget, palette, colouring and the two UI sounds |
-| `src/main.rs` | `mod ui;`, `mod overlays;`, and the `GAME_TITLE` constant |
-| `Cargo.toml` | `features = ["jpeg", "wav"]` on the bevy dependency |
+| `src/fade.rs` | new — the shared fade timing, unplanned: see "What changed while building it" |
+| `src/assets.rs` | new — `images_in`, the folder reader the splash, loading and intro share |
+| `src/main.rs` | `mod ui;`, `mod overlays;`, `mod fade;` and `mod assets;` |
+| `Cargo.toml` | `features = ["jpeg", "wav"]` on the bevy dependency, plus `rand` for the slideshow |
 | `assets/menu/background.jpg` | moved from `assets/sample.jpg` — placeholder art |
 | `assets/menu/music.ogg` | new — the looping menu track, converted from mp3, placeholder |
-| `assets/intro/frame_000.png` … `frame_090.png` | 91 frames, moved out of `assets/` |
+| `assets/splash/bevy.png` | renamed from `assets/splash/bevy_logo_dark.png` |
+| `assets/splash/logos/` | new — shown one after another once the Bevy logo is done |
+| `assets/loading/*.jpg` | new — the loading slideshow's placeholder pictures |
+| `assets/intro/frames/frame_000.png` … `frame_090.png` | 90 frames, moved out of `assets/` |
+| `assets/intro/music.ogg` | the soundtrack, which arrived named `frame_038.png` |
 | `assets/ui/click.wav` | moved from `assets/ui_click.wav` |
 | `assets/ui/hover.wav` | moved from `assets/ui_hover.wav` |
 | `README.md` | one new bullet under Features (the split itself is already done) |
@@ -935,12 +942,13 @@ current; a hand-written copy in the game would start rotting on the next `cargo 
 ## Assets are placeholders
 
 `assets/menu/background.jpg`, `assets/menu/music.ogg`, `assets/ui/click.wav`,
-`assets/ui/hover.wav` and the 91 frames in `assets/intro/` are here so the screens have
-something to show and something to play. They are meant to be replaced —
+`assets/ui/hover.wav`, the pictures in `assets/loading/`, the logos in
+`assets/splash/logos/` and the frames and soundtrack in `assets/intro/` are here so the
+screens have something to show and something to play. They are meant to be replaced —
 a game's own art and sounds are most of its personality, and none of it should come from
 a starter template.
 
-The one asset that stays is `assets/splash/bevy_logo_dark.png`, for the reason already
+The one asset that stays is `assets/splash/bevy.png`, for the reason already
 written in `docs/template.md`. That section gains a line saying which files are
 placeholders, so nobody has to guess which ones are load-bearing.
 
@@ -1029,6 +1037,293 @@ ecosystem breaks on each release, and a starter carrying three outside crates si
 waits for all three to migrate before it can move to 0.20. `bevy_ui_widgets` is the one
 exception accepted here, and only because it ships from Bevy's own repository and moves
 with the engine.
+
+## What changed while building it
+
+Everything above is the design as it was approved, and it stays as written — a spec is the
+history of *why*, and rewriting it to match the code would throw away the only thing it is
+for. This section is the other half of that history: where the build disagreed with the
+plan, and what changed the answer. Ten of them, in the commits from `9ad7b1f` to `4dd1ddc`.
+
+### The menu is not gated on `Overlay::None`
+
+"Clicks underneath" ends by saying the menu systems are gated with
+`.run_if(in_state(Overlay::None))` "so correctness does not rest on that subtlety". They are
+not. `menu.rs` gates on the screen and nothing else:
+
+```rust
+(animate_veils, update_menu_music_volume.after(animate_veils))
+    .run_if(in_state(Screen::Menu)),
+```
+
+The extra gate was not belt and braces, it was a bug. Those two systems are the veil
+animation and the music volume, and both have to keep running *while* an overlay is open:
+opening Settings during the entrance fade would have frozen the veil at whatever alpha it
+had reached, and pinned the music at that frame's factor — a grey screen behind the panel
+and a track stuck half-way up, both staying that way until the overlay closed.
+
+What the gate was written to guard was never clicks in the first place. The menu has no
+polling input system; its buttons are observers on an `Activate` event, and that event can
+only come from a picking hit the overlay already blocks. The `Pickable` default is not a
+subtlety being worked around, it *is* the mechanism, and the argument for it above is what
+holds.
+
+### The fullscreen toggle keeps `Role::CheckBox`, and gains a label
+
+"Settings behaviour" quotes the widget's own doc saying to override the role with `Switch`
+"for a toggle switch, which is what this is". The override is not there: the checkbox
+spawns with the role its `#[require]` gives it
+(`bevy_ui_widgets-0.19.1/src/checkbox.rs:35`).
+
+It is not a toggle switch. What is drawn is a square that turns from red to white, so
+`CheckBox` describes it and `Switch` would describe something the player never sees.
+Overriding also means writing `AccessibilityNode(accesskit::Node::new(Role::Switch))` out by
+hand next to `Checkbox`, replacing what the require attribute already did — a line to keep
+in step with the widget, for a worse description. If the square ever becomes a sliding
+switch, the role moves with the drawing.
+
+What the accessibility tree really lacked was the word "Fullscreen". The label is a sibling
+`Text` node, not a child, so a screen reader landing on the checkbox finds an unnamed
+control. `AccessibleLabel` (`bevy_ui-0.19.1/src/accessibility.rs:189`) is a component whose
+hooks write into `AccessibilityNode`, so it is one line in the bundle:
+
+```rust
+AccessibleLabel::new("Fullscreen"),
+```
+
+The volume slider has the same problem and the same line. `Role::Slider` was never the
+missing part; the name was.
+
+### `OVERLAY_Z` lives in `overlays.rs`
+
+"Drawing on top" shows the constant without saying where it goes, and a constant next to
+the panel it applies to is the obvious reading. Both overlays spawn a panel, so it sits in
+`src/overlays.rs`, above `credits.rs` and `settings.rs`, as the component rather than a bare
+`i32`:
+
+```rust
+const OVERLAY_Z: GlobalZIndex = GlobalZIndex(100);
+```
+
+Typed, the spawn sites only list it in their bundle, and there is one place to change if the
+number ever has to move. Two copies of a z-order is how two overlays end up at different
+depths.
+
+### The volume slider starts from the real volume
+
+The spec's slider spawns with `SliderValue(50.0)`. That is correct exactly once. Drag the
+volume to 10, close Settings, open it again, and the thumb is back in the middle while the
+sound is not — the panel showing a number the game does not use.
+
+So the value is read from the state that already owns it:
+
+```rust
+let slider_value = slider_from_volume(global_volume.volume.to_linear());
+```
+
+`GlobalVolume` holds a linear amplitude and the slider is 0..=100 squared, so this needed
+`volume_from_slider` to gain an inverse:
+
+```rust
+fn slider_from_volume(volume: f32) -> f32 {
+    volume.sqrt() * 100.0
+}
+```
+
+Both directions are tested at silent, a quarter and full. A pair of inverses is worth the
+six tests rather than three: a `powi(2)` and a `sqrt` can drift apart with no compile error
+and no visible symptom until someone reopens the panel.
+
+### The loading screen shows a slideshow
+
+The spec's loading screen is the progress bar over black, and leans on the join being
+invisible: "the menu has already faded to black by the time this screen appears, so a fast
+load shows nothing flickering". True, and the load is not fast — 16 MB of frames is seconds
+on a cold disk, spent looking at a bar.
+
+So `assets/loading/` is a folder of pictures, and any image in it is a slide. Nothing is
+listed in code: the folder is the whole contract, the same way `assets/splash/logos/` is.
+Each slide fades in, holds and fades out, and the order is shuffled once per visit so a
+short load does not always show the same picture first.
+
+That shuffle is the one new crate in the tree, and it is less of an exception than it looks:
+`rand` was already there as a dependency of Bevy, so `rand = "0.10.3"` in `Cargo.toml` adds
+a direct use of a crate the lockfile already pinned rather than a new node in the graph, and
+`about.toml` needed no new licence.
+
+Reshuffling per lap was left out with its ceiling named in a `ponytail:` comment — a second
+lap repeats the first one's order, which needs a load long enough to see three slides twice.
+
+The progress bar is as designed, counting the frames plus the music as one more item.
+
+### The intro reads a folder, not an index
+
+The spec's last word on the intro is explicit: "`intro.rs` should build its handle list by
+index, `frame_{i:03}.png`, not by reading the directory. Directory order is the thing that
+went wrong here, and a loop over `0..FRAME_COUNT` cannot go wrong the same way."
+
+It reads the directory. `load_folder("intro/frames")`, sorted by file name.
+
+Two things changed the answer. The first is that a gap appeared in the sequence:
+`frame_038.png` left it (below), so `0..FRAME_COUNT` would have asked for a file that is not
+there, and the count would have to be edited every time the intro is re-exported. A folder
+cannot go stale that way — whatever is in it is the sequence.
+
+The second is that by then three screens needed the same read: the splash's logos, the
+loading slideshow and the intro's frames. `CONTRIBUTING.md` says shared code moves out on
+the third user, so it did, into `src/assets.rs`:
+
+```rust
+pub(crate) fn images_in(folder: &LoadedFolder) -> Vec<Handle<Image>>
+```
+
+It sorts by asset path and drops anything that is not an image, so a `.txt` or a stray
+`.ogg` in the folder is ignored instead of breaking the run. It is not a plugin and has no
+systems — the screens call it while spawning, which is written in the file where someone
+looking for the missing `plugin` function will find it.
+
+The spec's worry stands, it just moves into a name. Sorting is only time order if the names
+sort that way, so zero-padded names are the contract now, and it is stated in the function's
+doc comment rather than in a spec nobody re-reads. The `ffmpeg` line above already produces
+them; only its output folder moved, to `assets/intro/frames/`.
+
+### `frame_038.png` was the soundtrack
+
+The mirror image of the mix-up the spec already documents. `assets/intro_audio.ogg` turned
+out to be a PNG; `frame_038.png` turned out to be an Ogg file — first four bytes `4f 67 67
+53`, `OggS`. The same export swapped a pair of extensions in both directions, and finding
+the first one is what prompted checking the rest.
+
+It is now `assets/intro/music.ogg`, and three things the spec left open close with it:
+
+| The spec says | What is true now |
+| --- | --- |
+| 91 frames, `frame_000` to `frame_090` | 90 frames — `038` is a gap in the run, not a missing file |
+| "There is no audio" | the intro has its soundtrack, `PlaybackSettings::ONCE` |
+| `INTRO_FPS` has nothing to calibrate against | `INTRO_FPS = 15.0`: 90 frames over the track's ~6 s |
+
+So the calibration the spec deferred was possible all along, and the constant is a measured
+number rather than a guess between 24 and 30. The comment on it says what it was measured
+against, because the next export invalidates it.
+
+"The soundtrack loads here too" predicted the loading screen would not change to
+accommodate it, and it did not: one more handle in `IntroAssets`, one more item in the bar's
+total, one more `is_loaded_with_dependencies` in the wait.
+
+Everything else in "These frames are a placeholder too" still holds. The countdown is still
+scrambled, and it is still not a defect to fix.
+
+### No `warn!` per failed asset
+
+The spec says failures count as finished, "with a `warn!` naming the file". The first half is
+built and the second is not, because Bevy already does it. The load task logs the error
+itself, with the path and the reason in it
+(`bevy_asset-0.19.1/src/server/mod.rs:593`):
+
+```rust
+error!("{}", err);
+```
+
+A `warn!` of ours would print the same failure a second time, in a worse form — the screen
+knows a handle failed, not why. So the screen only has to not hang, which is one `||` per
+handle:
+
+```rust
+let frames_done = frames_load_state.is_loaded() || frames_load_state.is_failed();
+```
+
+The argument above is untouched: a missing frame is cosmetic, a screen that never ends is
+not. Only the logging half was already written by someone else.
+
+### The splash plays a folder of logos
+
+Not a change to this design so much as one it made cheap. The splash showed the Bevy logo
+and left; it now shows the Bevy logo and then every image in `assets/splash/logos/`, each
+with its own fade and its own skip.
+
+The reason is what this repository is. A template's splash screen is the first place whoever
+clones it puts their own logo, and "drop a PNG in `assets/splash/logos/`" is a smaller
+instruction than "open `splash.rs` and copy the spawn code". `images_in` already existed for
+the intro, so the whole feature is a `Vec<Handle<Image>>`, an index and `next_logo`.
+
+The Bevy logo stays first and stays named in code, for the reason in `docs/template.md`,
+which has not changed. Its file is now `assets/splash/bevy.png` — the folder beside it
+already says the rest, the same rule the other asset names follow.
+
+A folder still loading when the Bevy logo's fade ends is skipped rather than waited for,
+with the ceiling named in a `ponytail:` comment next to it. One local PNG against a fade
+that lasts three seconds is not a race worth code.
+
+### One `Fade` for the whole game
+
+The largest of the ten, and the one that overturns an argument rather than a detail. "The
+veil" says it outright:
+
+> Nothing is factored out of `splash.rs` to share with it. That fade has four phases and
+> this one has a single ramp in either direction; a common helper would be an abstraction
+> over two things that only look alike.
+
+That was right with two users and wrong with three. The loading slideshow arrived, and a
+slide fades in, holds and fades out — the splash's own phases with a delay of zero, not a
+third thing that resembles them. `CONTRIBUTING.md` says shared code moves out on the third user,
+and this is what the rule is for.
+
+`src/fade.rs` holds the timing and nothing else:
+
+```rust
+pub(crate) struct Fade {
+    pub(crate) delay_secs: f32,
+    pub(crate) fade_in_secs: f32,
+    pub(crate) hold_secs: f32,
+    pub(crate) fade_out_secs: f32,
+}
+```
+
+`alpha(elapsed_secs)` samples one `FADE_EASING` shared by the whole game, so no fade feels
+different from another, and `total_secs()` is what the callers set their timers from instead
+of adding the four constants up by hand.
+
+The screens keep their own timing, as a `const` next to the durations that feed it:
+`LOGO_FADE` in `splash.rs`, `VEIL_OPENING` and `VEIL_CLOSING` in `menu.rs`, `SLIDE_FADE` in
+`loading.rs`. What moved is the curve, not the numbers.
+
+The menu's two directions fall out of the four fields, which is what made the single ramp
+stop looking like a different shape:
+
+| Direction | `Fade` |
+| --- | --- |
+| Opening | fade out only — starts black, clears |
+| Closing | fade in, then `hold_secs: f32::INFINITY` |
+
+The infinite hold is not a trick, it is the behaviour the spec asked for: the closing veil
+has to stay black until the state actually changes, and a fade that ran to zero would flash
+the menu back for a frame.
+
+`veil_alpha` survives as the two-line chooser between those two constants, keeping the six
+tests it already had — they did not have to change, which is the sign the split landed in
+the right place. `logo_alpha` is gone; the curve it held is now `Fade::alpha`,
+with seven tests of its own covering the phases and the two degenerate cases (no fade in, no
+fade out) that the per-screen constants actually use.
+
+### And the tests
+
+"Six pure functions is all the logic there is" became ten, and the four extra were found the
+same way — a branch that could be wrong without saying so:
+
+| Function | Why it earned tests |
+| --- | --- |
+| `fade::Fade::alpha` | the four phases, and the zero-length fade in and out the menu uses |
+| `screens::splash::next_logo` | the end of the list, which is what leaves the screen |
+| `screens::loading::next_slide` | the wrap back to the first slide |
+| `overlays::settings::slider_from_volume` | the inverse of `volume_from_slider`, in both directions |
+
+`ui::button_color`, `veil_alpha`, `loading_progress`, `frame_index`, `toggled_window_mode`
+and `volume_from_slider` are covered as planned. `frame_index` gained one case the folder
+reading created: no frames at all, which a hardcoded count could not produce.
+
+One thing in "Files" above never landed: `GAME_TITLE`. `main.rs` still writes the window
+title inline. "The game's name" argued for the constant and the argument is unchanged —
+it is simply not written yet.
 
 ## Tests
 

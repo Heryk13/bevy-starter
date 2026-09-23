@@ -4,7 +4,11 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 
 ## Features
 
-- "Made with Bevy" splash screen with fade in/out, skippable with keyboard or mouse
+- Splash screen with the Bevy logo, then every logo in `assets/splash/logos/`, each one skippable
+- Main menu with background art, buttons and looping music that fades with the screen
+- Credits and Settings overlays over the running screen: fullscreen toggle and volume slider
+- Loading screen with a progress bar over the real asset load and a shuffled slideshow
+- Intro that plays a frame sequence with its soundtrack, skippable with keyboard or mouse
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies
 - FPS overlay and asset hot reloading in dev builds

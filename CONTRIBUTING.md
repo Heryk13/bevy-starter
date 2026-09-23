@@ -16,7 +16,8 @@ it is a decision. An exception without one is drift.
 4. **Fix and check**: `just fix`, then `just check`.
 5. **Run**: `just run` and try the change in the game.
 6. **Docs**: update `README.md` if features, commands or requirements changed,
-   and `docs/` if the project structure or the way a feature works changed.
+   `docs/flow.md` if a screen, an overlay or the way the player moves between them changed,
+   and the rest of `docs/` if the project structure or the way a feature works changed.
 7. **Commit** (see [Commits](#commits)).
 
 ## Code conventions
@@ -85,6 +86,13 @@ The character tells the kind of boundary:
 - Ask for the minimum access: `&` to read, `&mut` only to write.
 - When a system reads what another writes, make the order explicit (`.after(...)` or `.chain()`).
 - Tunable values are named constants in the `Config` section, never magic numbers.
+  A value that follows from other constants is derived from them in its own group, never
+  restated: two spellings of the same number drift apart the day one of them changes.
+- A set of assets that can grow lives in a folder read with `load_folder`, not in a list of
+  file names. Order that matters comes from sorting by name, so those names stay zero-padded.
+- Prefer the call that can say no over the one that panics: `try_typed` over `typed`,
+  `first()` and `get()` over `[0]`, `saturating_sub` where a `usize` could go below zero.
+  A missing asset should cost a frame of the animation, never the whole game.
 - Dev-only code goes behind `#[cfg(feature = "dev")]`.
 
 ### Naming
@@ -98,6 +106,13 @@ The character tells the kind of boundary:
   Systems stay thin: read from the ECS, call the function, write the result.
 - Tests sit at the bottom of the same file, in `#[cfg(test)] mod tests` under `// ==== Tests ====`.
 - Compare floats with a small tolerance instead of `assert_eq!`.
+- Every test asserts something. A test with an empty body passes and proves nothing, which is
+  worse than no test: it reports green while the code it names is unprotected.
+- The name says what the test guarantees, as a sentence about the subject
+  (`logo_is_invisible_at_the_start`), not what the function under test is called.
+- Write the times and sizes a test uses as expressions over the constants
+  (`SLIDE_SECS / 2.0`), so the test follows the code when a constant changes, and pick them
+  away from the boundary between two phases, where `f32` rounding decides the answer.
 
 ## Commits
 

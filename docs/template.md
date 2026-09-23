@@ -16,18 +16,40 @@ For setup and the day-to-day commands, see the [README](../README.md).
    ```
 3. Keep the Bevy logo on the splash screen: it lets players know the game is made with Bevy
    and helps the engine grow. Use it unmodified (see [Assets](#assets)).
+4. Replace the [placeholder assets](#placeholders) with the game's own.
+   When the intro is re-exported, set `INTRO_FPS` in `src/screens/intro.rs` so the frames
+   last as long as the new soundtrack, otherwise picture and sound end apart.
 
 ## Project structure
 
 ```
 assets/             game assets, loaded at runtime
+  intro/            the intro's soundtrack
+    frames/         the intro's frames, played in file name order
+  loading/          the loading screen's slideshow pictures
+  menu/             the menu's background and music
+  splash/           the Bevy logo
+    logos/          the game's own logos, shown after the Bevy one
+  ui/               the button sounds
 src/
   main.rs           app entry point
+  assets.rs         reading a loaded folder's images, shared by the screens
+  fade.rs           the fade timing every screen shares
+  overlays.rs       Overlay state and overlay plugins
+  overlays/
+    credits.rs      credits panel
+    settings.rs     fullscreen toggle and volume slider
   screens.rs        Screen state and screen plugins
   screens/
     splash.rs       splash screen
+    menu.rs         main menu
+    loading.rs      loading screen: slideshow and progress bar
+    intro.rs        intro: frame sequence with its soundtrack
+    gameplay.rs     the game itself, empty so far
+  ui.rs             the button widget and its sounds, shared by every screen
 docs/
   template.md       this file: turning the template into a game
+  flow.md           how the screens, overlays and fades fit together
   specs/            one folder per implementation, with its design and plan
 .cargo/config.toml  linker configuration
 about.toml          accepted dependency licenses
@@ -44,3 +66,22 @@ CLAUDE.md           instructions for Claude Code
 It has no formal license; unmodified use in splash screens was
 [informally allowed](https://github.com/bevyengine/bevy/discussions/10861) by the Bevy project lead,
 so keep it unmodified.
+
+### Placeholders
+
+Everything else shipped in `assets/` is a placeholder, there to make the screens run. Replace it:
+
+- `assets/menu/background.jpg` and `assets/menu/music.ogg`: the menu's artwork and looping track
+- `assets/ui/click.wav` and `assets/ui/hover.wav`: the sounds every button plays
+- `assets/loading/*.jpg`: the loading screen's slideshow
+- `assets/intro/frames/*.png` and `assets/intro/music.ogg`: the intro and its soundtrack
+
+Three folders are read whole, so what to drop in them matters more than the file names:
+
+- any image in `assets/loading/` becomes a slide, shown in a shuffled order
+- any image in `assets/splash/logos/` becomes a logo, shown after the Bevy one
+- `assets/intro/frames/` plays in file name order, so keep the names zero-padded
+  (`frame_000.png`), or frame 10 comes before frame 2
+
+Formats follow Bevy's features in `Cargo.toml`: `jpeg` for the photographic backgrounds and
+`wav` for the short UI sounds, on top of the png and ogg vorbis Bevy already reads.
