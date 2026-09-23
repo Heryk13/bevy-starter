@@ -66,7 +66,14 @@ enum MenuAction {
 #[derive(Component)]
 struct Veil {
     timer: Timer,
-    fading_out: bool,
+    transition: MenuTransition,
+}
+
+/// Whether a veil is opening the menu or closing it, which decides its fade.
+#[derive(Clone, Copy)]
+enum MenuTransition {
+    Opening,
+    Closing,
 }
 
 /// Marks the menu music, so its volume can be found and faded.
@@ -129,7 +136,7 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                     (button("Quit"), MenuAction::Quit),
                 ],
             ),
-            veil(false),
+            veil(MenuTransition::Opening),
         ],
         DespawnOnExit(Screen::Menu),
     ));
@@ -156,7 +163,7 @@ fn activate_menu_button(
         match action {
             MenuAction::Play => {
                 commands.spawn((
-                    veil(true),
+                    veil(MenuTransition::Closing),
                     DespawnOnExit(Screen::Menu),
                     GlobalZIndex(VEIL_Z_INDEX),
                 ));
@@ -183,14 +190,13 @@ fn animate_veils(
 ) {
     for (entity, mut veil, mut background_color) in &mut veils {
         veil.timer.tick(time.delta());
-        let alpha = veil_alpha(veil.timer.elapsed_secs(), veil.fading_out);
+        let alpha = veil_alpha(veil.timer.elapsed_secs(), veil.transition);
         background_color.0.set_alpha(alpha);
 
         if veil.timer.is_finished() {
-            if veil.fading_out {
-                next_screen.set(Screen::Loading);
-            } else {
-                commands.entity(entity).despawn();
+            match veil.transition {
+                MenuTransition::Opening => commands.entity(entity).despawn(),
+                MenuTransition::Closing => next_screen.set(Screen::Loading),
             }
         }
     }
@@ -203,7 +209,7 @@ fn update_menu_music_volume(
     global_volume: Res<GlobalVolume>,
 ) {
     let fade = match veil {
-        Some(veil) => 1.0 - veil_alpha(veil.timer.elapsed_secs(), veil.fading_out),
+        Some(veil) => 1.0 - veil_alpha(veil.timer.elapsed_secs(), veil.transition),
         None => 1.0,
     };
     // set every frame: `GlobalVolume` is only read when a sink starts, so a track that
@@ -213,8 +219,8 @@ fn update_menu_music_volume(
 
 // ==== Helpers ================================================================
 
-/// Returns a full-screen veil that fades in the given direction, ready to spawn.
-fn veil(fading_out: bool) -> impl Bundle {
+/// Returns a full-screen veil for the given transition, ready to spawn.
+fn veil(transition: MenuTransition) -> impl Bundle {
     (
         Node {
             width: percent(100),
@@ -222,20 +228,19 @@ fn veil(fading_out: bool) -> impl Bundle {
             position_type: PositionType::Absolute,
             ..default()
         },
-        BackgroundColor(Color::BLACK.with_alpha(veil_alpha(0.0, fading_out))),
+        BackgroundColor(Color::BLACK.with_alpha(veil_alpha(0.0, transition))),
         Veil {
             timer: Timer::from_seconds(VEIL_FADE_SECS, TimerMode::Once),
-            fading_out,
+            transition,
         },
     )
 }
 
 /// Returns the veil alpha at the given time, from the opening or the closing fade.
-fn veil_alpha(elapsed_secs: f32, fading_out: bool) -> f32 {
-    if fading_out {
-        VEIL_CLOSING.alpha(elapsed_secs)
-    } else {
-        VEIL_OPENING.alpha(elapsed_secs)
+fn veil_alpha(elapsed_secs: f32, transition: MenuTransition) -> f32 {
+    match transition {
+        MenuTransition::Opening => VEIL_OPENING.alpha(elapsed_secs),
+        MenuTransition::Closing => VEIL_CLOSING.alpha(elapsed_secs),
     }
 }
 
@@ -251,12 +256,12 @@ mod tests {
 
     #[test]
     fn veil_is_black_when_menu_starts_opening() {
-        assert_eq!(veil_alpha(0.0, false), 1.0);
+        assert_eq!(veil_alpha(0.0, MenuTransition::Opening), 1.0);
     }
 
     #[test]
     fn veil_is_half_dark_while_menu_opens() {
-        let alpha = veil_alpha(VEIL_FADE_SECS / 2.0, false);
+        let alpha = veil_alpha(VEIL_FADE_SECS / 2.0, MenuTransition::Opening);
         assert!(
             (alpha - 0.5).abs() < TOLERANCE,
             "{alpha} should be approximately 0.5"
@@ -265,17 +270,17 @@ mod tests {
 
     #[test]
     fn veil_is_transparent_when_menu_finishes_opening() {
-        assert_eq!(veil_alpha(VEIL_FADE_SECS, false), 0.0);
+        assert_eq!(veil_alpha(VEIL_FADE_SECS, MenuTransition::Opening), 0.0);
     }
 
     #[test]
     fn veil_is_transparent_when_menu_starts_closing() {
-        assert_eq!(veil_alpha(0.0, true), 0.0);
+        assert_eq!(veil_alpha(0.0, MenuTransition::Closing), 0.0);
     }
 
     #[test]
     fn veil_is_half_dark_while_menu_closes() {
-        let alpha = veil_alpha(VEIL_FADE_SECS / 2.0, true);
+        let alpha = veil_alpha(VEIL_FADE_SECS / 2.0, MenuTransition::Closing);
         assert!(
             (alpha - 0.5).abs() < TOLERANCE,
             "{alpha} should be approximately 0.5"
@@ -284,6 +289,6 @@ mod tests {
 
     #[test]
     fn veil_is_black_when_menu_finishes_closing() {
-        assert_eq!(veil_alpha(VEIL_FADE_SECS, true), 1.0);
+        assert_eq!(veil_alpha(VEIL_FADE_SECS, MenuTransition::Closing), 1.0);
     }
 }
