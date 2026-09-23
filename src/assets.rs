@@ -1,7 +1,7 @@
 use bevy::asset::LoadedFolder;
 use bevy::prelude::*;
 
-// ==== Helpers ================================================================
+// ==== Folders ================================================================
 
 // not a plugin: the screens call this while spawning, so there is no system here
 

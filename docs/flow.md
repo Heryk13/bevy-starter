@@ -49,14 +49,14 @@ That is why the menu music keeps playing while Settings is open.
 | `Splash` | `spawn_splash_screen` | the last logo is done, or skipped | `advance_splash_logos` |
 | `Menu` | `spawn_menu_screen`, `play_menu_music` | the closing veil finishes | `animate_veils` |
 | `Loading` | `spawn_loading_screen`, `load_intro_assets` | the intro's assets are in | `leave_loading_screen` |
-| `Intro` | `spawn_intro_screen`, `play_intro_music` | the last frame is done, or skipped | `leave_intro`, `skip_intro_screen` |
+| `Intro` | `spawn_intro_screen`, `play_intro_music` | the last frame is done, or skipped | `leave_intro_screen`, `skip_intro_screen` |
 | `Gameplay` | `spawn_gameplay_screen` | Esc with no overlay open | `go_back_on_esc` (`src/overlays.rs`) |
 
 ### Splash
 
 Shows the Bevy logo first, then every image in `assets/splash/logos/` in file name order. One
-`SplashSequence` component holds the folder handle, the list, the index and the timer, all on the
-logo entity.
+`SplashSequence` component holds the folder handle until it has been read, the list, the index and
+the timer, all on the logo entity.
 
 Each logo runs the same four-phase `Fade`: wait, fade in, hold, fade out. The four systems are
 `.chain()`ed because each one feeds the next: `skip_splash_logo` finishes the current timer,
@@ -89,7 +89,8 @@ The buttons carry a `MenuAction` component, and the `activate_menu_button` obser
 | Quit | writes `AppExit::Success` |
 
 Play does not set the next screen itself. `animate_veils` does, once the closing veil's timer
-finishes — that indirection is what makes the fade visible before the screen changes. The entrance
+finishes — that indirection is what makes the fade visible before the screen changes. Which screen
+comes next is `screen_after_veil`'s answer, a pure function with its own tests. The entrance
 veil is despawned when it finishes instead of being left at alpha 0, because a transparent
 full-window node would still swallow every click.
 
@@ -134,8 +135,8 @@ that happens here is Esc, and that lives in `src/overlays.rs` with the rest of t
 
 ## Overlays
 
-Both panels follow the same three lines: spawn on `OnEnter(Overlay::X)`, carry `OVERLAY_Z`, and
-carry `DespawnOnExit(Overlay::X)`.
+Both panels follow the same three lines: spawn on `OnEnter(Overlay::X)`, carry
+`OVERLAY_Z_INDEX`, and carry `DespawnOnExit(Overlay::X)`.
 
 - **Credits** (`src/overlays/credits.rs`): static text and a Close button.
 - **Settings** (`src/overlays/settings.rs`): a fullscreen checkbox and a 0–100 volume slider, both
@@ -159,7 +160,7 @@ skip key, which moves *forward*.
    wrong, because the screen underneath never went away.
 
 **Why `GlobalZIndex`.** A screen and an overlay are two separate UI roots, so nothing in the node
-tree decides which draws first. `OVERLAY_Z` is `GlobalZIndex(100)`, with room left above it on
+tree decides which draws first. `OVERLAY_Z_INDEX` is `GlobalZIndex(100)`, with room left above it on
 purpose for anything that must draw over an overlay. Plain `ZIndex` only orders siblings inside one
 tree, so it cannot do this.
 
@@ -222,5 +223,5 @@ those three read the whole folder, so no code changes to add or remove one.
    `NextState<Screen>` for its own successor, so adding one in the middle is one line in the
    screen above it.
 
-An overlay is the same shape with `Overlay` in place of `Screen`, plus `OVERLAY_Z` on the root and
-`(button("Close"), CloseOverlay)` for the way out.
+An overlay is the same shape with `Overlay` in place of `Screen`, plus `OVERLAY_Z_INDEX` on the
+root and `(button("Close"), CloseOverlay)` for the way out.

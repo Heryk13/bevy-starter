@@ -30,10 +30,12 @@ Every `.rs` file follows the same order, skipping the sections it doesn't have:
 2. child modules (`mod ...;`)
 3. `Config`: tunable constants
 4. `Plugin`: the `plugin` function, a summary of what the file does
-5. types: `State`, `Components`, `Resources`
-6. `Systems`: in the order they run (spawn, update, ...)
-7. `Helpers`: pure functions used by the systems, next to the tests that cover them
-8. `Tests`
+5. in a shared file, what it hands to other files, in a section named after it
+   (`Widgets` in `ui.rs`), not under `Helpers`
+6. types: `State`, `Components`, `Resources`
+7. `Systems`: in the order they run (spawn, update, ...)
+8. `Helpers`: pure functions used by the systems, next to the tests that cover them
+9. `Tests`
 
 ### Splitting files
 

@@ -26,9 +26,6 @@ pub(super) fn plugin(app: &mut App) {
 
 // ==== Widgets ================================================================
 
-// not one of the sections in the file layout: this is what the other files import from
-// here, so it reads wrong under `Helpers`, which is for what this file's own systems use
-
 /// Returns a button with the given label, ready for a screen to spawn.
 pub(crate) fn button(text: &str) -> impl Bundle {
     (
