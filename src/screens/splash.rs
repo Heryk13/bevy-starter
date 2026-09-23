@@ -55,7 +55,8 @@ pub(super) fn plugin(app: &mut App) {
 /// The logos to show in order, which one is on screen, and how far into it we are.
 #[derive(Component)]
 struct SplashSequence {
-    folder: Handle<LoadedFolder>,
+    /// The logos folder while it still has to be read, `None` once its logos are in.
+    folder: Option<Handle<LoadedFolder>>,
     logos: Vec<Handle<Image>>,
     index: usize,
     timer: Timer,
@@ -82,7 +83,7 @@ fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
             // starts invisible, `fade_splash_logo` fades it in
             ImageNode::new(bevy_logo.clone()).with_color(Color::WHITE.with_alpha(0.0)),
             SplashSequence {
-                folder: asset_server.load_folder("splash/logos"),
+                folder: Some(asset_server.load_folder("splash/logos")),
                 logos: vec![bevy_logo.clone()],
                 index: 0,
                 timer: Timer::from_seconds(LOGO_FADE.total_secs(), TimerMode::Once),
@@ -114,12 +115,14 @@ fn fill_splash_logos(
     mut sequence: Single<&mut SplashSequence>,
     folders: Res<Assets<LoadedFolder>>,
 ) {
-    if sequence.logos.len() > 1 {
+    let Some(folder_handle) = &sequence.folder else {
         return;
-    }
-    if let Some(folder) = folders.get(&sequence.folder) {
-        sequence.logos.extend(images_in(folder));
-    }
+    };
+    let Some(folder) = folders.get(folder_handle) else {
+        return;
+    };
+    sequence.logos.extend(images_in(folder));
+    sequence.folder = None;
 }
 
 /// Shows the next logo when the current one's time is up, or leaves for the menu

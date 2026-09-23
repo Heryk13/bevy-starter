@@ -52,7 +52,8 @@ pub(super) fn plugin(app: &mut App) {
 /// Cycles the loading screen's image through every picture in a folder.
 #[derive(Component)]
 struct Slideshow {
-    folder: Handle<LoadedFolder>,
+    /// The pictures folder while it still has to be read, `None` once its slides are in.
+    folder: Option<Handle<LoadedFolder>>,
     slides: Vec<Handle<Image>>,
     index: usize,
     timer: Timer,
@@ -85,7 +86,7 @@ fn spawn_loading_screen(mut commands: Commands, asset_server: Res<AssetServer>) 
         },
         ImageNode::default(),
         Slideshow {
-            folder: asset_server.load_folder("loading"),
+            folder: Some(asset_server.load_folder("loading")),
             slides: Vec::new(),
             index: 0,
             timer: Timer::from_seconds(SLIDE_SECS, TimerMode::Repeating),
@@ -130,14 +131,15 @@ fn fill_slideshow(
     folders: Res<Assets<LoadedFolder>>,
 ) {
     let (mut slideshow, mut image_node) = slideshow.into_inner();
-    if !slideshow.slides.is_empty() {
+    let Some(folder_handle) = &slideshow.folder else {
         return;
-    }
-    let Some(folder) = folders.get(&slideshow.folder) else {
+    };
+    let Some(folder) = folders.get(folder_handle) else {
         return;
     };
 
     slideshow.slides = images_in(folder);
+    slideshow.folder = None;
 
     // ponytail: shuffled once, so a second lap repeats the same order; reshuffle per
     // lap (keeping the last slide off the front) if loads ever get long enough to see it
