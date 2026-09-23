@@ -9,7 +9,7 @@ mod settings;
 // ==== Config =================================================================
 
 // room left above it on purpose, for anything that must draw over an overlay
-const OVERLAY_Z: GlobalZIndex = GlobalZIndex(100);
+const OVERLAY_Z_INDEX: GlobalZIndex = GlobalZIndex(100);
 
 // ==== Plugin =================================================================
 

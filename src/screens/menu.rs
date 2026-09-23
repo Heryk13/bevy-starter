@@ -19,7 +19,7 @@ const COLUMN_PADDING_LEFT_PX: f32 = 32.0;
 
 // ---- veil: black cover that fades the menu in and out -----------------------
 const VEIL_FADE_SECS: f32 = 0.8;
-const VEIL_Z_INDEX: i32 = 1;
+const VEIL_Z_INDEX: GlobalZIndex = GlobalZIndex(1);
 
 // ---- veil fades: the closing one holds black until the screen changes -------
 const VEIL_OPENING: Fade = Fade {
@@ -165,7 +165,7 @@ fn activate_menu_button(
                 commands.spawn((
                     veil(MenuTransition::Closing),
                     DespawnOnExit(Screen::Menu),
-                    GlobalZIndex(VEIL_Z_INDEX),
+                    VEIL_Z_INDEX,
                 ));
             }
             MenuAction::Settings => {

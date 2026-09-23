@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use super::CloseOverlay;
-use super::OVERLAY_Z;
+use super::OVERLAY_Z_INDEX;
 use super::Overlay;
 use crate::ui::button;
 
@@ -29,7 +29,7 @@ fn spawn_credits_overlay(mut commands: Commands) {
             ..default()
         },
         children![Text::new(CREDITS_TEXT), (button("Close"), CloseOverlay),],
-        OVERLAY_Z,
+        OVERLAY_Z_INDEX,
         DespawnOnExit(Overlay::Credits),
     ));
 }

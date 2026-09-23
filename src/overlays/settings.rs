@@ -7,7 +7,7 @@ use bevy::ui_widgets::{
 use bevy::window::WindowMode;
 
 use super::CloseOverlay;
-use super::OVERLAY_Z;
+use super::OVERLAY_Z_INDEX;
 use super::Overlay;
 use crate::ui::button;
 
@@ -129,7 +129,7 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
             ),
             (button("Close"), CloseOverlay),
         ],
-        OVERLAY_Z,
+        OVERLAY_Z_INDEX,
         DespawnOnExit(Overlay::Settings),
     ));
 }
