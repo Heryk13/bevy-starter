@@ -194,9 +194,9 @@ fn animate_veils(
         background_color.0.set_alpha(alpha);
 
         if veil.timer.is_finished() {
-            match veil.transition {
-                MenuTransition::Opening => commands.entity(entity).despawn(),
-                MenuTransition::Closing => next_screen.set(Screen::Loading),
+            match screen_after_veil(veil.transition) {
+                Some(screen) => next_screen.set(screen),
+                None => commands.entity(entity).despawn(),
             }
         }
     }
@@ -241,6 +241,15 @@ fn veil_alpha(elapsed_secs: f32, transition: MenuTransition) -> f32 {
     match transition {
         MenuTransition::Opening => VEIL_OPENING.alpha(elapsed_secs),
         MenuTransition::Closing => VEIL_CLOSING.alpha(elapsed_secs),
+    }
+}
+
+/// Returns the screen to leave for once a veil has finished, or `None` when the menu
+/// stays and the veil is simply removed.
+fn screen_after_veil(transition: MenuTransition) -> Option<Screen> {
+    match transition {
+        MenuTransition::Opening => None,
+        MenuTransition::Closing => Some(Screen::Loading),
     }
 }
 
@@ -290,5 +299,18 @@ mod tests {
     #[test]
     fn veil_is_black_when_menu_finishes_closing() {
         assert_eq!(veil_alpha(VEIL_FADE_SECS, MenuTransition::Closing), 1.0);
+    }
+
+    #[test]
+    fn menu_stays_once_it_has_opened() {
+        assert_eq!(screen_after_veil(MenuTransition::Opening), None);
+    }
+
+    #[test]
+    fn menu_leaves_for_loading_once_it_has_closed() {
+        assert_eq!(
+            screen_after_veil(MenuTransition::Closing),
+            Some(Screen::Loading)
+        );
     }
 }
