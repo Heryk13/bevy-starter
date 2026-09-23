@@ -28,6 +28,9 @@ const SLIDER_HEIGHT_PX: f32 = 8.0;
 const SLIDER_THUMB_SIZE_PX: f32 = 16.0;
 const SLIDER_TRACK_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
 const SLIDER_THUMB_COLOR: Color = Color::WHITE;
+// 100 and not 1.0: `SliderStep` defaults to 1.0, so each arrow key moves the slider
+// by a hundredth of its range instead of across all of it
+const SLIDER_MAX: f32 = 100.0;
 
 // ==== Plugin =================================================================
 
@@ -109,7 +112,7 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
                             track_click: TrackClick::Snap,
                             ..default()
                         },
-                        SliderRange::new(0.0, 100.0),
+                        SliderRange::new(0.0, SLIDER_MAX),
                         SliderValue(slider_value),
                         AccessibleLabel::new("Volume"),
                         children![(
@@ -199,15 +202,15 @@ fn toggled_window_mode(mode: WindowMode) -> WindowMode {
     }
 }
 
-/// Returns the linear volume for a slider position in 0..=100, squared so the slider
-/// feels even to the ear instead of bunching all the change near zero.
-fn volume_from_slider(percent: f32) -> f32 {
-    (percent / 100.0).powi(2)
+/// Returns the linear volume for a slider position in 0..=`SLIDER_MAX`, squared so
+/// the slider feels even to the ear instead of bunching all the change near zero.
+fn volume_from_slider(slider_value: f32) -> f32 {
+    (slider_value / SLIDER_MAX).powi(2)
 }
 
 /// Returns the slider position for a linear volume, undoing `volume_from_slider`.
 fn slider_from_volume(volume: f32) -> f32 {
-    volume.sqrt() * 100.0
+    volume.sqrt() * SLIDER_MAX
 }
 
 // ==== Tests ==================================================================
@@ -241,12 +244,12 @@ mod tests {
 
     #[test]
     fn slider_at_half_is_a_quarter_volume() {
-        assert!((volume_from_slider(50.0) - 0.25).abs() < TOLERANCE);
+        assert!((volume_from_slider(SLIDER_MAX / 2.0) - 0.25).abs() < TOLERANCE);
     }
 
     #[test]
     fn slider_at_full_is_full_volume() {
-        assert!((volume_from_slider(100.0) - 1.0).abs() < TOLERANCE);
+        assert!((volume_from_slider(SLIDER_MAX) - 1.0).abs() < TOLERANCE);
     }
 
     #[test]
@@ -256,11 +259,11 @@ mod tests {
 
     #[test]
     fn volume_at_quarter_is_slider_at_half() {
-        assert!((slider_from_volume(0.25) - 50.0).abs() < TOLERANCE);
+        assert!((slider_from_volume(0.25) - (SLIDER_MAX / 2.0)).abs() < TOLERANCE);
     }
 
     #[test]
     fn volume_at_full_is_slider_at_full() {
-        assert!((slider_from_volume(1.0) - 100.0).abs() < TOLERANCE);
+        assert!((slider_from_volume(1.0) - SLIDER_MAX).abs() < TOLERANCE);
     }
 }
