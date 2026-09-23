@@ -120,7 +120,9 @@ fn advance_splash_logos(
     if sequence.timer.is_finished() {
         if let Some(next_index) = next_logo(sequence.index, sequence.logos.len()) {
             sequence.index = next_index;
-            logo.image = sequence.logos[next_index].clone();
+            if let Some(logo_handle) = sequence.logos.get(next_index) {
+                logo.image = logo_handle.clone();
+            }
             sequence.timer.reset();
         } else {
             next_screen.set(Screen::Menu);

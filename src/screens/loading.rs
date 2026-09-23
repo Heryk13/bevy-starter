@@ -157,7 +157,9 @@ fn advance_slideshow(slideshow: Single<(&mut Slideshow, &mut ImageNode)>, time: 
     slideshow.timer.tick(time.delta());
     if slideshow.timer.just_finished() {
         slideshow.index = next_slide(slideshow.index, slideshow.slides.len());
-        image_node.image = slideshow.slides[slideshow.index].clone();
+        if let Some(slide_handle) = slideshow.slides.get(slideshow.index) {
+            image_node.image = slide_handle.clone();
+        }
     }
 }
 
