@@ -144,7 +144,7 @@ mod tests {
     }
 
     #[test]
-    fn button_changes_color_when_hovered_and_pressed() {
+    fn button_shows_pressed_over_hovered() {
         assert_eq!(button_color(true, true), BUTTON_PRESSED);
     }
 }
