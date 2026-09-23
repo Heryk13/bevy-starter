@@ -93,6 +93,20 @@ fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
+/// Ends the current logo early on a skip key or mouse button, letting
+/// `advance_splash_logos` move on to the next one or leave.
+fn skip_splash_logo(
+    mouse_input: Res<ButtonInput<MouseButton>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut sequence: Single<&mut SplashSequence>,
+) {
+    if keyboard_input.any_just_pressed(SKIP_KEYS)
+        || mouse_input.any_just_pressed(SKIP_MOUSE_BUTTONS)
+    {
+        sequence.timer.finish();
+    }
+}
+
 // ponytail: a folder still loading when the Bevy logo ends is skipped; wait on its
 // load state before leaving if slow disks or large logos ever make that happen
 /// Adds the folder's logos after the Bevy one, sorted by file name, once it loads.
@@ -127,20 +141,6 @@ fn advance_splash_logos(
         } else {
             next_screen.set(Screen::Menu);
         }
-    }
-}
-
-/// Ends the current logo early on a skip key or mouse button, letting
-/// `advance_splash_logos` move on to the next one or leave.
-fn skip_splash_logo(
-    mouse_input: Res<ButtonInput<MouseButton>>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut sequence: Single<&mut SplashSequence>,
-) {
-    if keyboard_input.any_just_pressed(SKIP_KEYS)
-        || mouse_input.any_just_pressed(SKIP_MOUSE_BUTTONS)
-    {
-        sequence.timer.finish();
     }
 }
 
