@@ -1,6 +1,9 @@
 use bevy::prelude::*;
+use bevy::ui_widgets::Activate;
 
+use crate::overlays::Overlay;
 use crate::screens::Screen;
+use crate::ui::button;
 
 // ==== Config =================================================================
 
@@ -14,6 +17,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_sub_state::<Pause>();
     app.add_systems(OnEnter(Pause::On), (spawn_pause_menu, pause_time));
     app.add_systems(OnExit(Pause::On), unpause_time);
+    app.add_observer(activate_pause_button);
 }
 
 // ==== State ==================================================================
@@ -25,6 +29,17 @@ pub(crate) enum Pause {
     #[default]
     Off,
     On,
+}
+
+// ==== Components =============================================================
+
+/// Names what a pause menu button does when it is pressed.
+#[derive(Component)]
+enum PauseAction {
+    Resume,
+    Settings,
+    QuitToMenu,
+    QuitToDesktop,
 }
 
 // ==== Systems ================================================================
@@ -40,7 +55,13 @@ fn spawn_pause_menu(mut commands: Commands) {
             align_items: AlignItems::Center,
             ..default()
         },
-        children![Text::new("Paused")],
+        children![
+            Text::new("Paused"),
+            (button("Resume"), PauseAction::Resume),
+            (button("Settings"), PauseAction::Settings),
+            (button("Quit to Menu"), PauseAction::QuitToMenu),
+            (button("Quit to Desktop"), PauseAction::QuitToDesktop),
+        ],
         BackgroundColor(BACKDROP_COLOR),
         PAUSE_Z_INDEX,
         DespawnOnExit(Pause::On),
@@ -50,6 +71,33 @@ fn spawn_pause_menu(mut commands: Commands) {
 /// Freezes virtual time, so everything that reads `Res<Time>` stops with the game.
 fn pause_time(mut time: ResMut<Time<Virtual>>) {
     time.pause();
+}
+
+/// Runs the action of the pause menu button that was pressed.
+fn activate_pause_button(
+    activate: On<Activate>,
+    mut commands: Commands,
+    actions: Query<&PauseAction>,
+    mut next_pause: ResMut<NextState<Pause>>,
+    mut next_overlay: ResMut<NextState<Overlay>>,
+    mut next_screen: ResMut<NextState<Screen>>,
+) {
+    if let Ok(action) = actions.get(activate.entity) {
+        match action {
+            PauseAction::Resume => {
+                next_pause.set(Pause::Off);
+            }
+            PauseAction::Settings => {
+                next_overlay.set(Overlay::Settings);
+            }
+            PauseAction::QuitToMenu => {
+                next_screen.set(Screen::Menu);
+            }
+            PauseAction::QuitToDesktop => {
+                commands.write_message(AppExit::Success);
+            }
+        }
+    }
 }
 
 /// Starts virtual time again. Also runs when gameplay is left while paused, so the menu
