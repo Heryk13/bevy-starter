@@ -6,7 +6,9 @@ For setup and the day-to-day commands, see the [README](../README.md).
 ## Starting a new game
 
 1. Rename the game in three places, keeping them in sync:
-   - `name` in `Cargo.toml`
+   - `name` in `Cargo.toml`, which also names the game's data folder (`%APPDATA%\<name>\` on
+     Windows, `~/.local/share/<name>/` on Linux, `~/Library/Application Support/<name>/` on
+     macOS), where `settings.ron` lives
    - `game` in `justfile`, which `just release` uses to find the executable
    - the window `title` in `src/main.rs`
 2. Trim Bevy's default features in `Cargo.toml` to what the game uses, for smaller and faster builds.
@@ -38,7 +40,7 @@ src/
   overlays.rs       Overlay state and overlay plugins
   overlays/
     credits.rs      credits panel
-    settings.rs     fullscreen toggle and volume slider
+    settings.rs     fullscreen toggle and volume slider, remembered in settings.ron
   screens.rs        Screen state and screen plugins
   screens/
     splash.rs       splash screen
@@ -50,7 +52,7 @@ src/
     gameplay.rs     the game itself, empty so far
     gameplay/
       pause.rs      pause state and pause menu, freezing game time
-  save.rs           the game in progress: play time and unsaved progress
+  save.rs           the game in progress, the data folder and safe file writes
   ui.rs             the button and dialog widgets and the button sounds, shared
 docs/
   template.md       this file: turning the template into a game

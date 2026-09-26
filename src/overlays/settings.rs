@@ -5,10 +5,12 @@ use bevy::ui_widgets::{
     Checkbox, Slider, SliderRange, SliderThumb, SliderValue, TrackClick, ValueChange,
 };
 use bevy::window::WindowMode;
+use serde::{Deserialize, Serialize};
 
 use super::CloseOverlay;
 use super::Overlay;
 use super::overlay_root;
+use crate::save::{game_data_dir, write_atomic};
 use crate::ui::button;
 
 // ==== Config =================================================================
@@ -17,6 +19,9 @@ use crate::ui::button;
 const LABEL_GAP_PX: f32 = 12.0;
 
 // ---- fullscreen checkbox ----------------------------------------------------
+// borderless, on the monitor the window is on: it switches instantly and never
+// changes the desktop resolution
+const FULLSCREEN_MODE: WindowMode = WindowMode::BorderlessFullscreen(MonitorSelection::Current);
 const CHECKBOX_SIZE_PX: f32 = 24.0;
 const CHECKBOX_CHECKED_COLOR: Color = Color::WHITE;
 const CHECKBOX_UNCHECKED_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
@@ -31,9 +36,14 @@ const SLIDER_THUMB_COLOR: Color = Color::WHITE;
 // by a hundredth of its range instead of across all of it
 const SLIDER_MAX: f32 = 100.0;
 
+// ---- file: a different version is ignored and the defaults are kept ---------
+const SETTINGS_VERSION: u32 = 1;
+const SETTINGS_FILE_NAME: &str = "settings.ron";
+
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
+    app.add_systems(Startup, load_settings);
     app.add_systems(OnEnter(Overlay::Settings), spawn_settings_overlay);
     app.add_observer(toggle_fullscreen);
     app.add_observer(update_volume);
@@ -41,6 +51,7 @@ pub(super) fn plugin(app: &mut App) {
         Update,
         (update_fullscreen_checkbox, update_volume_thumb).run_if(in_state(Overlay::Settings)),
     );
+    app.add_systems(OnExit(Overlay::Settings), save_settings);
 }
 
 // ==== Components =============================================================
@@ -53,7 +64,35 @@ struct FullscreenToggle;
 #[derive(Component)]
 struct VolumeSlider;
 
+// ==== Settings File ==========================================================
+
+/// The preferences remembered between runs, as `settings.ron` holds them.
+#[derive(Serialize, Deserialize)]
+struct SettingsFile {
+    version: u32,
+    fullscreen: bool,
+    volume: f32,
+}
+
 // ==== Systems ================================================================
+
+/// Applies the remembered settings to the window and the volume. Anything missing,
+/// unreadable or from another version keeps the defaults, silently: it is a preference.
+fn load_settings(mut window: Single<&mut Window>, mut global_volume: ResMut<GlobalVolume>) {
+    let Some(settings) = game_data_dir()
+        .and_then(|dir| std::fs::read_to_string(dir.join(SETTINGS_FILE_NAME)).ok())
+        .and_then(|text| parse_settings(&text))
+    else {
+        return;
+    };
+    // clamped: the file can be edited by hand, and the slider only reaches full volume
+    global_volume.volume = Volume::Linear(settings.volume.clamp(0.0, 1.0));
+    window.mode = if settings.fullscreen {
+        FULLSCREEN_MODE
+    } else {
+        WindowMode::Windowed
+    };
+}
 
 /// Spawns the settings panel over the current screen, blocking clicks to it.
 fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolume>) {
@@ -181,13 +220,37 @@ fn update_volume_thumb(
     thumb.left = px(thumb_position * distance);
 }
 
+/// Writes the window mode and the volume to `settings.ron` as the panel closes, once per
+/// visit rather than on every slider move.
+fn save_settings(window: Single<&Window>, global_volume: Res<GlobalVolume>) {
+    let settings = SettingsFile {
+        version: SETTINGS_VERSION,
+        fullscreen: window.mode != WindowMode::Windowed,
+        volume: global_volume.volume.to_linear(),
+    };
+    let Ok(text) = ron::to_string(&settings) else {
+        return;
+    };
+    let Some(dir) = game_data_dir() else {
+        return;
+    };
+    // a failed write is logged, never dropped: the player would believe it was saved
+    if let Err(error) = std::fs::create_dir_all(&dir) {
+        error!("could not save the settings: {error}");
+        return;
+    }
+    if let Err(error) = write_atomic(&dir.join(SETTINGS_FILE_NAME), &text) {
+        error!("could not save the settings: {error}");
+    }
+}
+
 // ==== Helpers ================================================================
 
 /// Returns the mode the fullscreen toggle switches to: windowed goes fullscreen,
 /// anything else goes back to a window.
 fn toggled_window_mode(mode: WindowMode) -> WindowMode {
     match mode {
-        WindowMode::Windowed => WindowMode::BorderlessFullscreen(MonitorSelection::Current),
+        WindowMode::Windowed => FULLSCREEN_MODE,
         _ => WindowMode::Windowed,
     }
 }
@@ -203,6 +266,14 @@ fn slider_from_volume(volume: f32) -> f32 {
     volume.sqrt() * SLIDER_MAX
 }
 
+/// Returns the settings a file holds, or `None` when it is unreadable or from another
+/// version, so the caller keeps the defaults.
+fn parse_settings(text: &str) -> Option<SettingsFile> {
+    ron::from_str::<SettingsFile>(text)
+        .ok()
+        .filter(|settings| settings.version == SETTINGS_VERSION)
+}
+
 // ==== Tests ==================================================================
 
 #[cfg(test)]
@@ -213,18 +284,12 @@ mod tests {
 
     #[test]
     fn windowed_becomes_borderless_fullscreen() {
-        assert_eq!(
-            toggled_window_mode(WindowMode::Windowed),
-            WindowMode::BorderlessFullscreen(MonitorSelection::Current)
-        );
+        assert_eq!(toggled_window_mode(WindowMode::Windowed), FULLSCREEN_MODE);
     }
 
     #[test]
     fn fullscreen_becomes_windowed() {
-        assert_eq!(
-            toggled_window_mode(WindowMode::BorderlessFullscreen(MonitorSelection::Current)),
-            WindowMode::Windowed
-        );
+        assert_eq!(toggled_window_mode(FULLSCREEN_MODE), WindowMode::Windowed);
     }
 
     #[test]
@@ -255,5 +320,27 @@ mod tests {
     #[test]
     fn volume_at_full_is_slider_at_full() {
         assert!((slider_from_volume(1.0) - SLIDER_MAX).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn settings_file_reads_back() {
+        let text = format!("(version: {SETTINGS_VERSION}, fullscreen: true, volume: 0.25)");
+        let settings = parse_settings(&text).unwrap();
+        assert!(settings.fullscreen);
+        assert!((settings.volume - 0.25).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn settings_from_another_version_are_ignored() {
+        let text = format!(
+            "(version: {}, fullscreen: true, volume: 0.25)",
+            SETTINGS_VERSION + 1
+        );
+        assert!(parse_settings(&text).is_none());
+    }
+
+    #[test]
+    fn unreadable_settings_are_ignored() {
+        assert!(parse_settings("not ron").is_none());
     }
 }

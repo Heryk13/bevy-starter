@@ -192,7 +192,12 @@ without it the pause buttons would show through.
 - **Settings** (`src/overlays/settings.rs`): a fullscreen checkbox and a 0–100 volume slider, both
   from `bevy_ui_widgets`, plus Close. Its `update_fullscreen_checkbox` and `update_volume_thumb`
   are gated with `.run_if(in_state(Overlay::Settings))`; the widgets are headless, so those two
-  systems are what actually draw the state.
+  systems are what actually draw the state. Both choices are remembered in `settings.ron` in the
+  game's data folder: `load_settings` applies it at `Startup`, and `save_settings` writes it on
+  `OnExit(Overlay::Settings)`, once per visit rather than on every slider move. The `Window` and
+  `GlobalVolume` stay the only copy of the state; the file is read from them and written back to
+  them. A missing, unreadable or other-version file keeps the defaults silently, since
+  `parse_settings` returns `None` for all three; a failed write is logged with `error!`.
 
 **Closing.** Neither panel owns its Close button's behaviour. Both spawn `(button("Close"),
 CloseOverlay)`, and the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None`
@@ -239,7 +244,7 @@ Four files at the top of `src/`, each named after its domain, each used by more 
 | `src/ui.rs` | `button()`, `dialog()`, the palette, `paint_buttons`, `play_button_sounds`, `close_dialog` | buttons in every screen; saves, deleting and quitting all ask questions |
 | `src/fade.rs` | the `Fade` struct and `alpha()` | the splash, the menu veil and the slideshow |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
-| `src/save.rs` | `Session`, `has_unsaved_progress()` | gameplay counts play time, the pause menu asks before quitting; saves arrive later |
+| `src/save.rs` | `Session`, `has_unsaved_progress()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time, the pause menu asks before quitting, settings are written to disk; saves arrive later |
 
 **`src/ui.rs`** hands out the button bundle and paints every button in the app from `Hovered` and
 `Has<Pressed>`. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
@@ -260,6 +265,12 @@ what keep a sequence in step, which is why the intro's frames sort correctly.
 
 **`src/save.rs`** has no plugin yet. `Session` holds `play_secs` and `saved_play_secs`, and
 `has_unsaved_progress` is a pure function over it, tested at the bottom of the file.
+
+Its `Disk` section is where files live and how they are written. `data_dir(os, var)` picks the
+per-user data folder of each OS plus the package name, and takes the environment as a function
+so the tests can hand it Windows, Linux and macOS on any machine; `game_data_dir()` calls it
+with the real ones. `write_atomic` writes to a `.tmp` beside the target and renames it over, so
+a crash mid-write leaves the old file whole, and it is tested against a real temporary folder.
 
 **The dialog** in `src/ui.rs` answers "Yes or No?" for any feature without knowing what it asks.
 `dialog(question, on_yes)` returns the bundle; both buttons carry `CloseDialog`, and the Yes also

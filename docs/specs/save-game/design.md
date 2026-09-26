@@ -1,6 +1,6 @@
 # Saving and loading games, and the pause menu that needs them
 
-Status: **in progress** — steps 1 to 3 built. Anything still bothering us is settled while
+Status: **in progress** — steps 1 to 4 built. Anything still bothering us is settled while
 building it, and recorded at the bottom under "What changed while building it".
 Date: 2026-09-23
 Bevy: 0.19.1
@@ -634,3 +634,15 @@ One commit per step.
    is never read".
 8. **The dialog's Yes and No sit in a row**, spaced by `DIALOG_BUTTON_GAP_PX`, and the dialog
    has its own `DIALOG_BACKDROP_COLOR`.
+9. **`game_data_dir()` wraps `data_dir`.** It passes the real `std::env::consts::OS` and
+   `std::env::var`, so callers never build the environment function and `data_dir` stays
+   private to `save.rs` and its tests.
+10. **Reading the settings is a pure `parse_settings(text) -> Option<SettingsFile>`**, with
+    three tests (reads back, other version ignored, garbage ignored), so the system around it
+    only touches the disk and the ECS.
+11. **`FULLSCREEN_MODE` became a constant** in `settings.rs`: `toggled_window_mode` and
+    `load_settings` both need the same borderless mode, and it was about to be spelled twice.
+    The file stores `fullscreen` as `window.mode != WindowMode::Windowed`, the same test the
+    checkbox uses, so the two can never disagree.
+12. **Saving the settings creates the data folder first.** On the first run it does not exist,
+    and `write_atomic` only writes files. Each of the two steps logs its own failure.

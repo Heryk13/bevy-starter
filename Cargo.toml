@@ -9,6 +9,10 @@ publish = false
 # bevy's defaults only cover png and ogg vorbis.
 bevy = { version = "0.19.1", features = ["jpeg", "wav"] }
 rand = "0.10.3"
+# the settings and save files: serde turns a struct into text and back, ron is the
+# text format. both are already in the tree through bevy
+ron = "0.12"
+serde = { version = "1", features = ["derive"] }
 
 [features]
 default = ["dev"]
