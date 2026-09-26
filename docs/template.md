@@ -50,7 +50,8 @@ src/
     gameplay.rs     the game itself, empty so far
     gameplay/
       pause.rs      pause state and pause menu, freezing game time
-  ui.rs             the button widget and its sounds, shared by every screen
+  save.rs           the game in progress: play time and unsaved progress
+  ui.rs             the button and dialog widgets and the button sounds, shared
 docs/
   template.md       this file: turning the template into a game
   flow.md           how the screens, overlays and fades fit together

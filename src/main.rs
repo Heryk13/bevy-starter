@@ -8,6 +8,7 @@ use bevy::prelude::*;
 mod assets;
 mod fade;
 mod overlays;
+mod save;
 mod screens;
 mod ui;
 

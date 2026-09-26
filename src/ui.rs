@@ -1,7 +1,7 @@
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::ui::Pressed;
-use bevy::ui_widgets::Button;
+use bevy::ui_widgets::{Activate, Button};
 
 // ==== Config =================================================================
 
@@ -15,6 +15,11 @@ const BUTTON_WIDTH_PX: f32 = 100.0;
 const BUTTON_HEIGHT_PX: f32 = 50.0;
 const BUTTON_FONT_SIZE_PX: f32 = 16.0;
 
+// ---- dialog: drawn above the overlays, to ask over any of them --------------
+const DIALOG_Z_INDEX: GlobalZIndex = GlobalZIndex(200);
+const DIALOG_BACKDROP_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
+const DIALOG_BUTTON_GAP_PX: f32 = 10.0;
+
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
@@ -22,6 +27,7 @@ pub(super) fn plugin(app: &mut App) {
     // there is no state these systems could be gated on
     app.add_systems(Startup, load_button_sounds);
     app.add_systems(Update, (paint_buttons, play_button_sounds));
+    app.add_observer(close_dialog);
 }
 
 // ==== Widgets ================================================================
@@ -48,6 +54,47 @@ pub(crate) fn button(text: &str) -> impl Bundle {
         )],
     )
 }
+
+/// Returns a modal question with Yes and No, ready to spawn over whatever asked it.
+/// The Yes button also carries `on_yes`, the caller's marker for what Yes does.
+pub(crate) fn dialog(question: &str, on_yes: impl Bundle) -> impl Bundle {
+    (
+        Node {
+            width: percent(100),
+            height: percent(100),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        BackgroundColor(DIALOG_BACKDROP_COLOR),
+        DIALOG_Z_INDEX,
+        Dialog,
+        children![
+            Text::new(question),
+            (
+                Node {
+                    column_gap: px(DIALOG_BUTTON_GAP_PX),
+                    ..default()
+                },
+                children![
+                    (button("Yes"), CloseDialog, on_yes),
+                    (button("No"), CloseDialog),
+                ],
+            )
+        ],
+    )
+}
+
+// ==== Components =============================================================
+
+/// Marks the root of an open dialog, so it can be found and closed.
+#[derive(Component)]
+pub(crate) struct Dialog;
+
+/// Marks both dialog buttons: either answer closes the dialog.
+#[derive(Component)]
+struct CloseDialog;
 
 // ==== Resources ==============================================================
 
@@ -100,6 +147,21 @@ fn play_button_sounds(
             AudioPlayer::new(sounds.click.clone()),
             PlaybackSettings::DESPAWN,
         ));
+    }
+}
+
+/// Despawns the open dialog when either of its answers is pressed. What Yes does is up to
+/// the caller's own observer, which sees the same press.
+fn close_dialog(
+    activate: On<Activate>,
+    mut commands: Commands,
+    close_buttons: Query<(), With<CloseDialog>>,
+    dialogs: Query<Entity, With<Dialog>>,
+) {
+    if close_buttons.contains(activate.entity) {
+        for dialog in &dialogs {
+            commands.entity(dialog).despawn();
+        }
     }
 }
 

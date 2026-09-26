@@ -54,9 +54,12 @@ That is why the menu music keeps playing while Settings is open.
   Pause::On --[Resume] / Esc -------------> Pause::Off
         |
         +--[Settings]--------> Overlay::Settings --Close / Esc--> back to Pause::On
-        +--[Quit to Menu]----> Screen::Menu
-        +--[Quit to Desktop]-> AppExit::Success
+        +--[Quit to Menu]----> (dialog, if progress is unsaved) --Yes--> Screen::Menu
+        +--[Quit to Desktop]-> (dialog, if progress is unsaved) --Yes--> AppExit::Success
 ```
+
+A dialog is not a state: it is an entity drawn over the pause menu, and No or Esc despawns it and
+leaves the pause menu as it was.
 
 `Pause` is a `SubStates` of `Screen::Gameplay`: it only exists while gameplay does. Leaving
 gameplay removes it, so the next game starts unpaused without any code resetting it, and its
@@ -150,8 +153,11 @@ frames' memory back.
 
 ### Gameplay
 
-A full-window background colour and nothing else yet. It has no `Update` systems: the only thing
-that happens here is Esc, and that lives in `src/overlays.rs` with the rest of the "go back" rule.
+A full-window background colour and nothing else yet. `start_session` inserts a fresh `Session` on
+entry, and `count_play_time` adds each frame's virtual time to it, so the pause menu never counts
+as play. Until `StartGame` exists every game starts as a new one; the resource is also created at
+startup, because the pause menu's observer reads it on every button press in the app. Esc lives in
+`src/overlays.rs` with the rest of the "go back" rule.
 
 **The pause menu** (`src/screens/gameplay/pause.rs`, registered by `gameplay.rs`'s plugin).
 `OnEnter(Pause::On)` spawns the panel with `DespawnOnExit(Pause::On)` over a half-black backdrop,
@@ -166,8 +172,13 @@ same shape as the menu's:
 | --- | --- |
 | Resume | sets `Pause::Off` |
 | Settings | sets `Overlay::Settings`, drawn above the pause menu |
-| Quit to Menu | sets `Screen::Menu`; `Pause` goes with the screen |
-| Quit to Desktop | writes `AppExit::Success` |
+| Quit to Menu | sets `Screen::Menu`, or asks first when `has_unsaved_progress`; `Pause` goes with the screen |
+| Quit to Desktop | writes `AppExit::Success`, or asks first when `has_unsaved_progress` |
+
+"Quit without saving?" is `dialog()` from `ui.rs`, spawned with `DespawnOnExit(Pause::On)` so it
+cannot outlive the pause menu. Its Yes carries `ConfirmQuit(QuitTo)`, and the `confirm_quit`
+observer reads where to go from it. Play time within `UNSAVED_GRACE_SECS` of the last save does
+not count, so quitting right after starting never asks.
 
 ## Overlays
 
@@ -188,9 +199,10 @@ CloseOverlay)`, and the single `close_overlay` observer in `src/overlays.rs` set
 when the activated entity carries the marker. `go_back_on_esc` is the second way out, and it holds
 the whole "go back" rule in one place, first match wins:
 
-1. an overlay is open → close it (back to the pause menu, if paused)
-2. gameplay is paused → resume
-3. gameplay is running → pause
+1. a dialog is open → close it
+2. an overlay is open → close it (back to the pause menu, if paused)
+3. gameplay is paused → resume
+4. gameplay is running → pause
 
 It reads `Option<Res<State<Pause>>>`, because `Pause` does not exist outside gameplay. Esc does
 nothing else in `Menu` or `Loading`, and in `Splash` and `Intro` it is a skip key, which moves
@@ -215,17 +227,19 @@ do this. The layers, bottom to top:
 | screens | none | |
 | menu veil | 1 | `VEIL_Z_INDEX` |
 | pause menu | 50 | `PAUSE_Z_INDEX` |
-| overlays | 100 | `OVERLAY_Z_INDEX`, with room left above it for anything that must draw over an overlay |
+| overlays | 100 | `OVERLAY_Z_INDEX` |
+| dialog | 200 | `DIALOG_Z_INDEX`, in `ui.rs` |
 
 ## Shared code
 
-Three files at the top of `src/`, each named after its domain, each used by more than one feature.
+Four files at the top of `src/`, each named after its domain, each used by more than one feature.
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
-| `src/ui.rs` | `button()`, the palette, `paint_buttons`, `play_button_sounds` | six buttons, three files |
+| `src/ui.rs` | `button()`, `dialog()`, the palette, `paint_buttons`, `play_button_sounds`, `close_dialog` | buttons in every screen; saves, deleting and quitting all ask questions |
 | `src/fade.rs` | the `Fade` struct and `alpha()` | the splash, the menu veil and the slideshow |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
+| `src/save.rs` | `Session`, `has_unsaved_progress()` | gameplay counts play time, the pause menu asks before quitting; saves arrive later |
 
 **`src/ui.rs`** hands out the button bundle and paints every button in the app from `Hovered` and
 `Has<Pressed>`. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
@@ -243,6 +257,15 @@ music's volume, the loading screen to the current slide.
 **`src/assets.rs`** has no plugin and no system. `images_in` takes a `LoadedFolder` and returns its
 images sorted by file path, leaving anything that is not an image out. Zero-padded file names are
 what keep a sequence in step, which is why the intro's frames sort correctly.
+
+**`src/save.rs`** has no plugin yet. `Session` holds `play_secs` and `saved_play_secs`, and
+`has_unsaved_progress` is a pure function over it, tested at the bottom of the file.
+
+**The dialog** in `src/ui.rs` answers "Yes or No?" for any feature without knowing what it asks.
+`dialog(question, on_yes)` returns the bundle; both buttons carry `CloseDialog`, and the Yes also
+carries the caller's `on_yes` marker. `close_dialog` despawns the `Dialog` root on either answer,
+and the caller's own observer sees the same press and does the work. `DIALOG_Z_INDEX` is 200,
+above the overlays.
 
 ## Assets each screen reads
 

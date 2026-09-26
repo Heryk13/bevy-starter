@@ -1,6 +1,6 @@
 # Saving and loading games, and the pause menu that needs them
 
-Status: **in progress** — steps 1 and 2 built. Anything still bothering us is settled while
+Status: **in progress** — steps 1 to 3 built. Anything still bothering us is settled while
 building it, and recorded at the bottom under "What changed while building it".
 Date: 2026-09-23
 Bevy: 0.19.1
@@ -620,3 +620,17 @@ One commit per step.
 4. **The backdrops are both half black.** `BACKDROP_COLOR` in `pause.rs` and
    `OVERLAY_BACKDROP_COLOR` in `overlays.rs` are separate constants, since they are tuned
    separately, and Settings over the pause menu stacks them to about 75% dark.
+5. **Unsaved progress has a 30-second grace.** `has_unsaved_progress` as written above is true
+   after a single frame, which contradicts step 3's *Try* ("quitting right after starting asks
+   nothing"). It is `play_secs - saved_play_secs > UNSAVED_GRACE_SECS` instead, with the
+   constant at 30 in `save.rs`, and a fourth test for play inside the grace.
+6. **Gameplay inserts the `Session` until step 7.** `StartGame` does not exist yet, so
+   `start_session` on `OnEnter(Screen::Gameplay)` inserts a fresh one; step 7 moves that into
+   the `StartGame` observer.
+7. **`Session` also exists from startup.** `activate_pause_button` is a global observer, so it
+   runs on every button press in the app, the menu's included. With `Res<Session>` it panicked
+   before the first game (a missing resource is `Severity::Panic` in Bevy 0.19), so
+   `gameplay.rs` calls `init_resource::<Session>()`. This fits "a leftover session in the menu
+   is never read".
+8. **The dialog's Yes and No sit in a row**, spaced by `DIALOG_BUTTON_GAP_PX`, and the dialog
+   has its own `DIALOG_BACKDROP_COLOR`.

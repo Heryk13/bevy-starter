@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
 use crate::screens::gameplay::pause::Pause;
+use crate::ui::Dialog;
 
 mod credits;
 mod settings;
@@ -74,16 +75,23 @@ fn close_overlay(
     }
 }
 
-/// Closes the open overlay on Esc, or pauses and resumes gameplay when none is open.
+/// Closes the topmost thing on Esc, one layer per press: a dialog, then an overlay, and
+/// with neither open it pauses or resumes gameplay.
 fn go_back_on_esc(
+    mut commands: Commands,
     keyboard_input: Res<ButtonInput<KeyCode>>,
+    dialogs: Query<Entity, With<Dialog>>,
     overlay: Res<State<Overlay>>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     pause: Option<Res<State<Pause>>>,
     mut next_pause: ResMut<NextState<Pause>>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Escape) {
-        if *overlay.get() != Overlay::None {
+        if !dialogs.is_empty() {
+            for dialog in &dialogs {
+                commands.entity(dialog).despawn();
+            }
+        } else if *overlay.get() != Overlay::None {
             next_overlay.set(Overlay::None);
         } else if let Some(pause) = pause {
             match pause.get() {

@@ -9,7 +9,8 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 - Credits and Settings overlays over the running screen: fullscreen toggle and volume slider
 - Loading screen with a progress bar over the real asset load and a shuffled slideshow
 - Intro that plays a frame sequence with its soundtrack, skippable with keyboard or mouse
-- Pause menu on Esc that freezes game time: Resume, Settings, Quit to Menu, Quit to Desktop
+- Pause menu on Esc that freezes game time: Resume, Settings, Quit to Menu, Quit to Desktop,
+  asking "Quit without saving?" when there is unsaved play time
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies
 - FPS overlay and asset hot reloading in dev builds
