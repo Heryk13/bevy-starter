@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-mod gameplay;
+pub(crate) mod gameplay;
 mod intro;
 mod loading;
 mod menu;
