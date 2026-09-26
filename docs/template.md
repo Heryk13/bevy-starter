@@ -43,6 +43,8 @@ src/
   screens/
     splash.rs       splash screen
     menu.rs         main menu
+    menu/
+      veil.rs       black cover that fades the menu in and out
     loading.rs      loading screen: slideshow and progress bar
     intro.rs        intro: frame sequence with its soundtrack
     gameplay.rs     the game itself, empty so far
