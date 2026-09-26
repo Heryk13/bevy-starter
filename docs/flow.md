@@ -4,9 +4,11 @@ Where the player can be, what moves them on, and where to put the next screen.
 For setup and commands see the [README](../README.md), for the code conventions
 [CONTRIBUTING.md](../CONTRIBUTING.md).
 
-Two state enums answer two different questions. `Screen` in `src/screens.rs` says *where the
-player is*; `Overlay` in `src/overlays.rs` says *what is drawn on top*. They are separate
-because an overlay must not tear down the screen underneath it.
+Three state enums answer three different questions. `Screen` in `src/screens.rs` says *where the
+player is*; `Overlay` in `src/overlays.rs` says *what is drawn on top*; `Pause` in
+`src/screens/gameplay/pause.rs` says *whether the game is frozen*. They are separate because an
+overlay must not tear down the screen underneath it, and a pause menu must still be there when an
+overlay opened over it closes.
 
 ## The screen flow
 
@@ -15,7 +17,7 @@ because an overlay must not tear down the screen underneath it.
               ^       waits on      |          |
               |       the intro     +-- skip ->+
               |       assets                   |
-              +<----------- Esc ---------------+
+              +<------ Quit to Menu -----------+  (from the pause menu)
               |
               +--> Quit --> AppExit::Success
 ```
@@ -25,8 +27,8 @@ because an overlay must not tear down the screen underneath it.
   `splash`, `menu`, `loading`, `intro`, `gameplay`.
 - A skip in `Splash` is not an edge on this diagram: it ends the current logo, and the sequence
   leaves for the menu on its own once the last one is done.
-- Esc out of `Gameplay` and the skip out of `Intro` are the only edges that are not the plain
-  next step. There is no way back into `Splash`, `Loading` or `Intro`.
+- Quit to Menu out of `Gameplay` and the skip out of `Intro` are the only edges that are not the
+  plain next step. There is no way back into `Splash`, `Loading` or `Intro`.
 
 ## The overlay flow
 
@@ -42,6 +44,24 @@ The overlay is drawn over whatever screen is below, and that screen keeps runnin
 an overlay never changes `Screen`, so no `DespawnOnExit(Screen::X)` fires and nothing is lost.
 That is why the menu music keeps playing while Settings is open.
 
+## The pause flow
+
+```
+  Gameplay (Pause::Off, the #[default])
+        |
+       Esc
+        v
+  Pause::On --[Resume] / Esc -------------> Pause::Off
+        |
+        +--[Settings]--------> Overlay::Settings --Close / Esc--> back to Pause::On
+        +--[Quit to Menu]----> Screen::Menu
+        +--[Quit to Desktop]-> AppExit::Success
+```
+
+`Pause` is a `SubStates` of `Screen::Gameplay`: it only exists while gameplay does. Leaving
+gameplay removes it, so the next game starts unpaused without any code resetting it, and its
+`OnExit` still runs, so a game quit while paused never leaves the clock frozen.
+
 ## Screen by screen
 
 | Screen | Spawned by | Ends when | Ends by |
@@ -50,7 +70,7 @@ That is why the menu music keeps playing while Settings is open.
 | `Menu` | `spawn_menu_screen`, `play_menu_music` | the closing veil finishes | `animate_veils` |
 | `Loading` | `spawn_loading_screen`, `load_intro_assets` | the intro's assets are in | `leave_loading_screen` |
 | `Intro` | `spawn_intro_screen`, `play_intro_music` | the last frame is done, or skipped | `leave_intro_screen`, `skip_intro_screen` |
-| `Gameplay` | `spawn_gameplay_screen` | Esc with no overlay open | `go_back_on_esc` (`src/overlays.rs`) |
+| `Gameplay` | `spawn_gameplay_screen` | Quit to Menu on the pause menu | `activate_pause_button` (`pause.rs`) |
 
 ### Splash
 
@@ -133,10 +153,29 @@ frames' memory back.
 A full-window background colour and nothing else yet. It has no `Update` systems: the only thing
 that happens here is Esc, and that lives in `src/overlays.rs` with the rest of the "go back" rule.
 
+**The pause menu** (`src/screens/gameplay/pause.rs`, registered by `gameplay.rs`'s plugin).
+`OnEnter(Pause::On)` spawns the panel with `DespawnOnExit(Pause::On)` over a half-black backdrop,
+so the frozen game shows dimmed behind it, and calls `Time<Virtual>::pause()`. `OnExit` calls
+`unpause()`. Any gameplay written later that reads `Res<Time>` stops while paused for free, with
+no `run_if` of its own.
+
+The buttons carry a `PauseAction` component, read by the `activate_pause_button` observer, the
+same shape as the menu's:
+
+| Button | What it does |
+| --- | --- |
+| Resume | sets `Pause::Off` |
+| Settings | sets `Overlay::Settings`, drawn above the pause menu |
+| Quit to Menu | sets `Screen::Menu`; `Pause` goes with the screen |
+| Quit to Desktop | writes `AppExit::Success` |
+
 ## Overlays
 
-Both panels follow the same three lines: spawn on `OnEnter(Overlay::X)`, carry
-`OVERLAY_Z_INDEX`, and carry `DespawnOnExit(Overlay::X)`.
+Both panels follow the same three lines: spawn on `OnEnter(Overlay::X)`, build on
+`overlay_root()`, and carry `DespawnOnExit(Overlay::X)`. `overlay_root()` in `src/overlays.rs` is
+the full-window node every overlay shares: centred column, the row gap, a dark backdrop and
+`OVERLAY_Z_INDEX`. The backdrop is there because an overlay can now open over the pause menu, and
+without it the pause buttons would show through.
 
 - **Credits** (`src/overlays/credits.rs`): static text and a Close button.
 - **Settings** (`src/overlays/settings.rs`): a fullscreen checkbox and a 0–100 volume slider, both
@@ -147,22 +186,36 @@ Both panels follow the same three lines: spawn on `OnEnter(Overlay::X)`, carry
 **Closing.** Neither panel owns its Close button's behaviour. Both spawn `(button("Close"),
 CloseOverlay)`, and the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None`
 when the activated entity carries the marker. `go_back_on_esc` is the second way out, and it holds
-the whole "go back" rule in one `if`: an open overlay closes, otherwise Esc in `Screen::Gameplay`
-returns to the menu. Esc does nothing in `Menu` or `Loading`, and in `Splash` and `Intro` it is a
-skip key, which moves *forward*.
+the whole "go back" rule in one place, first match wins:
+
+1. an overlay is open → close it (back to the pause menu, if paused)
+2. gameplay is paused → resume
+3. gameplay is running → pause
+
+It reads `Option<Res<State<Pause>>>`, because `Pause` does not exist outside gameplay. Esc does
+nothing else in `Menu` or `Loading`, and in `Splash` and `Intro` it is a skip key, which moves
+*forward*.
 
 **Why a state and not a screen.** Two reasons, both structural:
 
 1. Leaving `Screen::Gameplay` fires `DespawnOnExit(Screen::Gameplay)` and destroys the running
-   game. Anything drawn over a live game — Settings today, a pause menu later — cannot be a screen.
+   game. Anything drawn over a live game, like Settings over the pause menu, cannot be a screen.
 2. A screen would need a back destination. Settings opened from the menu must return to the menu,
-   and from a pause menu to the pause menu. `CloseOverlay` has nothing to compute, remember or get
-   wrong, because the screen underneath never went away.
+   and from the pause menu to the pause menu. `CloseOverlay` has nothing to compute, remember or
+   get wrong, because what is underneath never went away. That is also why the pause menu is a
+   state of its own and not an `Overlay` variant: closing an overlay always goes to
+   `Overlay::None`, and the pause menu is simply still there.
 
 **Why `GlobalZIndex`.** A screen and an overlay are two separate UI roots, so nothing in the node
-tree decides which draws first. `OVERLAY_Z_INDEX` is `GlobalZIndex(100)`, with room left above it on
-purpose for anything that must draw over an overlay. Plain `ZIndex` only orders siblings inside one
-tree, so it cannot do this.
+tree decides which draws first. Plain `ZIndex` only orders siblings inside one tree, so it cannot
+do this. The layers, bottom to top:
+
+| Layer | `GlobalZIndex` | Constant |
+| --- | --- | --- |
+| screens | none | |
+| menu veil | 1 | `VEIL_Z_INDEX` |
+| pause menu | 50 | `PAUSE_Z_INDEX` |
+| overlays | 100 | `OVERLAY_Z_INDEX`, with room left above it for anything that must draw over an overlay |
 
 ## Shared code
 
@@ -223,5 +276,5 @@ those three read the whole folder, so no code changes to add or remove one.
    `NextState<Screen>` for its own successor, so adding one in the middle is one line in the
    screen above it.
 
-An overlay is the same shape with `Overlay` in place of `Screen`, plus `OVERLAY_Z_INDEX` on the
+An overlay is the same shape with `Overlay` in place of `Screen`, with `overlay_root()` as the
 root and `(button("Close"), CloseOverlay)` for the way out.

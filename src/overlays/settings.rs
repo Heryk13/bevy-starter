@@ -7,14 +7,13 @@ use bevy::ui_widgets::{
 use bevy::window::WindowMode;
 
 use super::CloseOverlay;
-use super::OVERLAY_Z_INDEX;
 use super::Overlay;
+use super::overlay_root;
 use crate::ui::button;
 
 // ==== Config =================================================================
 
 // ---- layout -----------------------------------------------------------------
-const PANEL_GAP_PX: f32 = 12.0;
 const LABEL_GAP_PX: f32 = 12.0;
 
 // ---- fullscreen checkbox ----------------------------------------------------
@@ -60,15 +59,7 @@ struct VolumeSlider;
 fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolume>) {
     let slider_value = slider_from_volume(global_volume.volume.to_linear());
     commands.spawn((
-        Node {
-            width: percent(100),
-            height: percent(100),
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            row_gap: px(PANEL_GAP_PX),
-            ..default()
-        },
+        overlay_root(),
         children![
             Text::new("Settings"),
             (
@@ -132,7 +123,6 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
             ),
             (button("Close"), CloseOverlay),
         ],
-        OVERLAY_Z_INDEX,
         DespawnOnExit(Overlay::Settings),
     ));
 }

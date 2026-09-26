@@ -1,6 +1,6 @@
 # Saving and loading games, and the pause menu that needs them
 
-Status: **approved** — no code written yet. Anything still bothering us is settled while
+Status: **in progress** — steps 1 and 2 built. Anything still bothering us is settled while
 building it, and recorded at the bottom under "What changed while building it".
 Date: 2026-09-23
 Bevy: 0.19.1
@@ -608,4 +608,15 @@ One commit per step.
 
 ## What changed while building it
 
-Nothing yet.
+1. **Step 2 landed as several commits, not one.** The pause state, the frozen clock, the panel,
+   its buttons and `overlay_root()` each went in on their own, so each could be run and checked
+   before the next was written. Each commit still passed `just check`.
+2. **`Pause` is reached as `crate::screens::gameplay::pause::Pause`.** `overlays.rs` needs it for
+   the Esc rule, so `screens::gameplay` and `gameplay::pause` are `pub(crate) mod` instead of
+   private.
+3. **`overlay_root()` also carries the row gap.** Settings had a `row_gap` on its root, and a
+   bundle cannot take a second `Node`, so the gap moved into `overlay_root()` as
+   `OVERLAY_GAP_PX`. Credits gains the same spacing between its text and Close button.
+4. **The backdrops are both half black.** `BACKDROP_COLOR` in `pause.rs` and
+   `OVERLAY_BACKDROP_COLOR` in `overlays.rs` are separate constants, since they are tuned
+   separately, and Settings over the pause menu stacks them to about 75% dark.

@@ -11,6 +11,9 @@ mod settings;
 // room left above it on purpose, for anything that must draw over an overlay
 const OVERLAY_Z_INDEX: GlobalZIndex = GlobalZIndex(100);
 
+const OVERLAY_BACKDROP_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
+const OVERLAY_GAP_PX: f32 = 12.0;
+
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
@@ -19,6 +22,26 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins(settings::plugin);
     app.add_observer(close_overlay);
     app.add_systems(Update, go_back_on_esc);
+}
+
+// ==== Overlay Root ===========================================================
+
+/// Returns the root every overlay spawns its panel in: the whole window, darkened, above
+/// the screen and the pause menu, and blocking clicks to them.
+fn overlay_root() -> impl Bundle {
+    (
+        Node {
+            width: percent(100),
+            height: percent(100),
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            row_gap: px(OVERLAY_GAP_PX),
+            ..default()
+        },
+        BackgroundColor(OVERLAY_BACKDROP_COLOR),
+        OVERLAY_Z_INDEX,
+    )
 }
 
 // ==== State ==================================================================

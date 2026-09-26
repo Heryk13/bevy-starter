@@ -48,6 +48,8 @@ src/
     loading.rs      loading screen: slideshow and progress bar
     intro.rs        intro: frame sequence with its soundtrack
     gameplay.rs     the game itself, empty so far
+    gameplay/
+      pause.rs      pause state and pause menu, freezing game time
   ui.rs             the button widget and its sounds, shared by every screen
 docs/
   template.md       this file: turning the template into a game
