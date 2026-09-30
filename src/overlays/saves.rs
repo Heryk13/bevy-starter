@@ -8,7 +8,8 @@ use super::OVERLAY_GAP_PX;
 use super::Overlay;
 use super::overlay_root;
 use crate::save::{
-    SaveData, SaveEntry, Session, list_saves, new_save_path, saves_dir, unix_now, write_save,
+    SaveData, SaveEntry, Session, is_autosave, list_saves, new_save_path, saves_dir, unix_now,
+    write_save,
 };
 use crate::screens::gameplay::pause::SaveStatus;
 use crate::ui::{button, dialog};
@@ -106,6 +107,9 @@ fn spawn_save_game_overlay(mut commands: Commands) {
         ))
         .id();
     for entry in &saves {
+        if is_autosave(entry.path()) {
+            continue;
+        }
         match entry {
             SaveEntry::Ready(path, save) => {
                 commands.spawn((

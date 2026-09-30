@@ -14,6 +14,7 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   Desktop, asking "Quit without saving?" when there is unsaved play time
 - Saved games, one file each in the per-user data folder: name a new save or overwrite an
   older one from the pause menu, in a scrolling list
+- Autosave after every 5 minutes of unsaved play, each one kept as its own file
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies
 - FPS overlay and asset hot reloading in dev builds

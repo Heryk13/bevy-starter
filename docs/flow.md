@@ -162,6 +162,13 @@ as play. Until `StartGame` exists every game starts as a new one; the resource i
 startup, because the pause menu's observer reads it on every button press in the app. Esc lives in
 `src/overlays.rs` with the rest of the "go back" rule.
 
+`autosave_game` runs `.after(count_play_time)` and only in `Pause::Off`. Once
+`autosave_is_due`, after `AUTOSAVE_INTERVAL_SECS` of unsaved play, it writes a new
+`autosave_<millis>.ron` named `Autosave`; every autosave is kept. It first sets
+`autosave_tried_secs`, and the interval counts from that or the last save, whichever is later,
+so a failed autosave is logged once and tried again a full interval later instead of every
+frame. An autosave counts as a save, so quitting right after one asks nothing.
+
 **The pause menu** (`src/screens/gameplay/pause.rs`, registered by `gameplay.rs`'s plugin).
 `OnEnter(Pause::On)` spawns the panel with `DespawnOnExit(Pause::On)` over a half-black backdrop,
 so the frozen game shows dimmed behind it, and calls `Time<Virtual>::pause()`. `OnExit` calls
@@ -215,7 +222,8 @@ without it the pause buttons would show through.
   reuses `OVERLAY_GAP_PX`, since the panel's own gap only spaces its direct children. A save
   the game can read is a button labelled by `save_label`, a pure function:
   `Castle · 1h 01m played · 3d ago`. An incompatible or unreadable file is plain text, so nothing
-  that looks clickable does nothing.
+  that looks clickable does nothing. Autosaves are left out (`is_autosave` on each entry's
+  `path()`): overwriting one would keep its name and turn a player's save into an "Autosave".
 
   | Press | Observer | What it does |
   | --- | --- | --- |
@@ -277,7 +285,7 @@ Four files at the top of `src/`, each named after its domain, each used by more 
 | `src/ui.rs` | `button()`, `dialog()`, the palette, `paint_buttons`, `play_button_sounds`, `close_dialog` | buttons in every screen; saves, deleting and quitting all ask questions |
 | `src/fade.rs` | the `Fade` struct and `alpha()` | the splash, the menu veil and the slideshow |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
-| `src/save.rs` | `Session`, `has_unsaved_progress()`, `SaveData`, `SaveEntry`, `list_saves()`, `write_save()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time, the pause menu asks before quitting, the save list reads and writes saves, settings are written to disk |
+| `src/save.rs` | `Session`, `has_unsaved_progress()`, `autosave_is_due()`, `SaveData`, `SaveEntry`, `list_saves()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the save list reads and writes saves, settings are written to disk |
 
 **`src/ui.rs`** hands out the button bundle and paints every button in the app from `Hovered` and
 `Has<Pressed>`. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
@@ -305,7 +313,8 @@ so the tests can hand it Windows, Linux and macOS on any machine; `game_data_dir
 with the real ones. `write_atomic` writes to a `.tmp` beside the target and renames it over, so
 a crash mid-write leaves the old file whole, and it is tested against a real temporary folder.
 
-Saves are one RON file each in `saves/` inside that data folder, named `save_<millis>.ron`.
+Saves are one RON file each in `saves/` inside that data folder, named `save_<millis>.ron`, or
+`autosave_<millis>.ron` for an autosave; the prefix is how `is_autosave` tells them apart.
 `SaveData` is what a file holds: a version, the player's name for it, when it was saved and the
 play time. `list_saves` returns a `SaveEntry` for every `.ron` file there, `Ready`, `Incompatible`
 (another `SAVE_VERSION`) or `Unreadable`, so the list can show a file it cannot load instead of

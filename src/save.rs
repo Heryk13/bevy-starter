@@ -8,23 +8,38 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 // play since the last save that quitting may lose without asking, so leaving
 // right after starting or saving is not met with a question
 const UNSAVED_GRACE_SECS: f32 = 30.0;
+// unsaved play before the game saves by itself; a manual save starts it over
+const AUTOSAVE_INTERVAL_SECS: f32 = 300.0;
 // raised whenever `SaveData` changes shape, so an older save is listed as
 // incompatible instead of loaded wrong
 const SAVE_VERSION: u32 = 1;
 const SAVES_DIR_NAME: &str = "saves";
+// every autosave is a new file, kept like the player's own; the prefix is what tells the
+// two apart, so the Save list can leave autosaves out
+const AUTOSAVE_FILE_PREFIX: &str = "autosave_";
+// the name written inside each autosave, which is how the lists label it
+pub(crate) const AUTOSAVE_NAME: &str = "Autosave";
 
 // ==== Session ================================================================
 
-/// The game in progress: how long it has been played, and how long at its last save.
+/// The game in progress: how long it has been played, how long at its last save, and how
+/// long at the last autosave attempt, which a failed autosave waits a full interval from.
 #[derive(Resource, Clone, Default)]
 pub(crate) struct Session {
     pub(crate) play_secs: f32,
     pub(crate) saved_play_secs: f32,
+    pub(crate) autosave_tried_secs: f32,
 }
 
 /// Returns whether quitting now would lose play time that is in no save.
 pub(crate) fn has_unsaved_progress(session: &Session) -> bool {
     session.play_secs - session.saved_play_secs > UNSAVED_GRACE_SECS
+}
+
+/// Returns whether enough play has gone unsaved that the game should save by itself.
+pub(crate) fn autosave_is_due(session: &Session) -> bool {
+    session.play_secs - session.saved_play_secs.max(session.autosave_tried_secs)
+        > AUTOSAVE_INTERVAL_SECS
 }
 
 // ==== Save Data ==============================================================
@@ -41,24 +56,19 @@ pub(crate) struct SaveData {
 /// One file in the saves folder, as far as the game could make sense of it.
 pub(crate) enum SaveEntry {
     Ready(PathBuf, SaveData),
-    // `expect` fails the build the day these paths are read, so it cannot outlive its reason;
-    // the tests already read them, so it only applies outside tests
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "only deleting reads this path, and it is not built yet"
-        )
-    )]
     Incompatible(PathBuf),
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "only deleting reads this path, and it is not built yet"
-        )
-    )]
     Unreadable(PathBuf),
+}
+
+impl SaveEntry {
+    /// Returns the file this entry was read from, whatever the game made of it.
+    pub(crate) fn path(&self) -> &Path {
+        match self {
+            SaveEntry::Ready(path, _)
+            | SaveEntry::Incompatible(path)
+            | SaveEntry::Unreadable(path) => path,
+        }
+    }
 }
 
 /// What a save file's text turned out to be, before it is paired with its path.
@@ -120,6 +130,23 @@ pub(crate) fn unix_now() -> Duration {
 pub(crate) fn new_save_path(dir: &Path) -> PathBuf {
     let timestamp = unix_now().as_millis();
     dir.join(format!("save_{timestamp}.ron"))
+}
+
+/// Returns a path in `dir` for a new autosave, named like `new_save_path`'s but with
+/// `AUTOSAVE_FILE_PREFIX`, so every autosave is kept.
+pub(crate) fn new_autosave_path(dir: &Path) -> PathBuf {
+    dir.join(format!(
+        "{AUTOSAVE_FILE_PREFIX}{}.ron",
+        unix_now().as_millis()
+    ))
+}
+
+/// Returns whether `path` is an autosave, by its file name. A name that is not valid UTF-8
+/// is never one, since `new_autosave_path` only makes plain ones.
+pub(crate) fn is_autosave(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .is_some_and(|name| name.starts_with(AUTOSAVE_FILE_PREFIX))
 }
 
 /// Writes a file through a temporary one and a rename, so a crash mid-write leaves the
@@ -213,6 +240,53 @@ mod tests {
         assert!(has_unsaved_progress(&session));
         session.saved_play_secs = session.play_secs;
         assert!(!has_unsaved_progress(&session));
+    }
+
+    #[test]
+    fn autosave_waits_for_the_interval() {
+        let mut session = Session::default();
+        session.play_secs = AUTOSAVE_INTERVAL_SECS / 2.0;
+        assert!(!autosave_is_due(&session));
+    }
+
+    #[test]
+    fn autosave_is_due_after_the_interval() {
+        let mut session = Session::default();
+        session.play_secs = AUTOSAVE_INTERVAL_SECS * 2.0;
+        assert!(autosave_is_due(&session));
+    }
+
+    #[test]
+    fn saving_puts_the_autosave_off() {
+        let mut session = Session::default();
+        session.play_secs = AUTOSAVE_INTERVAL_SECS * 2.0;
+        assert!(autosave_is_due(&session));
+        session.saved_play_secs = session.play_secs;
+        assert!(!autosave_is_due(&session));
+    }
+
+    #[test]
+    fn failed_autosave_waits_a_full_interval() {
+        let mut session = Session::default();
+        session.play_secs = AUTOSAVE_INTERVAL_SECS * 2.0;
+        session.autosave_tried_secs = session.play_secs;
+        assert!(!autosave_is_due(&session));
+        session.play_secs += AUTOSAVE_INTERVAL_SECS * 2.0;
+        assert!(autosave_is_due(&session));
+    }
+
+    // ---- is_autosave: real paths, so a renamed prefix stays covered ---------
+
+    #[test]
+    fn new_autosaves_are_recognised() {
+        let path = new_autosave_path(Path::new("saves"));
+        assert!(is_autosave(&path));
+    }
+
+    #[test]
+    fn player_saves_are_not_autosaves() {
+        let path = new_save_path(Path::new("saves"));
+        assert!(!is_autosave(&path));
     }
 
     // ---- data_dir: fake environments answer only the variables they name ----

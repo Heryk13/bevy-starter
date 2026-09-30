@@ -1,6 +1,6 @@
 # Saving and loading games, and the pause menu that needs them
 
-Status: **in progress** — steps 1 to 5 built.
+Status: **in progress** — steps 1 to 6 built.
 Anything still bothering us is settled while building it, and recorded at the bottom under
 "What changed while building it".
 Date: 2026-09-23
@@ -697,3 +697,20 @@ One commit per step.
     its default colour is a dark grey that would vanish on the backdrop anyway, so the field
     sets it white. The field is capped at `SAVE_NAME_MAX_CHARS` (20), because a longer name
     pushes its row's label past the edge of the list's fixed-width buttons.
+25. **Every autosave is a new file, and all are kept.** The design kept one `autosave.ron`
+    rewritten in place; the player chose to be able to go back to any autosave instead. So
+    `new_autosave_path` names each `autosave_<millis>.ron`, like `new_save_path`, and
+    `is_autosave` tells them apart by that prefix. The cost is a list that grows by 12
+    autosaves an hour until step 8's delete trims it. They are still left out of the Save
+    list, now because overwriting one would keep its name and make a player's save read
+    "Autosave".
+26. **A failed autosave waits a full interval.** As designed, a failed write leaves
+    `saved_play_secs` alone, so `autosave_is_due` stayed true and the game retried and logged
+    every frame. `Session` gains `autosave_tried_secs`, set before each attempt, and the
+    interval counts from it or the last save, whichever is later. No data folder is covered
+    by the same line, since it is set before the folder is looked up.
+27. **`autosave_is_due` compares with `>`**, like `has_unsaved_progress`, not `>=`. They only
+    differ at exactly `AUTOSAVE_INTERVAL_SECS`, which summed frame times almost never hit.
+28. **`SaveEntry::path()` ended the `#[expect(dead_code)]`.** Leaving autosaves out of the
+    Save list needs every entry's path, whatever its variant, so the annotations on
+    `Incompatible` and `Unreadable` came off in step 6 rather than step 8.
