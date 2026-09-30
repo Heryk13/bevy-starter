@@ -204,8 +204,11 @@ without it the pause buttons would show through.
   `parse_settings` returns `None` for all three; a failed write is logged with `error!`.
 - **Save Game** (`src/overlays/saves.rs`): a New Save button, then one row per file in the saves
   folder, then Close. The folder is read once, on `OnEnter(Overlay::SaveGame)`. The rows are
-  spawned in a `for` with `ChildOf(root)`, because `children![]` only holds a list known when the
-  code is written; Close is spawned after them for the same reason, so it ends up last. A save
+  spawned in a `for` with `ChildOf(list)`, because `children![]` only holds a list known when the
+  code is written; Close is spawned after them for the same reason, so it ends up last. `list`
+  is a column capped at `SAVE_LIST_MAX_HEIGHT_PX` with `Overflow::scroll_y()` and `ScrollArea`,
+  so the mouse wheel scrolls the rows while the title, New Save and Close stay put; it reuses
+  `OVERLAY_GAP_PX`, since the panel's own gap only spaces its direct children. A save
   the game can read is a button labelled by `save_label`, a pure function:
   `Castle · 1h 01m played · 3d ago`. An incompatible or unreadable file is plain text, so nothing
   that looks clickable does nothing.

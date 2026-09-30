@@ -672,7 +672,8 @@ One commit per step.
     a `match` per `SaveEntry` reads plainer than an iterator of bundles. Close is spawned after
     the loop so it stays at the bottom.
 20. **Step 5 is committed in parts.** Still to come: the `EditableText` field for the name
-    (every save is named `save` for now) and `ScrollArea` around the rows. The paths inside
+    (every save is named `save` for now). The rows scroll inside their own column, so the
+    title, New Save and Close stay in view however many saves there are. The paths inside
     `SaveEntry::Incompatible` and `Unreadable` carry `#[expect(dead_code)]`, outside tests,
     until step 8 reads them to delete.
 21. **A failed save also closes the list, and both outcomes show on the pause menu.** The

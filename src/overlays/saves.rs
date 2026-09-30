@@ -1,8 +1,9 @@
 use bevy::prelude::*;
-use bevy::ui_widgets::Activate;
+use bevy::ui_widgets::{Activate, ScrollArea};
 use std::path::{Path, PathBuf};
 
 use super::CloseOverlay;
+use super::OVERLAY_GAP_PX;
 use super::Overlay;
 use super::overlay_root;
 use crate::save::{
@@ -16,6 +17,8 @@ use crate::ui::{button, dialog};
 const OVERWRITE_QUESTION: &str = "Overwrite this save?";
 const SAVED_TEXT: &str = "Saved successfully.";
 const SAVE_FAILED_TEXT: &str = "Failed to save.";
+
+const SAVE_LIST_MAX_HEIGHT_PX: f32 = 300.0;
 
 // ==== Plugin =================================================================
 
@@ -53,20 +56,33 @@ fn spawn_save_game_overlay(mut commands: Commands) {
         ))
         .id();
     let now_secs = unix_now().as_secs();
+    let list = commands
+        .spawn((
+            Node {
+                flex_direction: FlexDirection::Column,
+                row_gap: px(OVERLAY_GAP_PX),
+                max_height: px(SAVE_LIST_MAX_HEIGHT_PX),
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            ChildOf(root),
+            ScrollArea,
+        ))
+        .id();
     for entry in &saves {
         match entry {
             SaveEntry::Ready(path, save) => {
                 commands.spawn((
                     button(&save_label(save, now_secs)),
                     OverwriteSave(path.clone()),
-                    ChildOf(root),
+                    ChildOf(list),
                 ));
             }
             SaveEntry::Incompatible(_) => {
-                commands.spawn((Text::new("Incompatible Save"), ChildOf(root)));
+                commands.spawn((Text::new("Incompatible Save"), ChildOf(list)));
             }
             SaveEntry::Unreadable(_) => {
-                commands.spawn((Text::new("Unreadable Save"), ChildOf(root)));
+                commands.spawn((Text::new("Unreadable Save"), ChildOf(list)));
             }
         }
     }
