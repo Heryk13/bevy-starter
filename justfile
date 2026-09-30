@@ -18,6 +18,9 @@ check:
     cargo clippy --no-default-features -- -D warnings
     cargo test
 
+test:
+    cargo test
+
 # build an optimized release and package it into dist/
 release:
     cargo build --release --no-default-features

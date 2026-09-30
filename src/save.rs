@@ -1,11 +1,17 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 // ==== Config =================================================================
 
 // play since the last save that quitting may lose without asking, so leaving
 // right after starting or saving is not met with a question
 const UNSAVED_GRACE_SECS: f32 = 30.0;
+// raised whenever `SaveData` changes shape, so an older save is listed as
+// incompatible instead of loaded wrong
+const SAVE_VERSION: u32 = 1;
+const SAVES_DIR_NAME: &str = "saves";
 
 // ==== Session ================================================================
 
@@ -19,6 +25,49 @@ pub(crate) struct Session {
 /// Returns whether quitting now would lose play time that is in no save.
 pub(crate) fn has_unsaved_progress(session: &Session) -> bool {
     session.play_secs - session.saved_play_secs > UNSAVED_GRACE_SECS
+}
+
+// ==== Save Data ==============================================================
+
+/// What one save file holds. The gameplay adds its fields here.
+#[derive(Serialize, Deserialize)]
+pub(crate) struct SaveData {
+    pub(crate) version: u32,
+    pub(crate) name: String,
+    pub(crate) saved_at_secs: u64,
+    pub(crate) play_secs: f32,
+}
+
+/// One file in the saves folder, as far as the game could make sense of it.
+pub(crate) enum SaveEntry {
+    Ready(PathBuf, SaveData),
+    // `expect` fails the build the day these paths are read, so it cannot outlive its reason
+    #[expect(
+        dead_code,
+        reason = "only deleting reads this path, and it is not built yet"
+    )]
+    Incompatible(PathBuf),
+    #[expect(
+        dead_code,
+        reason = "only deleting reads this path, and it is not built yet"
+    )]
+    Unreadable(PathBuf),
+}
+
+/// What a save file's text turned out to be, before it is paired with its path.
+enum ParsedSave {
+    Ready(SaveData),
+    Incompatible,
+    Unreadable,
+}
+
+/// Returns what a save file's text holds: a save, one from an unknown version, or neither.
+fn parse_save(text: &str) -> ParsedSave {
+    match ron::from_str::<SaveData>(text) {
+        Ok(save) if save.version == SAVE_VERSION => ParsedSave::Ready(save),
+        Ok(_) => ParsedSave::Incompatible,
+        Err(_) => ParsedSave::Unreadable,
+    }
 }
 
 // ==== Disk ===================================================================
@@ -46,6 +95,26 @@ pub(crate) fn game_data_dir() -> Option<PathBuf> {
     data_dir(std::env::consts::OS, |name| std::env::var(name).ok())
 }
 
+/// Returns the folder that holds one file per save, inside the game's data folder.
+pub(crate) fn saves_dir() -> Option<PathBuf> {
+    game_data_dir().map(|dir| dir.join(SAVES_DIR_NAME))
+}
+
+/// Returns the time since 1970, or zero on a clock set before it: a save with an odd age
+/// beats a save that never happens.
+pub(crate) fn unix_now() -> Duration {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+}
+
+/// Returns a path in `dir` for a save that does not exist yet, named by the current time
+/// in milliseconds so two saves in the same second still get two files.
+pub(crate) fn new_save_path(dir: &Path) -> PathBuf {
+    let timestamp = unix_now().as_millis();
+    dir.join(format!("save_{timestamp}.ron"))
+}
+
 /// Writes a file through a temporary one and a rename, so a crash mid-write leaves the
 /// old file whole.
 // ponytail: read and written on the main thread; move to IoTaskPool when saves grow
@@ -54,6 +123,54 @@ pub(crate) fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     let tmp = path.with_extension("ron.tmp");
     std::fs::write(&tmp, text)?;
     std::fs::rename(tmp, path)
+}
+
+/// Returns an entry for every save file in `dir`, readable or not, so the player can
+/// always see and delete what is there. A missing folder is an empty list.
+pub(crate) fn list_saves(dir: &Path) -> Vec<SaveEntry> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut saves = Vec::new();
+    for entry in entries {
+        let Ok(entry) = entry else {
+            continue;
+        };
+        let path = entry.path();
+        if path.extension() != Some("ron".as_ref()) {
+            continue;
+        };
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            saves.push(SaveEntry::Unreadable(path));
+            continue;
+        };
+        match parse_save(&text) {
+            ParsedSave::Ready(data) => saves.push(SaveEntry::Ready(path, data)),
+            ParsedSave::Incompatible => saves.push(SaveEntry::Incompatible(path)),
+            ParsedSave::Unreadable => saves.push(SaveEntry::Unreadable(path)),
+        }
+    }
+    saves
+}
+
+/// Writes the session to `path` as a save stamped with the current time, whether that
+/// file is new or an older save being overwritten. Creates the folder when it is missing,
+/// so the first save on a machine needs no setup. Marks the session as saved only once
+/// the file is whole, so a failed write still counts as unsaved progress.
+pub(crate) fn write_save(path: &Path, session: &mut Session, name: &str) -> std::io::Result<()> {
+    let save = SaveData {
+        version: SAVE_VERSION,
+        name: name.to_string(),
+        saved_at_secs: unix_now().as_secs(),
+        play_secs: session.play_secs,
+    };
+    let text = ron::to_string(&save).map_err(std::io::Error::other)?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    write_atomic(path, &text)?;
+    session.saved_play_secs = session.play_secs;
+    Ok(())
 }
 
 // ==== Tests ==================================================================
@@ -160,5 +277,128 @@ mod tests {
         write_atomic(&path, "(volume: 0.5)").unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "(volume: 0.5)");
         assert!(!path.with_extension("ron.tmp").exists());
+    }
+
+    // ---- parse_save: one test per kind of file ------------------------------
+
+    #[test]
+    fn save_from_this_version_is_ready() {
+        let text =
+            format!("(version: {SAVE_VERSION}, saved_at_secs: 0, play_secs: 0.0, name: \"test\")");
+        let parsed = parse_save(&text);
+        assert!(matches!(parsed, ParsedSave::Ready(_)));
+    }
+
+    #[test]
+    fn save_from_another_version_is_incompatible() {
+        let text = format!(
+            "(version: {}, saved_at_secs: 0, play_secs: 0.0, name: \"test\")",
+            SAVE_VERSION + 1
+        );
+        let parsed = parse_save(&text);
+        assert!(matches!(parsed, ParsedSave::Incompatible));
+    }
+
+    #[test]
+    fn text_that_is_not_a_save_is_unreadable() {
+        let parsed = parse_save("this is not a save");
+        assert!(matches!(parsed, ParsedSave::Unreadable));
+    }
+
+    // ---- list_saves: a real folder per test, as for write_atomic ------------
+
+    #[test]
+    fn every_kind_of_save_file_is_listed() {
+        let dir = std::env::temp_dir().join("bevy-starter-list-saves");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let ready_path = dir.join("ready.ron");
+        write_atomic(
+            &ready_path,
+            &format!("(version: {SAVE_VERSION}, saved_at_secs: 0, play_secs: 0.0, name: \"test\")"),
+        )
+        .unwrap();
+
+        let incompatible_path = dir.join("incompatible.ron");
+        write_atomic(
+            &incompatible_path,
+            &format!(
+                "(version: {}, saved_at_secs: 0, play_secs: 0.0, name: \"test\")",
+                SAVE_VERSION + 1
+            ),
+        )
+        .unwrap();
+
+        let unreadable_path = dir.join("unreadable.ron");
+        write_atomic(&unreadable_path, "this is not a save").unwrap();
+
+        let saves = list_saves(&dir);
+        assert_eq!(saves.len(), 3);
+        assert!(
+            saves
+                .iter()
+                .any(|s| matches!(s, SaveEntry::Ready(path, _) if *path == ready_path))
+        );
+        assert!(
+            saves
+                .iter()
+                .any(|s| matches!(s, SaveEntry::Incompatible(path) if *path == incompatible_path))
+        );
+        assert!(
+            saves
+                .iter()
+                .any(|s| matches!(s, SaveEntry::Unreadable(path) if *path == unreadable_path))
+        );
+    }
+
+    #[test]
+    fn missing_folder_lists_nothing() {
+        let dir = std::env::temp_dir().join("bevy-starter-missing-folder");
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+        let saves = list_saves(&dir);
+        assert!(saves.is_empty());
+    }
+
+    #[test]
+    fn written_save_lists_back_ready() {
+        let dir = std::env::temp_dir().join("bevy-starter-written-save");
+        std::fs::create_dir_all(&dir).unwrap();
+
+        let mut session = Session::default();
+        session.play_secs = UNSAVED_GRACE_SECS * 2.0;
+        let name = "save";
+        write_save(&dir.join("ready.ron"), &mut session, name).unwrap();
+        assert!(!has_unsaved_progress(&session));
+
+        let saves = list_saves(&dir);
+        assert_eq!(saves.len(), 1);
+        let Some(SaveEntry::Ready(_, save)) = saves.first() else {
+            panic!("the written save did not list back as ready");
+        };
+        assert!((save.play_secs - session.play_secs).abs() < 0.001);
+        assert_eq!(save.name, name);
+    }
+
+    #[test]
+    fn save_is_written_into_a_missing_folder() {
+        let dir = std::env::temp_dir().join("bevy-starter-write-save-missing-folder");
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir).unwrap();
+        }
+
+        let mut session = Session::default();
+        session.play_secs = 123.4;
+        let name = "save";
+        write_save(&dir.join("ready.ron"), &mut session, name).unwrap();
+
+        let saves = list_saves(&dir);
+        assert_eq!(saves.len(), 1);
+        let Some(SaveEntry::Ready(_, save)) = saves.first() else {
+            panic!("the written save did not list back as ready");
+        };
+        assert!((save.play_secs - session.play_secs).abs() < 0.001);
+        assert_eq!(save.name, name);
     }
 }

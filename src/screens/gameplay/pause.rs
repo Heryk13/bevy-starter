@@ -41,6 +41,7 @@ pub(crate) enum Pause {
 #[derive(Component)]
 enum PauseAction {
     Resume,
+    Save,
     Settings,
     QuitToMenu,
     QuitToDesktop,
@@ -72,6 +73,7 @@ fn spawn_pause_menu(mut commands: Commands) {
         children![
             Text::new("Paused"),
             (button("Resume"), PauseAction::Resume),
+            (button("Save"), PauseAction::Save),
             (button("Settings"), PauseAction::Settings),
             (button("Quit to Menu"), PauseAction::QuitToMenu),
             (button("Quit to Desktop"), PauseAction::QuitToDesktop),
@@ -101,6 +103,9 @@ fn activate_pause_button(
         match action {
             PauseAction::Resume => {
                 next_pause.set(Pause::Off);
+            }
+            PauseAction::Save => {
+                next_overlay.set(Overlay::SaveGame);
             }
             PauseAction::Settings => {
                 next_overlay.set(Overlay::Settings);

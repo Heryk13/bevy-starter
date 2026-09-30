@@ -5,6 +5,7 @@ use crate::screens::gameplay::pause::Pause;
 use crate::ui::Dialog;
 
 mod credits;
+mod saves;
 mod settings;
 
 // ==== Config =================================================================
@@ -20,6 +21,7 @@ const OVERLAY_GAP_PX: f32 = 12.0;
 pub(super) fn plugin(app: &mut App) {
     app.init_state::<Overlay>();
     app.add_plugins(credits::plugin);
+    app.add_plugins(saves::plugin);
     app.add_plugins(settings::plugin);
     app.add_observer(close_overlay);
     app.add_systems(Update, go_back_on_esc);
@@ -54,6 +56,7 @@ pub(crate) enum Overlay {
     None,
     Credits,
     Settings,
+    SaveGame,
 }
 
 // ==== Components =============================================================

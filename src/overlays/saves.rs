@@ -1,0 +1,222 @@
+use bevy::prelude::*;
+use bevy::ui_widgets::Activate;
+use std::path::PathBuf;
+
+use super::CloseOverlay;
+use super::Overlay;
+use super::overlay_root;
+use crate::save::{
+    SaveData, SaveEntry, Session, list_saves, new_save_path, saves_dir, unix_now, write_save,
+};
+use crate::ui::{button, dialog};
+
+// ==== Config =================================================================
+
+const OVERWRITE_QUESTION: &str = "Overwrite this save?";
+
+// ==== Plugin =================================================================
+
+pub(super) fn plugin(app: &mut App) {
+    app.add_systems(OnEnter(Overlay::SaveGame), spawn_save_game_overlay);
+    app.add_observer(save_new_game);
+    app.add_observer(ask_to_overwrite_save);
+    app.add_observer(overwrite_save);
+}
+
+// ==== Components =============================================================
+
+/// Marks the button that writes the session to a save file of its own.
+#[derive(Component)]
+struct NewSave;
+
+/// Marks a row that asks to write the session over the save file it names.
+#[derive(Component)]
+struct OverwriteSave(PathBuf);
+
+/// Marks the Yes of `OVERWRITE_QUESTION`, with the save file to write over.
+#[derive(Component)]
+struct ConfirmOverwrite(PathBuf);
+
+// ==== Systems ================================================================
+
+/// Spawns the save game panel over the current screen, blocking clicks to it.
+fn spawn_save_game_overlay(mut commands: Commands) {
+    let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
+    let root = commands
+        .spawn((
+            overlay_root(),
+            children![Text::new("Save Game"), (button("New Save"), NewSave),],
+            DespawnOnExit(Overlay::SaveGame),
+        ))
+        .id();
+    let now_secs = unix_now().as_secs();
+    for entry in &saves {
+        match entry {
+            SaveEntry::Ready(path, save) => {
+                commands.spawn((
+                    button(&save_label(save, now_secs)),
+                    OverwriteSave(path.clone()),
+                    ChildOf(root),
+                ));
+            }
+            SaveEntry::Incompatible(_) => {
+                commands.spawn((Text::new("Incompatible Save"), ChildOf(root)));
+            }
+            SaveEntry::Unreadable(_) => {
+                commands.spawn((Text::new("Unreadable Save"), ChildOf(root)));
+            }
+        }
+    }
+    commands.spawn((button("Close"), CloseOverlay, ChildOf(root)));
+}
+
+/// Writes the session to a new save file when the "New Save" button is pressed, and closes
+/// the overlay only if the write worked.
+fn save_new_game(
+    activate: On<Activate>,
+    new_save_buttons: Query<(), With<NewSave>>,
+    mut next_overlay: ResMut<NextState<Overlay>>,
+    mut session: ResMut<Session>,
+) {
+    if new_save_buttons.contains(activate.entity) {
+        let Some(dir) = saves_dir() else {
+            return;
+        };
+        let path = new_save_path(&dir);
+        match write_save(&path, &mut session, "save") {
+            Ok(()) => next_overlay.set(Overlay::None),
+            Err(err) => error!("could not write the save: {err}"),
+        }
+    }
+}
+
+/// Asks `OVERWRITE_QUESTION` when a save's row is pressed, so one stray click never costs
+/// an older save.
+fn ask_to_overwrite_save(
+    activate: On<Activate>,
+    mut commands: Commands,
+    rows: Query<&OverwriteSave>,
+) {
+    if let Ok(OverwriteSave(path)) = rows.get(activate.entity) {
+        commands.spawn((
+            dialog(OVERWRITE_QUESTION, ConfirmOverwrite(path.clone())),
+            DespawnOnExit(Overlay::SaveGame),
+        ));
+    }
+}
+
+/// Writes the session over a save once `OVERWRITE_QUESTION` is answered Yes, and closes the
+/// overlay only if the write worked.
+fn overwrite_save(
+    activate: On<Activate>,
+    confirms: Query<&ConfirmOverwrite>,
+    mut next_overlay: ResMut<NextState<Overlay>>,
+    mut session: ResMut<Session>,
+) {
+    if let Ok(ConfirmOverwrite(path)) = confirms.get(activate.entity) {
+        match write_save(path, &mut session, "save") {
+            Ok(()) => next_overlay.set(Overlay::None),
+            Err(err) => error!("could not write the save: {err}"),
+        }
+    }
+}
+
+// ==== Helpers ================================================================
+
+/// Returns a save's label: its name, or a stand-in when the player gave none, then its play
+/// time and how long ago it was saved. A save dated after `now_secs`, from a clock that
+/// was set back, counts as saved just now.
+fn save_label(save: &SaveData, now_secs: u64) -> String {
+    let total_secs = save.play_secs as u64;
+    let hours = total_secs / 3600;
+    let minutes = (total_secs % 3600) / 60;
+    let age_secs = now_secs.saturating_sub(save.saved_at_secs);
+    let name = if save.name.is_empty() {
+        "Unnamed"
+    } else {
+        &save.name
+    };
+    format!(
+        "{name} · {hours}h {minutes:02}m played · {} ago",
+        age_label(age_secs)
+    )
+}
+
+/// Returns an age in its largest whole unit: seconds, minutes, hours or days. Abbreviated,
+/// so no unit needs a singular and a plural.
+fn age_label(age_secs: u64) -> String {
+    if age_secs < 60 {
+        format!("{}s", age_secs)
+    } else if age_secs < 3600 {
+        format!("{}m", age_secs / 60)
+    } else if age_secs < 86400 {
+        format!("{}h", age_secs / 3600)
+    } else {
+        format!("{}d", age_secs / 86400)
+    }
+}
+
+// ==== Tests ==================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn label_shows_hours_and_padded_minutes() {
+        let save = SaveData {
+            play_secs: 3661.0,
+            version: 0,
+            name: String::new(),
+            saved_at_secs: 0,
+        };
+        let label = save_label(&save, 0);
+        assert_eq!(label, "Unnamed · 1h 01m played · 0s ago");
+    }
+
+    #[test]
+    fn label_starts_with_the_save_name() {
+        let save = SaveData {
+            play_secs: 3661.0,
+            version: 0,
+            name: String::from("Castle"),
+            saved_at_secs: 0,
+        };
+        let label = save_label(&save, 0);
+        assert_eq!(label, "Castle · 1h 01m played · 0s ago");
+    }
+
+    #[test]
+    fn save_dated_in_the_future_was_saved_zero_seconds_ago() {
+        let save = SaveData {
+            play_secs: 0.0,
+            version: 0,
+            name: String::new(),
+            saved_at_secs: 2 * 86400,
+        };
+        let label = save_label(&save, 86400);
+        assert_eq!(label, "Unnamed · 0h 00m played · 0s ago");
+    }
+
+    // ---- age_label: one test per unit, each well inside its range -----------
+
+    #[test]
+    fn age_under_a_minute_is_in_seconds() {
+        assert_eq!(age_label(30), "30s");
+    }
+
+    #[test]
+    fn age_under_an_hour_is_in_minutes() {
+        assert_eq!(age_label(5 * 60), "5m");
+    }
+
+    #[test]
+    fn age_under_a_day_is_in_hours() {
+        assert_eq!(age_label(3 * 3600), "3h");
+    }
+
+    #[test]
+    fn age_of_a_day_or_more_is_in_days() {
+        assert_eq!(age_label(2 * 86400), "2d");
+    }
+}

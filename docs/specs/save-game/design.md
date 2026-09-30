@@ -646,3 +646,12 @@ One commit per step.
     checkbox uses, so the two can never disagree.
 12. **Saving the settings creates the data folder first.** On the first run it does not exist,
     and `write_atomic` only writes files. Each of the two steps logs its own failure.
+13. **Players name their saves, and the name lives inside the file.** `SaveData` gains
+    `name: String`, typed in a text field (`EditableText`, which Bevy 0.19 ships in
+    `bevy_ui_widgets`) when making a new save; an empty name shows a default in the list.
+    The file name stays a unique id the player never sees: a typed name in the file name
+    would fail on characters Windows forbids (`\ / : * ? " < > |`) and on reserved names
+    (`CON`, `NUL`), and two saves with the same name would silently become one file.
+14. **Save files are named `save_<millis>.ron`**, not just the number, so they read apart
+    from `autosave.ron` in the folder. There is still no date in it: `std` has no time zone,
+    and the list already shows the age.
