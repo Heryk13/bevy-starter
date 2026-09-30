@@ -174,7 +174,7 @@ same shape as the menu's:
 | Button | What it does |
 | --- | --- |
 | Resume | sets `Pause::Off` |
-| Save | sets `Overlay::SaveGame`, drawn above the pause menu |
+| Save | sets `Overlay::SaveGame`, drawn above the pause menu; how the save went shows under the buttons |
 | Settings | sets `Overlay::Settings`, drawn above the pause menu |
 | Quit to Menu | sets `Screen::Menu`, or asks first when `has_unsaved_progress`; `Pause` goes with the screen |
 | Quit to Desktop | writes `AppExit::Success`, or asks first when `has_unsaved_progress` |
@@ -216,8 +216,13 @@ without it the pause buttons would show through.
   | a save's row | `ask_to_overwrite_save` | spawns "Overwrite this save?", its Yes carrying `ConfirmOverwrite(path)` |
   | that Yes | `overwrite_save` | writes the session over that file |
 
-  Both writes go through `write_save`, and the overlay closes only when it returns `Ok`; a failed
-  write is logged with `error!` and leaves the list open. The dialog carries
+  Both writes go through `save_status`, which calls `write_save` and returns `SAVED_TEXT` or
+  `SAVE_FAILED_TEXT`, logging the reason with `error!` on a failure. Either way the overlay
+  closes and the text lands on the pause menu's status line, a `Text` marked `SaveStatus` that
+  `pause.rs` spawns empty; no data folder at all counts as a failure too. Writing the line also
+  sets its `shown_secs` to zero, and `fade_save_status` in `pause.rs` shows it at once, holds it
+  and fades it out by `STATUS_FADE`, counting `Time<Real>` because virtual time is frozen while
+  paused. The dialog carries
   `DespawnOnExit(Overlay::SaveGame)`, so it cannot outlive the list.
 
 **Closing.** No panel owns its Close button's behaviour. Each spawns `(button("Close"),

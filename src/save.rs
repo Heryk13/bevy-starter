@@ -41,15 +41,22 @@ pub(crate) struct SaveData {
 /// One file in the saves folder, as far as the game could make sense of it.
 pub(crate) enum SaveEntry {
     Ready(PathBuf, SaveData),
-    // `expect` fails the build the day these paths are read, so it cannot outlive its reason
-    #[expect(
-        dead_code,
-        reason = "only deleting reads this path, and it is not built yet"
+    // `expect` fails the build the day these paths are read, so it cannot outlive its reason;
+    // the tests already read them, so it only applies outside tests
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "only deleting reads this path, and it is not built yet"
+        )
     )]
     Incompatible(PathBuf),
-    #[expect(
-        dead_code,
-        reason = "only deleting reads this path, and it is not built yet"
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "only deleting reads this path, and it is not built yet"
+        )
     )]
     Unreadable(PathBuf),
 }

@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
+use crate::fade::Fade;
 use crate::overlays::Overlay;
 use crate::save::{Session, has_unsaved_progress};
 use crate::screens::Screen;
@@ -14,6 +15,15 @@ const BACKDROP_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
 
 const QUIT_QUESTION: &str = "Quit without saving?";
 
+// no delay and no fade in, so the player learns how the save went at once; only the
+// leaving is gentle
+const STATUS_FADE: Fade = Fade {
+    delay_secs: 0.0,
+    fade_in_secs: 0.0,
+    hold_secs: 2.0,
+    fade_out_secs: 0.2,
+};
+
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
@@ -22,6 +32,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnExit(Pause::On), unpause_time);
     app.add_observer(activate_pause_button);
     app.add_observer(confirm_quit);
+    app.add_systems(Update, fade_save_status.run_if(in_state(Pause::On)));
 }
 
 // ==== State ==================================================================
@@ -57,6 +68,13 @@ enum QuitTo {
 #[derive(Component)]
 struct ConfirmQuit(QuitTo);
 
+/// Marks the pause menu's line of text that says how the last save went, with how long it
+/// has been shown. Whoever writes the line sets `shown_secs` back to zero.
+#[derive(Component)]
+pub(crate) struct SaveStatus {
+    pub(crate) shown_secs: f32,
+}
+
 // ==== Systems ================================================================
 
 /// Spawns the pause menu over a backdrop that dims the frozen game and blocks clicks to it.
@@ -77,6 +95,7 @@ fn spawn_pause_menu(mut commands: Commands) {
             (button("Settings"), PauseAction::Settings),
             (button("Quit to Menu"), PauseAction::QuitToMenu),
             (button("Quit to Desktop"), PauseAction::QuitToDesktop),
+            (Text::new(""), SaveStatus { shown_secs: 0.0 }),
         ],
         BackgroundColor(BACKDROP_COLOR),
         PAUSE_Z_INDEX,
@@ -150,6 +169,18 @@ fn confirm_quit(
                 commands.write_message(AppExit::Success);
             }
         }
+    }
+}
+
+/// Fades the save status line out by `STATUS_FADE`. It counts real time, because virtual
+/// time is frozen while paused and a line timed by it would never leave.
+fn fade_save_status(time: Res<Time<Real>>, mut statuses: Query<(&mut SaveStatus, &mut TextColor)>) {
+    for (mut status, mut color) in &mut statuses {
+        status.shown_secs += time.delta_secs();
+        if status.shown_secs > STATUS_FADE.total_secs() {
+            status.shown_secs = STATUS_FADE.total_secs();
+        }
+        color.0.set_alpha(STATUS_FADE.alpha(status.shown_secs));
     }
 }
 

@@ -671,9 +671,18 @@ One commit per step.
     `children![]` cannot hold a list whose length is only known at run time, and a loop with
     a `match` per `SaveEntry` reads plainer than an iterator of bundles. Close is spawned after
     the loop so it stays at the bottom.
-20. **Step 5 is committed without four of its parts**, which come next: the `EditableText`
-    field for the name (every save is named `save` for now), "Saved" and "Could not save" on
-    the pause menu (a failed write is only logged), `ScrollArea` around the rows, and a
-    message when the OS gives no data folder (New Save does nothing then). The paths inside
-    `SaveEntry::Incompatible` and `Unreadable` carry `#[expect(dead_code)]` until step 8
-    reads them to delete.
+20. **Step 5 is committed in parts.** Still to come: the `EditableText` field for the name
+    (every save is named `save` for now) and `ScrollArea` around the rows. The paths inside
+    `SaveEntry::Incompatible` and `Unreadable` carry `#[expect(dead_code)]`, outside tests,
+    until step 8 reads them to delete.
+21. **A failed save also closes the list, and both outcomes show on the pause menu.** The
+    design put "Could not save" in the Save list, but the list sits over the pause menu, and
+    staying open after a failure offers nothing: trying again hits the same full disk. So
+    the overlay closes either way and the pause menu's `SaveStatus` line reads "Saved
+    successfully." or "Failed to save.". No data folder at all is the same failure. The
+    choice between the two texts is `save_status`, shared by New Save and overwrite.
+22. **The status line fades out after all, on real time.** The design ruled out a timed line
+    because a `Timer` on `Res<Time>` never finishes while paused. `Time<Real>` keeps running
+    there, so `fade_save_status` counts it into `SaveStatus::shown_secs` and applies
+    `STATUS_FADE`: no delay and no fade in, so the news is instant, then 3 s held and 0.5 s
+    out. Writing the line sets `shown_secs` back to zero.

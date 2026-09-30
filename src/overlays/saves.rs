@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::CloseOverlay;
 use super::Overlay;
@@ -8,11 +8,14 @@ use super::overlay_root;
 use crate::save::{
     SaveData, SaveEntry, Session, list_saves, new_save_path, saves_dir, unix_now, write_save,
 };
+use crate::screens::gameplay::pause::SaveStatus;
 use crate::ui::{button, dialog};
 
 // ==== Config =================================================================
 
 const OVERWRITE_QUESTION: &str = "Overwrite this save?";
+const SAVED_TEXT: &str = "Saved successfully.";
+const SAVE_FAILED_TEXT: &str = "Failed to save.";
 
 // ==== Plugin =================================================================
 
@@ -70,23 +73,28 @@ fn spawn_save_game_overlay(mut commands: Commands) {
     commands.spawn((button("Close"), CloseOverlay, ChildOf(root)));
 }
 
-/// Writes the session to a new save file when the "New Save" button is pressed, and closes
-/// the overlay only if the write worked.
+/// Writes the session to a new save file when the "New Save" button is pressed, then closes
+/// the overlay either way, so the pause menu's status line says how it went.
 fn save_new_game(
     activate: On<Activate>,
     new_save_buttons: Query<(), With<NewSave>>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     mut session: ResMut<Session>,
+    mut statuses: Query<(&mut Text, &mut SaveStatus)>,
 ) {
     if new_save_buttons.contains(activate.entity) {
-        let Some(dir) = saves_dir() else {
-            return;
+        let status = match saves_dir() {
+            Some(dir) => {
+                let path = new_save_path(&dir);
+                save_status(&path, &mut session)
+            }
+            None => SAVE_FAILED_TEXT,
         };
-        let path = new_save_path(&dir);
-        match write_save(&path, &mut session, "save") {
-            Ok(()) => next_overlay.set(Overlay::None),
-            Err(err) => error!("could not write the save: {err}"),
+        for (mut text, mut line) in &mut statuses {
+            text.0 = String::from(status);
+            line.shown_secs = 0.0;
         }
+        next_overlay.set(Overlay::None);
     }
 }
 
@@ -105,19 +113,22 @@ fn ask_to_overwrite_save(
     }
 }
 
-/// Writes the session over a save once `OVERWRITE_QUESTION` is answered Yes, and closes the
-/// overlay only if the write worked.
+/// Writes the session over a save once `OVERWRITE_QUESTION` is answered Yes, then closes the
+/// overlay either way, so the pause menu's status line says how it went.
 fn overwrite_save(
     activate: On<Activate>,
     confirms: Query<&ConfirmOverwrite>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     mut session: ResMut<Session>,
+    mut statuses: Query<(&mut Text, &mut SaveStatus)>,
 ) {
     if let Ok(ConfirmOverwrite(path)) = confirms.get(activate.entity) {
-        match write_save(path, &mut session, "save") {
-            Ok(()) => next_overlay.set(Overlay::None),
-            Err(err) => error!("could not write the save: {err}"),
+        let status = save_status(path, &mut session);
+        for (mut text, mut line) in &mut statuses {
+            text.0 = String::from(status);
+            line.shown_secs = 0.0;
         }
+        next_overlay.set(Overlay::None);
     }
 }
 
@@ -153,6 +164,18 @@ fn age_label(age_secs: u64) -> String {
         format!("{}h", age_secs / 3600)
     } else {
         format!("{}d", age_secs / 86400)
+    }
+}
+
+/// Writes the session to `path` and returns the line that tells the player how it went,
+/// logging the reason when it failed.
+fn save_status(path: &Path, session: &mut Session) -> &'static str {
+    match write_save(path, session, "save") {
+        Ok(()) => SAVED_TEXT,
+        Err(err) => {
+            error!("could not write the save: {err}");
+            SAVE_FAILED_TEXT
+        }
     }
 }
 
