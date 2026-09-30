@@ -1,6 +1,6 @@
 # Saving and loading games, and the pause menu that needs them
 
-Status: **in progress** — steps 1 to 4 built, step 5 partly (see item 20 at the bottom).
+Status: **in progress** — steps 1 to 5 built.
 Anything still bothering us is settled while building it, and recorded at the bottom under
 "What changed while building it".
 Date: 2026-09-23
@@ -671,11 +671,11 @@ One commit per step.
     `children![]` cannot hold a list whose length is only known at run time, and a loop with
     a `match` per `SaveEntry` reads plainer than an iterator of bundles. Close is spawned after
     the loop so it stays at the bottom.
-20. **Step 5 is committed in parts.** Still to come: the `EditableText` field for the name
-    (every save is named `save` for now). The rows scroll inside their own column, so the
-    title, New Save and Close stay in view however many saves there are. The paths inside
-    `SaveEntry::Incompatible` and `Unreadable` carry `#[expect(dead_code)]`, outside tests,
-    until step 8 reads them to delete.
+20. **Step 5 was committed in parts**, each passing `just check`: saving, the status line,
+    the scrolling list and the name field. The rows scroll inside their own column, so the
+    title, the name field, New Save and Close stay in view however many saves there are.
+    The paths inside `SaveEntry::Incompatible` and `Unreadable` carry
+    `#[expect(dead_code)]`, outside tests, until step 8 reads them to delete.
 21. **A failed save also closes the list, and both outcomes show on the pause menu.** The
     design put "Could not save" in the Save list, but the list sits over the pause menu, and
     staying open after a failure offers nothing: trying again hits the same full disk. So
@@ -687,3 +687,13 @@ One commit per step.
     there, so `fade_save_status` counts it into `SaveStatus::shown_secs` and applies
     `STATUS_FADE`: no delay and no fade in, so the news is instant, then 3 s held and 0.5 s
     out. Writing the line sets `shown_secs` back to zero.
+23. **The name field names new saves only.** New Save reads the `SaveName` field, trims its
+    outer spaces (so a name of only spaces lists as `Unnamed`), and writes it. Overwriting
+    keeps the save's own name: the row's `OverwriteSave(path, name)` hands it to the Yes's
+    `ConfirmOverwrite(path, name)`, since overwriting means "bring this save up to date",
+    not "make a new one here".
+24. **The field needs a `TextCursorStyle` to show a cursor.** `EditableText` is headless and
+    the cursor style is optional, so without one the text is typed with no cursor at all;
+    its default colour is a dark grey that would vanish on the backdrop anyway, so the field
+    sets it white. The field is capped at `SAVE_NAME_MAX_CHARS` (20), because a longer name
+    pushes its row's label past the edge of the list's fixed-width buttons.

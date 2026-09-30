@@ -202,22 +202,26 @@ without it the pause buttons would show through.
   `GlobalVolume` stay the only copy of the state; the file is read from them and written back to
   them. A missing, unreadable or other-version file keeps the defaults silently, since
   `parse_settings` returns `None` for all three; a failed write is logged with `error!`.
-- **Save Game** (`src/overlays/saves.rs`): a New Save button, then one row per file in the saves
-  folder, then Close. The folder is read once, on `OnEnter(Overlay::SaveGame)`. The rows are
-  spawned in a `for` with `ChildOf(list)`, because `children![]` only holds a list known when the
-  code is written; Close is spawned after them for the same reason, so it ends up last. `list`
-  is a column capped at `SAVE_LIST_MAX_HEIGHT_PX` with `Overflow::scroll_y()` and `ScrollArea`,
-  so the mouse wheel scrolls the rows while the title, New Save and Close stay put; it reuses
-  `OVERLAY_GAP_PX`, since the panel's own gap only spaces its direct children. A save
+- **Save Game** (`src/overlays/saves.rs`): a name field, a New Save button, then one row per file
+  in the saves folder, then Close. The field is an `EditableText` marked `SaveName`, capped at
+  `SAVE_NAME_MAX_CHARS`; the widget is headless, so the field's own `BackgroundColor` and a
+  `TextCursorStyle` are what make it visible, and without the latter no cursor is drawn.
+
+  The folder is read once, on `OnEnter(Overlay::SaveGame)`. The rows are spawned in a `for`
+  with `ChildOf(list)`, because `children![]` only holds a list known when the code is
+  written; Close is spawned after them for the same reason, so it ends up last. `list` is a
+  column capped at `SAVE_LIST_MAX_HEIGHT_PX` with `Overflow::scroll_y()` and `ScrollArea`, so
+  the mouse wheel scrolls the rows while the title, the field, New Save and Close stay put; it
+  reuses `OVERLAY_GAP_PX`, since the panel's own gap only spaces its direct children. A save
   the game can read is a button labelled by `save_label`, a pure function:
   `Castle · 1h 01m played · 3d ago`. An incompatible or unreadable file is plain text, so nothing
   that looks clickable does nothing.
 
   | Press | Observer | What it does |
   | --- | --- | --- |
-  | New Save | `save_new_game` | writes the session to a new `save_<millis>.ron` |
-  | a save's row | `ask_to_overwrite_save` | spawns "Overwrite this save?", its Yes carrying `ConfirmOverwrite(path)` |
-  | that Yes | `overwrite_save` | writes the session over that file |
+  | New Save | `save_new_game` | writes the session to a new `save_<millis>.ron`, named by the field, trimmed |
+  | a save's row | `ask_to_overwrite_save` | spawns "Overwrite this save?", its Yes carrying `ConfirmOverwrite(path, name)` |
+  | that Yes | `overwrite_save` | writes the session over that file, keeping the save's own name |
 
   Both writes go through `save_status`, which calls `write_save` and returns `SAVED_TEXT` or
   `SAVE_FAILED_TEXT`, logging the reason with `error!` on a failure. Either way the overlay

@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::text::{EditableText, TextCursorStyle};
 use bevy::ui_widgets::{Activate, ScrollArea};
 use std::path::{Path, PathBuf};
 
@@ -20,6 +21,16 @@ const SAVE_FAILED_TEXT: &str = "Failed to save.";
 
 const SAVE_LIST_MAX_HEIGHT_PX: f32 = 300.0;
 
+// `EditableText` draws no box, and no cursor without a `TextCursorStyle`, so these are what
+// show where to click and where the next letter goes; the default cursor is a dark grey that
+// vanishes on the backdrop
+const SAVE_NAME_WIDTH_PX: f32 = 300.0;
+const SAVE_NAME_PADDING_PX: f32 = 6.0;
+const SAVE_NAME_BACKGROUND: Color = Color::srgba(1.0, 1.0, 1.0, 0.1);
+const SAVE_NAME_CURSOR_COLOR: Color = Color::WHITE;
+// a longer name pushes its row's label past the edge of the button in the list
+const SAVE_NAME_MAX_CHARS: usize = 20;
+
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
@@ -35,13 +46,18 @@ pub(super) fn plugin(app: &mut App) {
 #[derive(Component)]
 struct NewSave;
 
-/// Marks a row that asks to write the session over the save file it names.
+/// Marks a row that asks to write the session over a save file, with that file and the
+/// save's name, which overwriting keeps.
 #[derive(Component)]
-struct OverwriteSave(PathBuf);
+struct OverwriteSave(PathBuf, String);
 
-/// Marks the Yes of `OVERWRITE_QUESTION`, with the save file to write over.
+/// Marks the Yes of `OVERWRITE_QUESTION`, with the save file to write over and its name.
 #[derive(Component)]
-struct ConfirmOverwrite(PathBuf);
+struct ConfirmOverwrite(PathBuf, String);
+
+/// Marks the text field where the player names a new save.
+#[derive(Component)]
+struct SaveName;
 
 // ==== Systems ================================================================
 
@@ -51,7 +67,27 @@ fn spawn_save_game_overlay(mut commands: Commands) {
     let root = commands
         .spawn((
             overlay_root(),
-            children![Text::new("Save Game"), (button("New Save"), NewSave),],
+            children![
+                Text::new("Save Game"),
+                (
+                    EditableText {
+                        max_characters: Some(SAVE_NAME_MAX_CHARS),
+                        ..default()
+                    },
+                    SaveName,
+                    TextCursorStyle {
+                        color: SAVE_NAME_CURSOR_COLOR,
+                        ..default()
+                    },
+                    Node {
+                        padding: UiRect::all(px(SAVE_NAME_PADDING_PX)),
+                        width: px(SAVE_NAME_WIDTH_PX),
+                        ..default()
+                    },
+                    BackgroundColor(SAVE_NAME_BACKGROUND),
+                ),
+                (button("New Save"), NewSave),
+            ],
             DespawnOnExit(Overlay::SaveGame),
         ))
         .id();
@@ -74,7 +110,7 @@ fn spawn_save_game_overlay(mut commands: Commands) {
             SaveEntry::Ready(path, save) => {
                 commands.spawn((
                     button(&save_label(save, now_secs)),
-                    OverwriteSave(path.clone()),
+                    OverwriteSave(path.clone(), save.name.clone()),
                     ChildOf(list),
                 ));
             }
@@ -89,20 +125,26 @@ fn spawn_save_game_overlay(mut commands: Commands) {
     commands.spawn((button("Close"), CloseOverlay, ChildOf(root)));
 }
 
-/// Writes the session to a new save file when the "New Save" button is pressed, then closes
-/// the overlay either way, so the pause menu's status line says how it went.
+/// Writes the session to a new save file when the "New Save" button is pressed, named by the
+/// text field without its outer spaces, then closes the overlay either way, so the pause
+/// menu's status line says how it went.
 fn save_new_game(
     activate: On<Activate>,
     new_save_buttons: Query<(), With<NewSave>>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     mut session: ResMut<Session>,
     mut statuses: Query<(&mut Text, &mut SaveStatus)>,
+    names: Query<&EditableText, With<SaveName>>,
 ) {
     if new_save_buttons.contains(activate.entity) {
+        let name = names
+            .single()
+            .map(|field| field.value().to_string())
+            .unwrap_or_default();
         let status = match saves_dir() {
             Some(dir) => {
                 let path = new_save_path(&dir);
-                save_status(&path, &mut session)
+                save_status(&path, &mut session, &name)
             }
             None => SAVE_FAILED_TEXT,
         };
@@ -121,16 +163,20 @@ fn ask_to_overwrite_save(
     mut commands: Commands,
     rows: Query<&OverwriteSave>,
 ) {
-    if let Ok(OverwriteSave(path)) = rows.get(activate.entity) {
+    if let Ok(OverwriteSave(path, name)) = rows.get(activate.entity) {
         commands.spawn((
-            dialog(OVERWRITE_QUESTION, ConfirmOverwrite(path.clone())),
+            dialog(
+                OVERWRITE_QUESTION,
+                ConfirmOverwrite(path.clone(), name.clone()),
+            ),
             DespawnOnExit(Overlay::SaveGame),
         ));
     }
 }
 
-/// Writes the session over a save once `OVERWRITE_QUESTION` is answered Yes, then closes the
-/// overlay either way, so the pause menu's status line says how it went.
+/// Writes the session over a save once `OVERWRITE_QUESTION` is answered Yes, keeping the
+/// save's name rather than the text field's, then closes the overlay either way, so the
+/// pause menu's status line says how it went.
 fn overwrite_save(
     activate: On<Activate>,
     confirms: Query<&ConfirmOverwrite>,
@@ -138,8 +184,8 @@ fn overwrite_save(
     mut session: ResMut<Session>,
     mut statuses: Query<(&mut Text, &mut SaveStatus)>,
 ) {
-    if let Ok(ConfirmOverwrite(path)) = confirms.get(activate.entity) {
-        let status = save_status(path, &mut session);
+    if let Ok(ConfirmOverwrite(path, name)) = confirms.get(activate.entity) {
+        let status = save_status(path, &mut session, name.trim());
         for (mut text, mut line) in &mut statuses {
             text.0 = String::from(status);
             line.shown_secs = 0.0;
@@ -185,8 +231,8 @@ fn age_label(age_secs: u64) -> String {
 
 /// Writes the session to `path` and returns the line that tells the player how it went,
 /// logging the reason when it failed.
-fn save_status(path: &Path, session: &mut Session) -> &'static str {
-    match write_save(path, session, "save") {
+fn save_status(path: &Path, session: &mut Session, name: &str) -> &'static str {
+    match write_save(path, session, name) {
         Ok(()) => SAVED_TEXT,
         Err(err) => {
             error!("could not write the save: {err}");
