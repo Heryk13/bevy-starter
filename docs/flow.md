@@ -38,6 +38,8 @@ overlay opened over it closes.
         +--[Settings button]--> Overlay::Settings --+
         |                                           +--> Close button / Esc --> None
         +--[Credits button]---> Overlay::Credits ---+
+        |                                           |
+        +--[Save button]------> Overlay::SaveGame --+   (pause menu only; a save closes it too)
 ```
 
 The overlay is drawn over whatever screen is below, and that screen keeps running: entering
@@ -53,13 +55,14 @@ That is why the menu music keeps playing while Settings is open.
         v
   Pause::On --[Resume] / Esc -------------> Pause::Off
         |
+        +--[Save]------------> Overlay::SaveGame --Close / Esc / a save--> back to Pause::On
         +--[Settings]--------> Overlay::Settings --Close / Esc--> back to Pause::On
         +--[Quit to Menu]----> (dialog, if progress is unsaved) --Yes--> Screen::Menu
         +--[Quit to Desktop]-> (dialog, if progress is unsaved) --Yes--> AppExit::Success
 ```
 
-A dialog is not a state: it is an entity drawn over the pause menu, and No or Esc despawns it and
-leaves the pause menu as it was.
+A dialog is not a state: it is an entity drawn over whatever asked the question, the pause menu
+or the save list, and No or Esc despawns it and leaves what is underneath as it was.
 
 `Pause` is a `SubStates` of `Screen::Gameplay`: it only exists while gameplay does. Leaving
 gameplay removes it, so the next game starts unpaused without any code resetting it, and its
@@ -171,6 +174,7 @@ same shape as the menu's:
 | Button | What it does |
 | --- | --- |
 | Resume | sets `Pause::Off` |
+| Save | sets `Overlay::SaveGame`, drawn above the pause menu |
 | Settings | sets `Overlay::Settings`, drawn above the pause menu |
 | Quit to Menu | sets `Screen::Menu`, or asks first when `has_unsaved_progress`; `Pause` goes with the screen |
 | Quit to Desktop | writes `AppExit::Success`, or asks first when `has_unsaved_progress` |
@@ -182,7 +186,7 @@ not count, so quitting right after starting never asks.
 
 ## Overlays
 
-Both panels follow the same three lines: spawn on `OnEnter(Overlay::X)`, build on
+Every panel follows the same three lines: spawn on `OnEnter(Overlay::X)`, build on
 `overlay_root()`, and carry `DespawnOnExit(Overlay::X)`. `overlay_root()` in `src/overlays.rs` is
 the full-window node every overlay shares: centred column, the row gap, a dark backdrop and
 `OVERLAY_Z_INDEX`. The backdrop is there because an overlay can now open over the pause menu, and
@@ -198,8 +202,25 @@ without it the pause buttons would show through.
   `GlobalVolume` stay the only copy of the state; the file is read from them and written back to
   them. A missing, unreadable or other-version file keeps the defaults silently, since
   `parse_settings` returns `None` for all three; a failed write is logged with `error!`.
+- **Save Game** (`src/overlays/saves.rs`): a New Save button, then one row per file in the saves
+  folder, then Close. The folder is read once, on `OnEnter(Overlay::SaveGame)`. The rows are
+  spawned in a `for` with `ChildOf(root)`, because `children![]` only holds a list known when the
+  code is written; Close is spawned after them for the same reason, so it ends up last. A save
+  the game can read is a button labelled by `save_label`, a pure function:
+  `Castle · 1h 01m played · 3d ago`. An incompatible or unreadable file is plain text, so nothing
+  that looks clickable does nothing.
 
-**Closing.** Neither panel owns its Close button's behaviour. Both spawn `(button("Close"),
+  | Press | Observer | What it does |
+  | --- | --- | --- |
+  | New Save | `save_new_game` | writes the session to a new `save_<millis>.ron` |
+  | a save's row | `ask_to_overwrite_save` | spawns "Overwrite this save?", its Yes carrying `ConfirmOverwrite(path)` |
+  | that Yes | `overwrite_save` | writes the session over that file |
+
+  Both writes go through `write_save`, and the overlay closes only when it returns `Ok`; a failed
+  write is logged with `error!` and leaves the list open. The dialog carries
+  `DespawnOnExit(Overlay::SaveGame)`, so it cannot outlive the list.
+
+**Closing.** No panel owns its Close button's behaviour. Each spawns `(button("Close"),
 CloseOverlay)`, and the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None`
 when the activated entity carries the marker. `go_back_on_esc` is the second way out, and it holds
 the whole "go back" rule in one place, first match wins:
@@ -244,7 +265,7 @@ Four files at the top of `src/`, each named after its domain, each used by more 
 | `src/ui.rs` | `button()`, `dialog()`, the palette, `paint_buttons`, `play_button_sounds`, `close_dialog` | buttons in every screen; saves, deleting and quitting all ask questions |
 | `src/fade.rs` | the `Fade` struct and `alpha()` | the splash, the menu veil and the slideshow |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
-| `src/save.rs` | `Session`, `has_unsaved_progress()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time, the pause menu asks before quitting, settings are written to disk; saves arrive later |
+| `src/save.rs` | `Session`, `has_unsaved_progress()`, `SaveData`, `SaveEntry`, `list_saves()`, `write_save()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time, the pause menu asks before quitting, the save list reads and writes saves, settings are written to disk |
 
 **`src/ui.rs`** hands out the button bundle and paints every button in the app from `Hovered` and
 `Has<Pressed>`. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
@@ -271,6 +292,15 @@ per-user data folder of each OS plus the package name, and takes the environment
 so the tests can hand it Windows, Linux and macOS on any machine; `game_data_dir()` calls it
 with the real ones. `write_atomic` writes to a `.tmp` beside the target and renames it over, so
 a crash mid-write leaves the old file whole, and it is tested against a real temporary folder.
+
+Saves are one RON file each in `saves/` inside that data folder, named `save_<millis>.ron`.
+`SaveData` is what a file holds: a version, the player's name for it, when it was saved and the
+play time. `list_saves` returns a `SaveEntry` for every `.ron` file there, `Ready`, `Incompatible`
+(another `SAVE_VERSION`) or `Unreadable`, so the list can show a file it cannot load instead of
+hiding it; the sorting into those three is `parse_save`, a pure function over the file's text.
+`write_save` is the one way a save reaches the disk: it creates the folder when it is missing,
+writes through `write_atomic`, and only then sets `saved_play_secs`, so a failed write still
+counts as unsaved progress.
 
 **The dialog** in `src/ui.rs` answers "Yes or No?" for any feature without knowing what it asks.
 `dialog(question, on_yes)` returns the bundle; both buttons carry `CloseDialog`, and the Yes also

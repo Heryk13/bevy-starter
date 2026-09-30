@@ -1,7 +1,8 @@
 # Saving and loading games, and the pause menu that needs them
 
-Status: **in progress** — steps 1 to 4 built. Anything still bothering us is settled while
-building it, and recorded at the bottom under "What changed while building it".
+Status: **in progress** — steps 1 to 4 built, step 5 partly (see item 20 at the bottom).
+Anything still bothering us is settled while building it, and recorded at the bottom under
+"What changed while building it".
 Date: 2026-09-23
 Bevy: 0.19.1
 
@@ -655,3 +656,24 @@ One commit per step.
 14. **Save files are named `save_<millis>.ron`**, not just the number, so they read apart
     from `autosave.ron` in the folder. There is still no date in it: `std` has no time zone,
     and the list already shows the age.
+15. **`write_save` does the whole save, not just the file.** It takes `&mut Session`, creates
+    the saves folder when it is missing, and sets `saved_play_secs` only after `write_atomic`
+    succeeds. Saving by hand and the autosave both go through it, so neither can forget the
+    folder or mark a failed write as saved.
+16. **The age is abbreviated: `3d ago`, not "3 days ago".** `age_label` returns `30s`, `5m`,
+    `3h` or `2d`, so no unit needs a singular and a plural, and it matches `2h 05m` beside it.
+    There is no "just now": under a minute shows the seconds.
+17. **The label starts with the save's name**: `Castle · 1h 01m played · 3d ago`, with
+    `Unnamed` for an empty one. The name is what the player looks for, so it comes first.
+18. **An incompatible or unreadable save is plain text, not a greyed button.** A button
+    changes colour under the mouse and promises a click; text does not.
+19. **The rows are spawned with `ChildOf(root)` in a `for`**, not through `SpawnIter`:
+    `children![]` cannot hold a list whose length is only known at run time, and a loop with
+    a `match` per `SaveEntry` reads plainer than an iterator of bundles. Close is spawned after
+    the loop so it stays at the bottom.
+20. **Step 5 is committed without four of its parts**, which come next: the `EditableText`
+    field for the name (every save is named `save` for now), "Saved" and "Could not save" on
+    the pause menu (a failed write is only logged), `ScrollArea` around the rows, and a
+    message when the OS gives no data folder (New Save does nothing then). The paths inside
+    `SaveEntry::Incompatible` and `Unreadable` carry `#[expect(dead_code)]` until step 8
+    reads them to delete.

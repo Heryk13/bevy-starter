@@ -40,6 +40,7 @@ src/
   overlays.rs       Overlay state and overlay plugins
   overlays/
     credits.rs      credits panel
+    saves.rs        the list of saved games: new save, or overwrite one
     settings.rs     fullscreen toggle and volume slider, remembered in settings.ron
   screens.rs        Screen state and screen plugins
   screens/
@@ -52,7 +53,7 @@ src/
     gameplay.rs     the game itself, empty so far
     gameplay/
       pause.rs      pause state and pause menu, freezing game time
-  save.rs           the game in progress, the data folder and safe file writes
+  save.rs           the game in progress, save files, the data folder and safe file writes
   ui.rs             the button and dialog widgets and the button sounds, shared
 docs/
   template.md       this file: turning the template into a game
