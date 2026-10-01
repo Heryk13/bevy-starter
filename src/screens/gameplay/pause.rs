@@ -2,6 +2,7 @@ use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
 use crate::fade::Fade;
+use crate::i18n::Localized;
 use crate::overlays::Overlay;
 use crate::save::{Session, has_unsaved_progress};
 use crate::screens::Screen;
@@ -13,7 +14,8 @@ use crate::ui::{button, dialog};
 const PAUSE_Z_INDEX: GlobalZIndex = GlobalZIndex(50);
 const BACKDROP_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
 
-const QUIT_QUESTION: &str = "Quit without saving?";
+// translation key
+const QUIT_QUESTION: &str = "dialog-quit-without-saving";
 
 // no delay and no fade in, so the player learns how the save went at once; only the
 // leaving is gentle
@@ -90,13 +92,13 @@ fn spawn_pause_menu(mut commands: Commands) {
             ..default()
         },
         children![
-            Text::new("Paused"),
-            (button("Resume"), PauseAction::Resume),
-            (button("Save"), PauseAction::Save),
-            (button("Load Game"), PauseAction::LoadGame),
-            (button("Settings"), PauseAction::Settings),
-            (button("Quit to Menu"), PauseAction::QuitToMenu),
-            (button("Quit to Desktop"), PauseAction::QuitToDesktop),
+            Localized("pause-title"),
+            (button("pause-resume"), PauseAction::Resume),
+            (button("pause-save"), PauseAction::Save),
+            (button("pause-load-game"), PauseAction::LoadGame),
+            (button("pause-settings"), PauseAction::Settings),
+            (button("pause-quit-to-menu"), PauseAction::QuitToMenu),
+            (button("pause-quit-to-desktop"), PauseAction::QuitToDesktop),
             (Text::new(""), SaveStatus { shown_secs: 0.0 }),
         ],
         BackgroundColor(BACKDROP_COLOR),

@@ -116,12 +116,12 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 children![
-                    (button("New Game"), MenuAction::NewGame),
-                    (button("Continue"), MenuAction::Continue),
-                    (button("Load Game"), MenuAction::LoadGame),
-                    (button("Settings"), MenuAction::Settings),
-                    (button("Credits"), MenuAction::Credits),
-                    (button("Quit"), MenuAction::Quit),
+                    (button("menu-new-game"), MenuAction::NewGame),
+                    (button("menu-continue"), MenuAction::Continue),
+                    (button("menu-load-game"), MenuAction::LoadGame),
+                    (button("menu-settings"), MenuAction::Settings),
+                    (button("menu-credits"), MenuAction::Credits),
+                    (button("menu-quit"), MenuAction::Quit),
                 ],
             ),
             veil(MenuTransition::Opening),

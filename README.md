@@ -7,8 +7,10 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 - Splash screen with the Bevy logo, then every logo in `assets/splash/logos/`, each one skippable
 - Main menu with background art, buttons and looping music that fades with the screen:
   New Game, Continue (only when a save can be loaded), Load Game, Settings, Credits, Quit
-- Credits and Settings overlays over the running screen: fullscreen toggle and volume slider,
-  remembered between runs
+- Credits and Settings overlays over the running screen: fullscreen toggle, volume slider
+  and language, remembered between runs
+- English, Brazilian Portuguese and Japanese, switched live from Settings, following the OS
+  language on the first run; translations in `assets/locales/`, drawn in Noto Sans JP
 - Loading screen with a progress bar over the real asset load and a shuffled slideshow
 - Intro that plays a frame sequence with its soundtrack, skippable with keyboard or mouse
 - Pause menu on Esc that freezes game time: Resume, Save, Load Game, Settings, Quit to Menu,

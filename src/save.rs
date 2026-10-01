@@ -18,8 +18,6 @@ const SAVES_DIR_NAME: &str = "saves";
 // every autosave is a new file, kept like the player's own; the prefix is what tells the
 // two apart, so the Save list can leave autosaves out
 const AUTOSAVE_FILE_PREFIX: &str = "autosave_";
-// the name written inside each autosave, which is how the lists label it
-pub(crate) const AUTOSAVE_NAME: &str = "Autosave";
 
 // ==== Session ================================================================
 

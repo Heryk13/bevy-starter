@@ -257,7 +257,8 @@ the full-window node every overlay shares: centred column, the row gap, a dark b
 `OVERLAY_Z_INDEX`. The backdrop is there because an overlay can now open over the pause menu, and
 without it the pause buttons would show through.
 
-- **Credits** (`src/overlays/credits.rs`): static text and a Close button.
+- **Credits** (`src/overlays/credits.rs`): a translated line, the names as plain text, and a Close
+  button.
 - **Settings** (`src/overlays/settings.rs`): a fullscreen checkbox and a 0–100 volume slider, both
   from `bevy_ui_widgets`, plus Close. Its `update_fullscreen_checkbox` and `update_volume_thumb`
   are gated with `.run_if(in_state(Overlay::Settings))`; the widgets are headless, so those two
@@ -267,6 +268,11 @@ without it the pause buttons would show through.
   `GlobalVolume` stay the only copy of the state; the file is read from them and written back to
   them. A missing, unreadable or other-version file keeps the defaults silently, since
   `parse_settings` returns `None` for all three; a failed write is logged with `error!`.
+  A third row picks the language: a `RadioGroup` of one `RadioButton` per `Language::ALL`, each
+  named in its own language. `choose_language` observes the group's `ValueChange<Entity>` and sets
+  the `Language` resource; `update_language_radios` checks and paints the one that matches it.
+  The language goes into `settings.ron` with the rest, as `Some(language)`; a file without one,
+  or no file, follows the OS through `sys_locale` and `language_from_locale`.
 - **Save Game** (`src/overlays/saves.rs`): a name field, a New Save button, then one row per file
   in the saves folder, then Close. The field is an `EditableText` marked `SaveName`, capped at
   `SAVE_NAME_MAX_CHARS`; the widget is headless, so the field's own `BackgroundColor` and a
@@ -352,20 +358,34 @@ do this. The layers, bottom to top:
 
 ## Shared code
 
-Four files at the top of `src/`, each named after its domain, each used by more than one feature.
+Five files at the top of `src/`, each named after its domain, each used by more than one feature.
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
-| `src/ui.rs` | `button()`, `dialog()`, the palette, `paint_buttons`, `play_button_sounds`, `close_dialog` | buttons in every screen; saves, deleting and quitting all ask questions |
+| `src/ui.rs` | `button()`, `text_button()`, `dialog()`, the palette, `paint_buttons`, `play_button_sounds`, `close_dialog` | buttons in every screen; saves, deleting and quitting all ask questions |
+| `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()` | the splash, the menu veil and the slideshow |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
 | `src/save.rs` | `Session`, `GameData`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `list_saves()`, `read_save()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves, settings are written to disk |
 
-**`src/ui.rs`** hands out the button bundle and paints every button in the app from `Hovered` and
+**`src/ui.rs`** hands out the button bundle, `button(key)` for a translated label and
+`text_button(text)` for one built as it spawns, and paints every button in the app from `Hovered` and
 `Has<Pressed>`. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
 so there is no state to gate them on. `load_button_sounds` loads `ui/click.wav` and `ui/hover.wav`
 once at `Startup` into a `ButtonSounds` resource, and `play_button_sounds` spawns a one-shot player
 per hover and per press with `PlaybackSettings::DESPAWN`, so nothing accumulates.
+
+**`src/i18n.rs`** is what language the game speaks and the words for it. `Language` is a
+resource and the only copy of the current language. `Translations` holds one Fluent bundle per
+language, built at startup from the `.ftl` files that `include_str!` compiled in; `text(language,
+key)` and `text_with(language, key, &args)` fall back to English, then to the key itself, so a
+missing word shows where it is missing. `Localized(key)` on an entity (it requires a `Text`) is how
+static text is spawned: `translate_texts` in `PostUpdate`, before the UI lays text out, writes it
+the frame it spawns and rewrites every one the frame `Language` changes, which is what switches the
+menu or the pause menu behind the Settings panel live. Text built from values, like a save's row,
+is formatted once with `text_with` as it spawns. `use_ui_font` puts Noto Sans JP, compiled in with
+`include_bytes!`, at the default font handle at `Startup`, so every text without a font of its own
+draws Portuguese accents and Japanese.
 
 **`src/fade.rs`** is the timing of a fade, not the thing being faded: `delay_secs`, `fade_in_secs`,
 `hold_secs`, `fade_out_secs`, and `alpha(elapsed_secs)` returning 0.0 to 1.0. One `FADE_EASING`
@@ -404,10 +424,10 @@ writes through `write_atomic`, and only then sets `saved_play_secs`, so a failed
 counts as unsaved progress.
 
 **The dialog** in `src/ui.rs` answers "Yes or No?" for any feature without knowing what it asks.
-`dialog(question, on_yes)` returns the bundle; both buttons carry `CloseDialog`, and the Yes also
-carries the caller's `on_yes` marker. `close_dialog` despawns the `Dialog` root on either answer,
-and the caller's own observer sees the same press and does the work. `DIALOG_Z_INDEX` is 200,
-above the overlays.
+`dialog(question, on_yes)` returns the bundle, `question` being a translation key; both buttons
+carry `CloseDialog`, and the Yes also carries the caller's `on_yes` marker. `close_dialog` despawns
+the `Dialog` root on either answer, and the caller's own observer sees the same press and does the
+work. `DIALOG_Z_INDEX` is 200, above the overlays.
 
 ## Assets each screen reads
 
@@ -421,6 +441,8 @@ above the overlays.
 | `assets/intro/frames/` | `loading.rs` loads, `intro.rs` plays | sorted by file name |
 | `assets/intro/music.ogg` | `loading.rs` loads, `intro.rs` plays | loaded early, starts with frame one |
 | `assets/ui/click.wav`, `assets/ui/hover.wav` | `ui.rs` | loaded once at `Startup` |
+| `assets/locales/<code>/main.ftl` | `i18n.rs` | compiled in with `include_str!`, not loaded |
+| `assets/fonts/NotoSansJP-Regular.otf` | `i18n.rs` | compiled in with `include_bytes!`, not loaded |
 
 Dropping a file into `assets/splash/logos/`, `assets/loading/` or `assets/intro/frames/` is enough:
 those three read the whole folder, so no code changes to add or remove one.

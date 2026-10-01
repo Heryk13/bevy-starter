@@ -3,11 +3,13 @@ use bevy::prelude::*;
 use super::CloseOverlay;
 use super::Overlay;
 use super::overlay_root;
+use crate::i18n::Localized;
 use crate::ui::button;
 
 // ==== Config =================================================================
 
-const CREDITS_TEXT: &str = "Made with Bevy\nHeryk13";
+// names are never translated
+const CREDITS_NAMES: &str = "Heryk13";
 
 // ==== Plugin =================================================================
 
@@ -21,7 +23,11 @@ pub(super) fn plugin(app: &mut App) {
 fn spawn_credits_overlay(mut commands: Commands) {
     commands.spawn((
         overlay_root(),
-        children![Text::new(CREDITS_TEXT), (button("Close"), CloseOverlay),],
+        children![
+            Localized("credits-made-with"),
+            Text::new(CREDITS_NAMES),
+            (button("overlay-close"), CloseOverlay),
+        ],
         DespawnOnExit(Overlay::Credits),
     ));
 }

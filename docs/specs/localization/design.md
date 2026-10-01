@@ -1,6 +1,6 @@
 # Localization: English, Portuguese and Japanese
 
-Status: **approved** — the open questions were answered on 2026-10-02.
+Status: **built**, not yet tried in the game — steps 1 to 8 written together on 2026-10-02.
 Date: 2026-10-02
 Bevy: 0.19.1
 
@@ -347,4 +347,32 @@ Put to the user before step 1 and answered on 2026-10-02:
 
 ## What changed while building it
 
-Nothing yet.
+The user asked for every step at once, left uncommitted, so the eight steps are one diff.
+
+1. **The font is an `.otf`, compiled in.** `NotoSansJP-Regular.otf` from `notofonts/noto-cjk`
+   (`Sans/SubsetOTF/JP`), the static Regular face (4.5 MB), with its `OFL.txt`. Google Fonts
+   only ships Noto Sans JP as a variable `.ttf`. It is `include_bytes!` into the game and put at
+   the default handle by `use_ui_font` at `Startup`, not loaded through the asset server: loaded,
+   the first frames would draw in Fira Mono, the same reason the `.ftl` files are compiled in.
+2. **`Localized` requires `Text`.** `#[require(Text)]`, so `Localized("pause-title")` alone is a
+   text; no `(Text::default(), Localized(...))` pair.
+3. **`text_button(text)` beside `button(key)`.** A save's row is built from values, so it cannot
+   be a key; both go through a private `labeled_button(label)`.
+4. **`Translations` is built by `Default`**, through `init_resource`: a `new()` with no
+   arguments and no `Default` is a clippy warning.
+5. **`language_from_locale` lives in `i18n.rs`**, in an "OS Language" section, since
+   `settings.rs` is only its caller. It compares the language part exactly (`pt` with `pt`), not
+   a prefix, and splits on `_` too, so `pt_BR` works.
+6. **No test of the fallback to English.** Every file has exactly English's keys, a test
+   enforces it, so no real key reaches the fallback. The fallback to the key itself is tested.
+7. **"ago" moved into the age keys.** `age-days = {  }d ago`, since Portuguese puts "há"
+   before the number and Japanese "前" after it. `` is passed already padded (`"01"`).
+8. **Credits are two texts**, the translated line and the names, so the overlay's row gap now sits
+   between them where a line break was.
+9. **`settings.ron` pins the language once Settings closes.** `save_settings` always writes
+   `Some(language)`, so a player who opens Settings and changes nothing keeps the OS's language
+   from then on, even if the OS changes. Accepted: it is what they saw on the panel.
+10. **`fluent-syntax` is a dev-dependency**, for the test that reads each file's keys; it was
+    already in the tree through `fluent-bundle`.
+11. **Left in English:** the `AccessibleLabel`s on the fullscreen checkbox and the volume slider,
+    which a screen reader speaks but nothing draws.

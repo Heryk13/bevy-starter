@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 
 use super::{Screen, StartGame};
-use crate::save::{
-    AUTOSAVE_NAME, Session, autosave_is_due, new_autosave_path, saves_dir, write_save,
-};
+use crate::save::{Session, autosave_is_due, new_autosave_path, saves_dir, write_save};
 
 pub(crate) mod pause;
 
@@ -63,7 +61,7 @@ fn autosave_game(mut session: ResMut<Session>) {
     let Some(dir) = saves_dir() else {
         return;
     };
-    if let Err(err) = write_save(&new_autosave_path(&dir), &mut session, AUTOSAVE_NAME) {
+    if let Err(err) = write_save(&new_autosave_path(&dir), &mut session, "") {
         error!("Failed to autosave game: {}", err);
     }
 }

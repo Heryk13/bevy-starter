@@ -3,6 +3,8 @@ use bevy::prelude::*;
 use bevy::ui::Pressed;
 use bevy::ui_widgets::{Activate, Button};
 
+use crate::i18n::Localized;
+
 // ==== Config =================================================================
 
 // ---- palette: dark enough for the white label Text brings by default --------
@@ -32,8 +34,19 @@ pub(super) fn plugin(app: &mut App) {
 
 // ==== Widgets ================================================================
 
-/// Returns a button with the given label, ready for a screen to spawn.
-pub(crate) fn button(text: &str) -> impl Bundle {
+/// Returns a button labeled with the text of a translation key, ready for a screen to spawn.
+pub(crate) fn button(key: &'static str) -> impl Bundle {
+    labeled_button(Localized(key))
+}
+
+/// Returns a button labeled with text built as it spawns, such as a save's row, which a
+/// key alone cannot hold.
+pub(crate) fn text_button(text: String) -> impl Bundle {
+    labeled_button(Text::new(text))
+}
+
+/// Returns a button around `label`, a bundle that holds its `Text`.
+fn labeled_button(label: impl Bundle) -> impl Bundle {
     (
         Node {
             width: px(BUTTON_WIDTH_PX),
@@ -46,7 +59,7 @@ pub(crate) fn button(text: &str) -> impl Bundle {
         BackgroundColor(BUTTON_NORMAL),
         Hovered::default(),
         children![(
-            Text::new(text),
+            label,
             TextFont {
                 font_size: BUTTON_FONT_SIZE_PX.into(),
                 ..default()
@@ -56,8 +69,9 @@ pub(crate) fn button(text: &str) -> impl Bundle {
 }
 
 /// Returns a modal question with Yes and No, ready to spawn over whatever asked it.
-/// The Yes button also carries `on_yes`, the caller's marker for what Yes does.
-pub(crate) fn dialog(question: &str, on_yes: impl Bundle) -> impl Bundle {
+/// `question` is a translation key. The Yes button also carries `on_yes`, the caller's
+/// marker for what Yes does.
+pub(crate) fn dialog(question: &'static str, on_yes: impl Bundle) -> impl Bundle {
     (
         Node {
             width: percent(100),
@@ -71,15 +85,15 @@ pub(crate) fn dialog(question: &str, on_yes: impl Bundle) -> impl Bundle {
         DIALOG_Z_INDEX,
         Dialog,
         children![
-            Text::new(question),
+            Localized(question),
             (
                 Node {
                     column_gap: px(DIALOG_BUTTON_GAP_PX),
                     ..default()
                 },
                 children![
-                    (button("Yes"), CloseDialog, on_yes),
-                    (button("No"), CloseDialog),
+                    (button("dialog-yes"), CloseDialog, on_yes),
+                    (button("dialog-no"), CloseDialog),
                 ],
             )
         ],

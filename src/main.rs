@@ -7,6 +7,7 @@ use bevy::prelude::*;
 
 mod assets;
 mod fade;
+mod i18n;
 mod overlays;
 mod save;
 mod screens;
@@ -31,6 +32,7 @@ fn main() {
     app.add_plugins(FpsOverlayPlugin::default());
 
     // ---- game ---------------------------------------------------------------
+    app.add_plugins(i18n::plugin);
     app.add_plugins(screens::plugin);
     app.add_plugins(ui::plugin);
     app.add_plugins(overlays::plugin);

@@ -27,9 +27,11 @@ For setup and the day-to-day commands, see the [README](../README.md).
 
 ```
 assets/             game assets, loaded at runtime
+  fonts/            Noto Sans JP, the font of every text, and its license
   intro/            the intro's soundtrack
     frames/         the intro's frames, played in file name order
   loading/          the loading screen's slideshow pictures
+  locales/          one folder per language, each with its main.ftl translations
   menu/             the menu's background and music
   splash/           the Bevy logo
     logos/          the game's own logos, shown after the Bevy one
@@ -38,11 +40,12 @@ src/
   main.rs           app entry point
   assets.rs         reading a loaded folder's images, shared by the screens
   fade.rs           the fade timing every screen shares
+  i18n.rs           languages, translations and the UI font, shared
   overlays.rs       Overlay state and overlay plugins
   overlays/
     credits.rs      credits panel
     saves.rs        the lists of saved games: save new or over one, load or delete one
-    settings.rs     fullscreen toggle and volume slider, remembered in settings.ron
+    settings.rs     fullscreen, volume and language, remembered in settings.ron
   screens.rs        Screen state and screen plugins
   screens/
     splash.rs       splash screen
@@ -94,3 +97,25 @@ Three folders are read whole, so what to drop in them matters more than the file
 
 Formats follow Bevy's features in `Cargo.toml`: `jpeg` for the photographic backgrounds and
 `wav` for the short UI sounds, on top of the png and ogg vorbis Bevy already reads.
+
+`assets/fonts/` and `assets/locales/` are not placeholders, and they are not loaded at runtime
+either: `src/i18n.rs` compiles them into the game with `include_bytes!` and `include_str!`, so
+every word and every glyph exists from the first frame. Editing one needs a rebuild.
+
+### Translations
+
+Every word the player reads is a key in `assets/locales/<code>/main.ftl`, in
+[Fluent](https://projectfluent.org/) syntax. Code names the key, never the words:
+`button("menu-new-game")`, `Localized("pause-title")` (it brings its own `Text`),
+`dialog("dialog-delete-save", ...)`. Text built from values, like a save's row, is formatted
+with `Translations::text_with`.
+
+- **Adding a word:** add its key to all three files. A test fails while any file lacks a key
+  English has, or has one English lacks.
+- **Adding a language:** a `Language` variant with its `code()`, `native_name()` and
+  `source()` (an `include_str!` of its file) in `src/i18n.rs`, a place in `Language::ALL`,
+  and its `main.ftl`. The Settings row is built
+  from `Language::ALL`, so it needs no change. Check that Noto Sans JP draws its script; it does
+  not draw Arabic, Hebrew, Korean or Chinese-only characters.
+- **The Japanese file is a draft**, not yet read by a native speaker. Have one read it before
+  a release.

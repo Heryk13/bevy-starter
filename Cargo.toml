@@ -8,11 +8,17 @@ publish = false
 # jpeg for photographic backgrounds, wav for short UI sounds.
 # bevy's defaults only cover png and ogg vorbis.
 bevy = { version = "0.19.1", features = ["jpeg", "wav"] }
+# the translations: fluent turns a key and its arguments into a sentence in the
+# player's language, unic-langid names the language for its plural rules
+fluent-bundle = "0.16"
 rand = "0.10.3"
 # the settings and save files: serde turns a struct into text and back, ron is the
 # text format. both are already in the tree through bevy
 ron = "0.12"
 serde = { version = "1", features = ["derive"] }
+# the OS language, followed on the first run. already in the tree through bevy
+sys-locale = "0.3"
+unic-langid = "0.9.6"
 
 [features]
 default = ["dev"]
@@ -51,3 +57,7 @@ opt-level = 3
 [profile.release]
 codegen-units = 1
 lto = "thin"
+
+[dev-dependencies]
+# reads a translation file's keys, so a test can compare the languages
+fluent-syntax = "0.12"
