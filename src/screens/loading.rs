@@ -78,11 +78,6 @@ pub(super) struct IntroAssets {
 #[derive(Resource, Clone, Copy)]
 pub(crate) enum LoadingDestination {
     Intro,
-    // only the tests build it, so the expectation would go unfulfilled under `cargo test`
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "Load Game and Continue send the player here")
-    )]
     Gameplay,
 }
 

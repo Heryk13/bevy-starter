@@ -19,10 +19,7 @@ pub(super) fn plugin(app: &mut App) {
     // from startup, not only from the first game: the pause menu's observer reads it
     // on every button press in the app, and a missing resource there panics
     app.init_resource::<Session>();
-    app.add_systems(
-        OnEnter(Screen::Gameplay),
-        (spawn_gameplay_screen, start_session),
-    );
+    app.add_systems(OnEnter(Screen::Gameplay), spawn_gameplay_screen);
     app.add_plugins(pause::plugin);
     app.add_systems(
         Update,
@@ -48,13 +45,6 @@ fn spawn_gameplay_screen(mut commands: Commands) {
         BackgroundColor(BACKGROUND_COLOR),
         DespawnOnExit(Screen::Gameplay),
     ));
-}
-
-/// Starts every game as a new one, with no play time yet.
-// until `StartGame` exists (save-game step 7): then the menu and the saves
-// insert the session, and a loaded game keeps its play time
-fn start_session(mut commands: Commands) {
-    commands.insert_resource(Session::default());
 }
 
 /// Adds the frame's virtual time to the session, so the pause menu never counts as play.

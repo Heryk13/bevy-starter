@@ -42,6 +42,16 @@ pub(crate) fn autosave_is_due(session: &Session) -> bool {
         > AUTOSAVE_INTERVAL_SECS
 }
 
+/// Returns the game a save holds, with all its play time counted as saved, since it
+/// was just read from a save.
+pub(crate) fn loaded_session(data: &SaveData) -> Session {
+    Session {
+        play_secs: data.play_secs,
+        saved_play_secs: data.play_secs,
+        ..default()
+    }
+}
+
 // ==== Save Data ==============================================================
 
 /// What one save file holds. The gameplay adds its fields here.
@@ -85,6 +95,18 @@ fn parse_save(text: &str) -> ParsedSave {
         Ok(_) => ParsedSave::Incompatible,
         Err(_) => ParsedSave::Unreadable,
     }
+}
+
+/// Returns the most recently saved game that can be loaded, by its own date rather than
+/// its place in the list, since the folder hands files back in no promised order.
+pub(crate) fn newest_ready(entries: &[SaveEntry]) -> Option<&SaveData> {
+    entries
+        .iter()
+        .filter_map(|entry| match entry {
+            SaveEntry::Ready(_, data) => Some(data),
+            _ => None,
+        })
+        .max_by_key(|data| data.saved_at_secs)
 }
 
 // ==== Disk ===================================================================
@@ -275,6 +297,19 @@ mod tests {
         assert!(autosave_is_due(&session));
     }
 
+    #[test]
+    fn loaded_game_starts_with_nothing_unsaved() {
+        let data = SaveData {
+            version: SAVE_VERSION,
+            name: String::new(),
+            saved_at_secs: 0,
+            play_secs: AUTOSAVE_INTERVAL_SECS * 2.0,
+        };
+        let session = loaded_session(&data);
+        assert!(!has_unsaved_progress(&session));
+        assert!(!autosave_is_due(&session));
+    }
+
     // ---- is_autosave: real paths, so a renamed prefix stays covered ---------
 
     #[test]
@@ -384,6 +419,47 @@ mod tests {
     fn text_that_is_not_a_save_is_unreadable() {
         let parsed = parse_save("this is not a save");
         assert!(matches!(parsed, ParsedSave::Unreadable));
+    }
+
+    // ---- newest_ready: what Continue loads ----------------------------------
+
+    /// Builds a loadable entry saved at the given time, the only field the choice reads.
+    fn ready_save(saved_at_secs: u64) -> SaveEntry {
+        let data = SaveData {
+            version: SAVE_VERSION,
+            name: String::new(),
+            saved_at_secs,
+            play_secs: 0.0,
+        };
+        SaveEntry::Ready(PathBuf::new(), data)
+    }
+
+    #[test]
+    fn newest_save_wins_wherever_it_is_listed() {
+        let entries = [ready_save(300), ready_save(100), ready_save(200)];
+        let newest = newest_ready(&entries).map(|data| data.saved_at_secs);
+        assert_eq!(newest, Some(300));
+    }
+
+    #[test]
+    fn saves_that_cannot_load_are_never_chosen() {
+        let entries = [
+            ready_save(100),
+            SaveEntry::Incompatible(PathBuf::new()),
+            SaveEntry::Unreadable(PathBuf::new()),
+        ];
+        let newest = newest_ready(&entries).map(|data| data.saved_at_secs);
+        assert_eq!(newest, Some(100));
+    }
+
+    #[test]
+    fn no_loadable_save_gives_nothing_to_continue() {
+        let entries = [
+            SaveEntry::Incompatible(PathBuf::new()),
+            SaveEntry::Unreadable(PathBuf::new()),
+        ];
+        assert!(newest_ready(&entries).is_none());
+        assert!(newest_ready(&[]).is_none());
     }
 
     // ---- list_saves: a real folder per test, as for write_atomic ------------

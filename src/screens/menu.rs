@@ -5,7 +5,7 @@ use bevy::ui_widgets::Activate;
 use super::loading::LoadingDestination;
 use super::{Screen, StartGame};
 use crate::overlays::Overlay;
-use crate::save::Session;
+use crate::save::{Session, list_saves, loaded_session, newest_ready, saves_dir};
 use crate::ui::button;
 use veil::{MenuTransition, VEIL_Z_INDEX, Veil, animate_veils, veil, veil_alpha};
 
@@ -24,7 +24,13 @@ const COLUMN_PADDING_LEFT_PX: f32 = 32.0;
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_systems(OnEnter(Screen::Menu), (spawn_menu_screen, play_menu_music));
+    app.add_systems(
+        OnEnter(Screen::Menu),
+        (
+            (spawn_menu_screen, show_continue_button).chain(),
+            play_menu_music,
+        ),
+    );
     app.add_observer(activate_menu_button);
     app.add_observer(start_game_from_menu);
     app.add_systems(
@@ -44,6 +50,7 @@ pub(super) fn plugin(app: &mut App) {
 #[derive(Component)]
 enum MenuAction {
     NewGame,
+    Continue,
     Settings,
     Credits,
     Quit,
@@ -104,6 +111,7 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                 },
                 children![
                     (button("New Game"), MenuAction::NewGame),
+                    (button("Continue"), MenuAction::Continue),
                     (button("Settings"), MenuAction::Settings),
                     (button("Credits"), MenuAction::Credits),
                     (button("Quit"), MenuAction::Quit),
@@ -113,6 +121,22 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
         ],
         DespawnOnExit(Screen::Menu),
     ));
+}
+
+/// Hides Continue while no save can be loaded. `Display::None` takes it out of the
+/// column, so the buttons below close the gap instead of leaving a hole.
+fn show_continue_button(mut buttons: Query<(&MenuAction, &mut Node)>) {
+    let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
+    let has_save = newest_ready(&saves).is_some();
+    for (action, mut node) in &mut buttons {
+        if matches!(action, MenuAction::Continue) {
+            node.display = if has_save {
+                Display::Flex
+            } else {
+                Display::None
+            };
+        }
+    }
 }
 
 /// Starts the menu music, looping until the menu closes.
@@ -139,6 +163,16 @@ fn activate_menu_button(
                     session: Session::default(),
                     destination: LoadingDestination::Intro,
                 });
+            }
+            MenuAction::Continue => {
+                // read again on the click, in case a save changed since the menu opened
+                let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
+                if let Some(data) = newest_ready(&saves) {
+                    commands.trigger(StartGame {
+                        session: loaded_session(data),
+                        destination: LoadingDestination::Gameplay,
+                    });
+                }
             }
             MenuAction::Settings => {
                 next_overlay.set(Overlay::Settings);
