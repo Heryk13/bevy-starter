@@ -1,8 +1,8 @@
 # Saving and loading games, and the pause menu that needs them
 
-Status: **in progress** — steps 1 to 8 built.
-Anything still bothering us is settled while building it, and recorded at the bottom under
-"What changed while building it".
+Status: **built** — steps 1 to 9 done. The doubts left open were settled while building it,
+and what differs from this design is recorded at the bottom under "What changed while
+building it".
 Date: 2026-09-23
 Bevy: 0.19.1
 
@@ -772,3 +772,8 @@ One commit per step.
 43. **Both lists show the newest save first.** `list_saves` ends with `sort_newest_first`,
     a pure function with two tests: dated saves newest first, undated ones (the files that
     cannot load) last. Item 36's "unsorted" no longer holds.
+44. **Step 9 had little left.** Each step updated `README.md`, `docs/flow.md` and
+    `docs/template.md` as it landed, so the last pass only added the `saves/` folder to the
+    template's note on the data folder, and that renaming the package leaves the old saves
+    behind. The *Try* lines of steps 7 and 8 still say Continue greys out; item 29 is why
+    it hides instead.

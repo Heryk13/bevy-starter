@@ -8,7 +8,8 @@ For setup and the day-to-day commands, see the [README](../README.md).
 1. Rename the game in three places, keeping them in sync:
    - `name` in `Cargo.toml`, which also names the game's data folder (`%APPDATA%\<name>\` on
      Windows, `~/.local/share/<name>/` on Linux, `~/Library/Application Support/<name>/` on
-     macOS), where `settings.ron` lives
+     macOS), where `settings.ron` and the `saves/` folder live. Renaming it leaves the old
+     saves and settings behind, in the folder under the old name
    - `game` in `justfile`, which `just release` uses to find the executable
    - the window `title` in `src/main.rs`
 2. Trim Bevy's default features in `Cargo.toml` to what the game uses, for smaller and faster builds.
