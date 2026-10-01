@@ -73,6 +73,19 @@ pub(super) struct IntroAssets {
     pub(super) music: Handle<AudioSource>,
 }
 
+/// Where the loading screen goes once its work is done, set by whoever sends the
+/// player there.
+#[derive(Resource, Clone, Copy)]
+pub(crate) enum LoadingDestination {
+    Intro,
+    // only the tests build it, so the expectation would go unfulfilled under `cargo test`
+    #[cfg_attr(
+        not(test),
+        expect(dead_code, reason = "Load Game and Continue send the player here")
+    )]
+    Gameplay,
+}
+
 // ==== Systems ================================================================
 
 /// Spawns the loading screen: a full-window slideshow over black, the colour the
@@ -204,13 +217,14 @@ fn leave_loading_screen(
     intro_assets: Res<IntroAssets>,
     asset_server: Res<AssetServer>,
     mut next_screen: ResMut<NextState<Screen>>,
+    destination: Res<LoadingDestination>,
 ) {
     let frames_load_state = asset_server.recursive_dependency_load_state(&intro_assets.frames);
     let music_load_state = asset_server.load_state(&intro_assets.music);
     let frames_done = frames_load_state.is_loaded() || frames_load_state.is_failed();
     let music_done = music_load_state.is_loaded() || music_load_state.is_failed();
     if frames_done && music_done {
-        next_screen.set(Screen::Intro);
+        next_screen.set(screen_after_loading(*destination));
     }
 }
 
@@ -228,6 +242,14 @@ fn loading_progress(loaded: usize, total: usize) -> f32 {
         1.0
     } else {
         loaded as f32 / total as f32
+    }
+}
+
+/// Returns the screen the loading screen leaves for.
+fn screen_after_loading(destination: LoadingDestination) -> Screen {
+    match destination {
+        LoadingDestination::Intro => Screen::Intro,
+        LoadingDestination::Gameplay => Screen::Gameplay,
     }
 }
 
@@ -267,5 +289,21 @@ mod tests {
     #[test]
     fn loading_progress_is_done_when_nothing_to_load() {
         assert!((loading_progress(0, 0) - 1.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn intro_destination_leaves_for_the_intro() {
+        assert_eq!(
+            screen_after_loading(LoadingDestination::Intro),
+            Screen::Intro
+        );
+    }
+
+    #[test]
+    fn gameplay_destination_leaves_for_gameplay() {
+        assert_eq!(
+            screen_after_loading(LoadingDestination::Gameplay),
+            Screen::Gameplay
+        );
     }
 }

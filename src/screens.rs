@@ -1,5 +1,8 @@
 use bevy::prelude::*;
 
+use crate::save::Session;
+use loading::LoadingDestination;
+
 pub(crate) mod gameplay;
 mod intro;
 mod loading;
@@ -29,4 +32,14 @@ pub(crate) enum Screen {
     Loading,
     Intro,
     Gameplay,
+}
+
+// ==== Events =================================================================
+
+/// Asks the current screen to leave for the given game, so whoever starts one never
+/// learns how each screen leaves.
+#[derive(Event)]
+pub(crate) struct StartGame {
+    pub(crate) session: Session,
+    pub(crate) destination: LoadingDestination,
 }

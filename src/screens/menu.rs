@@ -2,8 +2,10 @@ use bevy::audio::Volume;
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
-use super::Screen;
+use super::loading::LoadingDestination;
+use super::{Screen, StartGame};
 use crate::overlays::Overlay;
+use crate::save::Session;
 use crate::ui::button;
 use veil::{MenuTransition, VEIL_Z_INDEX, Veil, animate_veils, veil, veil_alpha};
 
@@ -24,6 +26,7 @@ const COLUMN_PADDING_LEFT_PX: f32 = 32.0;
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Screen::Menu), (spawn_menu_screen, play_menu_music));
     app.add_observer(activate_menu_button);
+    app.add_observer(start_game_from_menu);
     app.add_systems(
         Update,
         (
@@ -40,7 +43,7 @@ pub(super) fn plugin(app: &mut App) {
 /// Names what a menu button does when it is pressed.
 #[derive(Component)]
 enum MenuAction {
-    Play,
+    NewGame,
     Settings,
     Credits,
     Quit,
@@ -100,7 +103,7 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 children![
-                    (button("Play"), MenuAction::Play),
+                    (button("New Game"), MenuAction::NewGame),
                     (button("Settings"), MenuAction::Settings),
                     (button("Credits"), MenuAction::Credits),
                     (button("Quit"), MenuAction::Quit),
@@ -131,12 +134,11 @@ fn activate_menu_button(
 ) {
     if let Ok(action) = actions.get(activate.entity) {
         match action {
-            MenuAction::Play => {
-                commands.spawn((
-                    veil(MenuTransition::Closing),
-                    DespawnOnExit(Screen::Menu),
-                    VEIL_Z_INDEX,
-                ));
+            MenuAction::NewGame => {
+                commands.trigger(StartGame {
+                    session: Session::default(),
+                    destination: LoadingDestination::Intro,
+                });
             }
             MenuAction::Settings => {
                 next_overlay.set(Overlay::Settings);
@@ -149,6 +151,25 @@ fn activate_menu_button(
             }
         }
     }
+}
+
+/// Starts the given game from the menu: keeps it for the screens ahead, then fades
+/// out, since the veil is what leaves for the loading screen.
+fn start_game_from_menu(
+    start_game: On<StartGame>,
+    screen: Res<State<Screen>>,
+    mut commands: Commands,
+) {
+    if *screen.get() != Screen::Menu {
+        return;
+    }
+    commands.insert_resource(start_game.session.clone());
+    commands.insert_resource(start_game.destination);
+    commands.spawn((
+        veil(MenuTransition::Closing),
+        DespawnOnExit(Screen::Menu),
+        VEIL_Z_INDEX,
+    ));
 }
 
 /// Keeps the menu music at the player's volume, fading it with the veil.
