@@ -8,40 +8,40 @@ use bevy::ui_widgets::{
 use bevy::window::WindowMode;
 use serde::{Deserialize, Serialize};
 
-use super::CloseOverlay;
-use super::Overlay;
-use super::overlay_root;
-use crate::i18n::{Language, Localized, language_from_locale};
+use super::{Overlay, close_footer, overlay_card, overlay_root};
+use crate::i18n::{Language, language_from_locale};
 use crate::save::{game_data_dir, write_atomic};
-use crate::ui::button;
+use crate::ui::{
+    ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, FIELD_FILL, TEXT, TEXT_MUTED, font, heading,
+    label,
+};
 
 // ==== Config =================================================================
 
-// ---- layout -----------------------------------------------------------------
-const LABEL_GAP_PX: f32 = 12.0;
+// ---- layout: a grid, the labels in a column of their own --------------------
+const LABEL_WIDTH_PX: f32 = 140.0;
+const CONTROL_GAP_PX: f32 = 12.0;
 
 // ---- fullscreen checkbox ----------------------------------------------------
 // borderless, on the monitor the window is on: it switches instantly and never
 // changes the desktop resolution
 const FULLSCREEN_MODE: WindowMode = WindowMode::BorderlessFullscreen(MonitorSelection::Current);
-const CHECKBOX_SIZE_PX: f32 = 24.0;
-const CHECKBOX_CHECKED_COLOR: Color = Color::WHITE;
-const CHECKBOX_UNCHECKED_COLOR: Color = Color::srgb(1.0, 0.0, 0.0);
+const CHECKBOX_SIZE_PX: f32 = 22.0;
+const CHECKBOX_RADIUS_PX: f32 = 4.0;
 
 // ---- volume slider: the thumb travels the track minus its own width ---------
-const SLIDER_WIDTH_PX: f32 = 200.0;
-const SLIDER_HEIGHT_PX: f32 = 8.0;
+// the slider is as tall as its thumb, so the whole height takes a click; the track is a
+// thin line through its middle
+const SLIDER_WIDTH_PX: f32 = 220.0;
 const SLIDER_THUMB_SIZE_PX: f32 = 16.0;
-const SLIDER_TRACK_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
-const SLIDER_THUMB_COLOR: Color = Color::WHITE;
+const SLIDER_TRACK_HEIGHT_PX: f32 = 4.0;
 // 100 and not 1.0: `SliderStep` defaults to 1.0, so each arrow key moves the slider
 // by a hundredth of its range instead of across all of it
 const SLIDER_MAX: f32 = 100.0;
 
-// ---- language radios: grey until chosen, like a light that is off -----------
+// ---- language radios: an empty ring until chosen, then filled ---------------
 const RADIO_SIZE_PX: f32 = 16.0;
-const RADIO_CHECKED_COLOR: Color = Color::WHITE;
-const RADIO_UNCHECKED_COLOR: Color = Color::srgb(0.5, 0.5, 0.5);
+const RADIO_RING_PX: f32 = 2.0;
 
 // ---- file: a different version is ignored and the defaults are kept ---------
 const SETTINGS_VERSION: u32 = 1;
@@ -77,11 +77,15 @@ struct FullscreenToggle;
 #[derive(Component)]
 struct VolumeSlider;
 
+/// Marks the part of the volume slider's track before its thumb, filled with the accent.
+#[derive(Component)]
+struct VolumeFill;
+
 /// Marks a language radio button with the language it chooses.
 #[derive(Component)]
 struct LanguageOption(Language);
 
-/// Marks the dot inside a language radio button, painted to show whether it is chosen.
+/// Marks the ring inside a language radio button, filled to show it is chosen.
 #[derive(Component)]
 struct RadioMark;
 
@@ -133,45 +137,35 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
     let slider_value = slider_from_volume(global_volume.volume.to_linear());
     commands.spawn((
         overlay_root(),
-        children![
-            Localized("settings-title"),
-            (
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: px(LABEL_GAP_PX),
-                    ..default()
-                },
-                children![
-                    Localized("settings-fullscreen"),
+        children![(
+            overlay_card(),
+            children![
+                heading("settings-title"),
+                setting_row(
+                    "settings-fullscreen",
                     (
                         Node {
                             width: px(CHECKBOX_SIZE_PX),
                             height: px(CHECKBOX_SIZE_PX),
+                            border: UiRect::all(px(BORDER_PX)),
+                            border_radius: BorderRadius::all(px(CHECKBOX_RADIUS_PX)),
                             ..default()
                         },
                         Checkbox,
-                        BackgroundColor(CHECKBOX_UNCHECKED_COLOR),
+                        BackgroundColor(FIELD_FILL),
+                        BorderColor::all(BORDER),
                         FullscreenToggle,
                         AccessibleLabel::new("Fullscreen"),
                     ),
-                ]
-            ),
-            (
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: px(LABEL_GAP_PX),
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                children![
-                    Localized("settings-volume"),
+                ),
+                setting_row(
+                    "settings-volume",
                     (
                         Node {
                             width: px(SLIDER_WIDTH_PX),
-                            height: px(SLIDER_HEIGHT_PX),
+                            height: px(SLIDER_THUMB_SIZE_PX),
                             ..default()
                         },
-                        BackgroundColor(SLIDER_TRACK_COLOR),
                         Slider {
                             track_click: TrackClick::Snap,
                             ..default()
@@ -179,42 +173,38 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
                         SliderRange::new(0.0, SLIDER_MAX),
                         SliderValue(slider_value),
                         AccessibleLabel::new("Volume"),
-                        children![(
-                            Node {
-                                width: px(SLIDER_THUMB_SIZE_PX),
-                                height: px(SLIDER_THUMB_SIZE_PX),
-                                top: px((SLIDER_HEIGHT_PX - SLIDER_THUMB_SIZE_PX) / 2.0),
-                                position_type: PositionType::Absolute,
-                                ..default()
-                            },
-                            BackgroundColor(SLIDER_THUMB_COLOR),
-                            SliderThumb
-                        )],
-                        VolumeSlider
+                        VolumeSlider,
+                        children![
+                            (slider_track(percent(100)), BackgroundColor(BORDER)),
+                            (slider_track(px(0)), BackgroundColor(ACCENT), VolumeFill),
+                            (
+                                Node {
+                                    width: px(SLIDER_THUMB_SIZE_PX),
+                                    height: px(SLIDER_THUMB_SIZE_PX),
+                                    position_type: PositionType::Absolute,
+                                    border_radius: BorderRadius::MAX,
+                                    ..default()
+                                },
+                                BackgroundColor(TEXT),
+                                SliderThumb,
+                            ),
+                        ],
                     ),
-                ],
-            ),
-            (
-                Node {
-                    flex_direction: FlexDirection::Row,
-                    column_gap: px(LABEL_GAP_PX),
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                children![
-                    Localized("settings-language"),
+                ),
+                setting_row(
+                    "settings-language",
                     (
                         Node {
-                            column_gap: px(LABEL_GAP_PX),
+                            column_gap: px(CONTROL_GAP_PX),
                             ..default()
                         },
                         RadioGroup,
                         Children::spawn(SpawnIter(Language::ALL.into_iter().map(language_radio))),
                     ),
-                ],
-            ),
-            (button("overlay-close"), CloseOverlay),
-        ],
+                ),
+                close_footer(),
+            ],
+        )],
         DespawnOnExit(Overlay::Settings),
     ));
 }
@@ -230,19 +220,22 @@ fn toggle_fullscreen(
     }
 }
 
-/// Paints the fullscreen checkbox and sets its checked state from the window mode.
+/// Paints the fullscreen checkbox and sets its checked state from the window mode: filled
+/// with the accent when on, an empty box when off.
 fn update_fullscreen_checkbox(
     mut commands: Commands,
-    checkbox: Single<(Entity, &mut BackgroundColor), With<FullscreenToggle>>,
+    checkbox: Single<(Entity, &mut BackgroundColor, &mut BorderColor), With<FullscreenToggle>>,
     window: Single<&Window>,
 ) {
-    let (entity, mut background_color) = checkbox.into_inner();
+    let (entity, mut fill, mut border) = checkbox.into_inner();
     if window.mode == WindowMode::Windowed {
         commands.entity(entity).remove::<Checked>();
-        background_color.0 = CHECKBOX_UNCHECKED_COLOR;
+        fill.0 = FIELD_FILL;
+        *border = BorderColor::all(BORDER);
     } else {
         commands.entity(entity).insert(Checked);
-        background_color.0 = CHECKBOX_CHECKED_COLOR;
+        fill.0 = ACCENT;
+        *border = BorderColor::all(ACCENT);
     }
 }
 
@@ -262,15 +255,19 @@ fn update_volume(
     }
 }
 
-/// Moves the volume slider's thumb to match its value, since the widget draws nothing.
+/// Moves the volume slider's thumb to match its value, and fills the track up to it, since
+/// the widget draws nothing.
 fn update_volume_thumb(
     slider: Single<(&SliderValue, &SliderRange), With<VolumeSlider>>,
-    mut thumb: Single<&mut Node, With<SliderThumb>>,
+    mut thumb: Single<&mut Node, (With<SliderThumb>, Without<VolumeFill>)>,
+    mut fill: Single<&mut Node, (With<VolumeFill>, Without<SliderThumb>)>,
 ) {
     let (slider_value, slider_range) = slider.into_inner();
     let thumb_position = slider_range.thumb_position(slider_value.0);
     let distance = SLIDER_WIDTH_PX - SLIDER_THUMB_SIZE_PX;
     thumb.left = px(thumb_position * distance);
+    // to the thumb's middle, so the fill never shows past its edge or short of it
+    fill.width = px(thumb_position * distance + SLIDER_THUMB_SIZE_PX / 2.0);
 }
 
 /// Switches the game to the language whose radio button was clicked. Every `Localized`
@@ -286,13 +283,13 @@ fn choose_language(
     }
 }
 
-/// Checks the language radio button that matches the current language and paints its
-/// dot, unchecking and greying the others, since the radio group leaves that to the app.
+/// Checks the language radio button that matches the current language and fills its ring,
+/// unchecking and emptying the others, since the radio group leaves that to the app.
 fn update_language_radios(
     mut commands: Commands,
     language: Res<Language>,
     radios: Query<(Entity, &LanguageOption, &Children)>,
-    mut marks: Query<&mut BackgroundColor, With<RadioMark>>,
+    mut marks: Query<(&mut BackgroundColor, &mut BorderColor), With<RadioMark>>,
 ) {
     for (entity, LanguageOption(option), children) in &radios {
         let chosen = *option == *language;
@@ -302,12 +299,14 @@ fn update_language_radios(
             commands.entity(entity).remove::<Checked>();
         }
         for child in children {
-            if let Ok(mut color) = marks.get_mut(*child) {
-                color.0 = if chosen {
-                    RADIO_CHECKED_COLOR
+            if let Ok((mut fill, mut ring)) = marks.get_mut(*child) {
+                let (fill_color, ring_color) = if chosen {
+                    (ACCENT, ACCENT)
                 } else {
-                    RADIO_UNCHECKED_COLOR
+                    (Color::NONE, TEXT_MUTED)
                 };
+                fill.0 = fill_color;
+                *ring = BorderColor::all(ring_color);
             }
         }
     }
@@ -344,12 +343,45 @@ fn save_settings(
 
 // ==== Helpers ================================================================
 
+/// Returns one row of the settings grid: the label in its column, then the control.
+fn setting_row(key: &'static str, control: impl Bundle) -> impl Bundle {
+    (
+        Node {
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        children![
+            (
+                Node {
+                    width: px(LABEL_WIDTH_PX),
+                    ..default()
+                },
+                children![label(key)],
+            ),
+            control,
+        ],
+    )
+}
+
+/// Returns a stretch of the volume slider's track, `width` long from the left: the whole
+/// track, or the filled part before the thumb. A thin line through the slider's middle.
+fn slider_track(width: Val) -> impl Bundle {
+    Node {
+        width,
+        height: px(SLIDER_TRACK_HEIGHT_PX),
+        top: px((SLIDER_THUMB_SIZE_PX - SLIDER_TRACK_HEIGHT_PX) / 2.0),
+        position_type: PositionType::Absolute,
+        border_radius: BorderRadius::MAX,
+        ..default()
+    }
+}
+
 /// Returns the radio button that chooses `language`: a dot, then the language's name in
 /// itself.
 fn language_radio(language: Language) -> impl Bundle {
     (
         Node {
-            column_gap: px(LABEL_GAP_PX / 2.0),
+            column_gap: px(CONTROL_GAP_PX / 2.0),
             align_items: AlignItems::Center,
             ..default()
         },
@@ -360,13 +392,18 @@ fn language_radio(language: Language) -> impl Bundle {
                 Node {
                     width: px(RADIO_SIZE_PX),
                     height: px(RADIO_SIZE_PX),
+                    border: UiRect::all(px(RADIO_RING_PX)),
                     border_radius: BorderRadius::MAX,
                     ..default()
                 },
-                BackgroundColor(RADIO_UNCHECKED_COLOR),
+                BorderColor::all(TEXT_MUTED),
                 RadioMark,
             ),
-            Text::new(language.native_name()),
+            (
+                Text::new(language.native_name()),
+                font(BODY_FONT_SIZE_PX),
+                TextColor(TEXT),
+            ),
         ],
     )
 }

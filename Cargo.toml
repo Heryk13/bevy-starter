@@ -11,6 +11,9 @@ bevy = { version = "0.19.1", features = ["jpeg", "wav"] }
 # the translations: fluent turns a key and its arguments into a sentence in the
 # player's language, unic-langid names the language for its plural rules
 fluent-bundle = "0.16"
+# not used directly: its `logging` feature sends parley's known warning about Japanese
+# text through `log`, where main.rs filters it; without it, debug builds `eprintln!` it
+icu_provider = { version = "2.3", features = ["logging"] }
 rand = "0.10.3"
 # the settings and save files: serde turns a struct into text and back, ron is the
 # text format. both are already in the tree through bevy

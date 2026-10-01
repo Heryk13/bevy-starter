@@ -4,9 +4,10 @@ use bevy::ui_widgets::Activate;
 
 use super::loading::LoadingDestination;
 use super::{Screen, StartGame};
+use crate::GAME_TITLE;
 use crate::overlays::Overlay;
 use crate::save::{Session, list_saves, loaded_session, newest_ready, saves_dir};
-use crate::ui::button;
+use crate::ui::{SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, TITLE_FONT_SIZE_PX, font, menu_button};
 use veil::{MenuTransition, VEIL_Z_INDEX, Veil, animate_veils, veil, veil_alpha};
 
 mod veil;
@@ -14,12 +15,19 @@ mod veil;
 // ==== Config =================================================================
 
 // ---- scrim: dark behind the buttons, clear over the artwork -----------------
-const SCRIM_ALPHA: f32 = 0.8;
-const SCRIM_STOP_PERCENT: f32 = 60.0;
+const SCRIM_ALPHA: f32 = 0.85;
+const SCRIM_STOP_PERCENT: f32 = 65.0;
 
-// ---- button column ----------------------------------------------------------
-const BUTTON_GAP_PX: f32 = 12.0;
-const COLUMN_PADDING_LEFT_PX: f32 = 32.0;
+// ---- button column, under the game's name -----------------------------------
+const BUTTON_GAP_PX: f32 = 10.0;
+const COLUMN_WIDTH_PX: f32 = 260.0;
+const COLUMN_PADDING_LEFT_PX: f32 = 80.0;
+// more room under the title than between buttons, so the name reads apart from the choices
+const TITLE_GAP_PX: f32 = 28.0;
+
+// ---- version, in the corner -------------------------------------------------
+const VERSION_MARGIN_PX: f32 = 20.0;
+const VERSION_TEXT: &str = concat!("v", env!("CARGO_PKG_VERSION"));
 
 // ==== Plugin =================================================================
 
@@ -108,7 +116,7 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                     position_type: PositionType::Absolute,
                     flex_direction: FlexDirection::Column,
                     justify_content: JustifyContent::Center,
-                    row_gap: px(BUTTON_GAP_PX),
+                    row_gap: px(TITLE_GAP_PX),
                     padding: UiRect {
                         left: px(COLUMN_PADDING_LEFT_PX),
                         ..default()
@@ -116,13 +124,39 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 children![
-                    (button("menu-new-game"), MenuAction::NewGame),
-                    (button("menu-continue"), MenuAction::Continue),
-                    (button("menu-load-game"), MenuAction::LoadGame),
-                    (button("menu-settings"), MenuAction::Settings),
-                    (button("menu-credits"), MenuAction::Credits),
-                    (button("menu-quit"), MenuAction::Quit),
+                    (
+                        Text::new(GAME_TITLE),
+                        font(TITLE_FONT_SIZE_PX),
+                        TextColor(TEXT),
+                    ),
+                    (
+                        Node {
+                            width: px(COLUMN_WIDTH_PX),
+                            flex_direction: FlexDirection::Column,
+                            row_gap: px(BUTTON_GAP_PX),
+                            ..default()
+                        },
+                        children![
+                            (menu_button("menu-new-game"), MenuAction::NewGame),
+                            (menu_button("menu-continue"), MenuAction::Continue),
+                            (menu_button("menu-load-game"), MenuAction::LoadGame),
+                            (menu_button("menu-settings"), MenuAction::Settings),
+                            (menu_button("menu-credits"), MenuAction::Credits),
+                            (menu_button("menu-quit"), MenuAction::Quit),
+                        ],
+                    ),
                 ],
+            ),
+            (
+                Node {
+                    position_type: PositionType::Absolute,
+                    right: px(VERSION_MARGIN_PX),
+                    bottom: px(VERSION_MARGIN_PX),
+                    ..default()
+                },
+                Text::new(VERSION_TEXT),
+                font(SMALL_FONT_SIZE_PX),
+                TextColor(TEXT_MUTED),
             ),
             veil(MenuTransition::Opening),
         ],

@@ -1,10 +1,8 @@
 use bevy::prelude::*;
 
-use super::CloseOverlay;
 use super::Overlay;
-use super::overlay_root;
-use crate::i18n::Localized;
-use crate::ui::button;
+use super::{close_footer, overlay_card, overlay_root};
+use crate::ui::{BODY_FONT_SIZE_PX, TEXT_MUTED, font, heading, label};
 
 // ==== Config =================================================================
 
@@ -23,11 +21,19 @@ pub(super) fn plugin(app: &mut App) {
 fn spawn_credits_overlay(mut commands: Commands) {
     commands.spawn((
         overlay_root(),
-        children![
-            Localized("credits-made-with"),
-            Text::new(CREDITS_NAMES),
-            (button("overlay-close"), CloseOverlay),
-        ],
+        children![(
+            overlay_card(),
+            children![
+                heading("credits-title"),
+                label("credits-made-with"),
+                (
+                    Text::new(CREDITS_NAMES),
+                    font(BODY_FONT_SIZE_PX),
+                    TextColor(TEXT_MUTED),
+                ),
+                close_footer(),
+            ],
+        )],
         DespawnOnExit(Overlay::Credits),
     ));
 }

@@ -31,6 +31,7 @@ dialog-delete-save = このデータを削除しますか？
 ## overlays
 
 overlay-close = 閉じる
+credits-title = クレジット
 credits-made-with = Bevyで制作
 settings-title = 設定
 settings-fullscreen = フルスクリーン
@@ -48,7 +49,7 @@ save-incompatible = 互換性のないデータ
 save-unreadable = 読み込めないデータ
 save-unnamed = 名前なし
 save-autosave = オートセーブ
-save-label = { $name } · { $played } · { $age }
+save-details = { $played } · { $age }
 save-played = プレイ時間 { $hours }:{ $minutes }
 age-seconds = { $count }秒前
 age-minutes = { $count }分前

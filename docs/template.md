@@ -33,12 +33,14 @@ assets/             game assets, loaded at runtime
   loading/          the loading screen's slideshow pictures
   locales/          one folder per language, each with its main.ftl translations
   menu/             the menu's background and music
+  shaders/          blur.wgsl, the blur behind every floating panel
   splash/           the Bevy logo
     logos/          the game's own logos, shown after the Bevy one
   ui/               the button sounds
 src/
   main.rs           app entry point
   assets.rs         reading a loaded folder's images, shared by the screens
+  blur.rs           the floating camera and the blur behind every panel, shared
   fade.rs           the fade timing every screen shares
   i18n.rs           languages, translations and the UI font, shared
   overlays.rs       Overlay state and overlay plugins
@@ -58,7 +60,7 @@ src/
     gameplay/
       pause.rs      pause state and pause menu, freezing game time
   save.rs           the game in progress, save files, the data folder and safe file writes
-  ui.rs             the button and dialog widgets and the button sounds, shared
+  ui.rs             the look: palette, type, buttons, cards, dialogs and button sounds, shared
 docs/
   template.md       this file: turning the template into a game
   flow.md           how the screens, overlays and fades fit together
@@ -101,6 +103,15 @@ Formats follow Bevy's features in `Cargo.toml`: `jpeg` for the photographic back
 `assets/fonts/` and `assets/locales/` are not placeholders, and they are not loaded at runtime
 either: `src/i18n.rs` compiles them into the game with `include_bytes!` and `include_str!`, so
 every word and every glyph exists from the first frame. Editing one needs a rebuild.
+
+### The look
+
+The colors and type sizes of every screen, panel and button are the `Config` section of
+`src/ui.rs`: `ACCENT` is the amber of hovered buttons and checked controls, `SURFACE` the panels,
+`TEXT` and `TEXT_MUTED` the two text colors, `DANGER` the red of Delete. Recoloring the game is
+editing those constants. The game's name on the menu and the window is `GAME_TITLE` in
+`src/main.rs`. Anything that should float over the screens with the blur behind it is built on
+`floating_root()` and `card()` from `ui.rs`; the `Floating` marker they carry is all the blur needs.
 
 ### Translations
 

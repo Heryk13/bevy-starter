@@ -1,13 +1,11 @@
+use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
 use bevy::ui_widgets::{Activate, ScrollArea};
 use fluent_bundle::FluentArgs;
 use std::path::{Path, PathBuf};
 
-use super::CloseOverlay;
-use super::OVERLAY_GAP_PX;
-use super::Overlay;
-use super::overlay_root;
+use super::{OVERLAY_GAP_PX, Overlay, close_footer, overlay_card, overlay_root};
 use crate::i18n::{Language, Localized, Translations};
 use crate::save::{
     SaveData, SaveEntry, Session, is_autosave, list_saves, loaded_session, new_save_path,
@@ -16,7 +14,10 @@ use crate::save::{
 use crate::screens::StartGame;
 use crate::screens::gameplay::pause::SaveStatus;
 use crate::screens::loading::LoadingDestination;
-use crate::ui::{button, dialog, text_button};
+use crate::ui::{
+    ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, ButtonKind, DANGER, FIELD_FILL,
+    SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, button, dialog, font, heading, row_button,
+};
 
 // ==== Config =================================================================
 
@@ -30,23 +31,27 @@ const INCOMPATIBLE_SAVE_TEXT: &str = "save-incompatible";
 const UNREADABLE_SAVE_TEXT: &str = "save-unreadable";
 
 // ---- lists ------------------------------------------------------------------
-
 const SAVE_LIST_MAX_HEIGHT_PX: f32 = 300.0;
+// a row's name and details sit close, so they read as one save
+const SAVE_ROW_LINE_GAP_PX: f32 = 2.0;
 
+// ---- name field -------------------------------------------------------------
 // `EditableText` draws no box, and no cursor without a `TextCursorStyle`, so these are what
 // show where to click and where the next letter goes; the default cursor is a dark grey that
-// vanishes on the backdrop
-const SAVE_NAME_WIDTH_PX: f32 = 300.0;
-const SAVE_NAME_PADDING_PX: f32 = 6.0;
-const SAVE_NAME_BACKGROUND: Color = Color::srgba(1.0, 1.0, 1.0, 0.1);
-const SAVE_NAME_CURSOR_COLOR: Color = Color::WHITE;
-// a longer name pushes its row's label past the edge of the button in the list
+// vanishes on the card
+const SAVE_NAME_PADDING_PX: f32 = 10.0;
+const SAVE_NAME_RADIUS_PX: f32 = 8.0;
+// a longer name pushes its row past the edge of the list
 const SAVE_NAME_MAX_CHARS: usize = 20;
 
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Overlay::SaveGame), spawn_save_game_overlay);
+    app.add_systems(
+        Update,
+        paint_save_name_field.run_if(in_state(Overlay::SaveGame)),
+    );
     app.add_observer(save_new_game);
     app.add_observer(ask_to_overwrite_save);
     app.add_observer(overwrite_save);
@@ -91,7 +96,8 @@ struct ConfirmDelete(PathBuf);
 
 // ---- save game --------------------------------------------------------------
 
-/// Spawns the save game panel over the current screen, blocking clicks to it.
+/// Spawns the save game panel over the current screen, blocking clicks to it: the name field
+/// beside New Save, then the saves it can write over.
 fn spawn_save_game_overlay(
     mut commands: Commands,
     translations: Res<Translations>,
@@ -99,34 +105,51 @@ fn spawn_save_game_overlay(
 ) {
     let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
     let root = commands
+        .spawn((overlay_root(), DespawnOnExit(Overlay::SaveGame)))
+        .id();
+    let card = commands
         .spawn((
-            overlay_root(),
+            overlay_card(),
+            ChildOf(root),
             children![
-                Localized("save-game-title"),
+                heading("save-game-title"),
                 (
-                    EditableText {
-                        max_characters: Some(SAVE_NAME_MAX_CHARS),
-                        ..default()
-                    },
-                    SaveName,
-                    TextCursorStyle {
-                        color: SAVE_NAME_CURSOR_COLOR,
-                        ..default()
-                    },
                     Node {
-                        padding: UiRect::all(px(SAVE_NAME_PADDING_PX)),
-                        width: px(SAVE_NAME_WIDTH_PX),
+                        column_gap: px(OVERLAY_GAP_PX),
+                        align_items: AlignItems::Center,
                         ..default()
                     },
-                    BackgroundColor(SAVE_NAME_BACKGROUND),
+                    children![
+                        (
+                            EditableText {
+                                max_characters: Some(SAVE_NAME_MAX_CHARS),
+                                ..default()
+                            },
+                            SaveName,
+                            TextCursorStyle {
+                                color: ACCENT,
+                                ..default()
+                            },
+                            font(BODY_FONT_SIZE_PX),
+                            TextColor(TEXT),
+                            Node {
+                                flex_grow: 1.0,
+                                padding: UiRect::all(px(SAVE_NAME_PADDING_PX)),
+                                border: UiRect::all(px(BORDER_PX)),
+                                border_radius: BorderRadius::all(px(SAVE_NAME_RADIUS_PX)),
+                                ..default()
+                            },
+                            BackgroundColor(FIELD_FILL),
+                            BorderColor::all(BORDER),
+                        ),
+                        (button("save-new", ButtonKind::Primary), NewSave),
+                    ],
                 ),
-                (button("save-new"), NewSave),
             ],
-            DespawnOnExit(Overlay::SaveGame),
         ))
         .id();
     let now_secs = unix_now().as_secs();
-    let list = commands.spawn((save_list(), ChildOf(root))).id();
+    let list = commands.spawn((save_list(), ChildOf(card))).id();
     for entry in &saves {
         if is_autosave(entry.path()) {
             continue;
@@ -134,26 +157,39 @@ fn spawn_save_game_overlay(
         match entry {
             SaveEntry::Ready(path, save) => {
                 commands.spawn((
-                    text_button(save_label(
-                        save,
-                        is_autosave(path),
-                        now_secs,
-                        &translations,
-                        *language,
+                    row_button(save_row(
+                        save_name(save, is_autosave(path), &translations, *language),
+                        save_details(save, now_secs, &translations, *language),
                     )),
                     OverwriteSave(path.clone(), save.name.clone()),
                     ChildOf(list),
                 ));
             }
             SaveEntry::Incompatible(_) => {
-                commands.spawn((Localized(INCOMPATIBLE_SAVE_TEXT), ChildOf(list)));
+                commands.spawn((muted_label(INCOMPATIBLE_SAVE_TEXT), ChildOf(list)));
             }
             SaveEntry::Unreadable(_) => {
-                commands.spawn((Localized(UNREADABLE_SAVE_TEXT), ChildOf(list)));
+                commands.spawn((muted_label(UNREADABLE_SAVE_TEXT), ChildOf(list)));
             }
         }
     }
-    commands.spawn((button("overlay-close"), CloseOverlay, ChildOf(root)));
+    commands.spawn((close_footer(), ChildOf(card)));
+}
+
+/// Outlines the name field in the accent while it has the keyboard, so the player sees
+/// where their typing goes.
+fn paint_save_name_field(
+    focus: Res<InputFocus>,
+    mut fields: Query<(Entity, &mut BorderColor), With<SaveName>>,
+) {
+    for (entity, mut border) in &mut fields {
+        let color = if focus.get() == Some(entity) {
+            ACCENT
+        } else {
+            BORDER
+        };
+        *border = BorderColor::all(color);
+    }
 }
 
 /// Writes the session to a new save file when the "New Save" button is pressed, named by the
@@ -164,7 +200,7 @@ fn save_new_game(
     new_save_buttons: Query<(), With<NewSave>>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     mut session: ResMut<Session>,
-    mut statuses: Query<(&mut Text, &mut SaveStatus)>,
+    mut statuses: Query<(&mut Text, &mut TextColor, &mut SaveStatus)>,
     translations: Res<Translations>,
     language: Res<Language>,
     names: Query<&EditableText, With<SaveName>>,
@@ -181,8 +217,9 @@ fn save_new_game(
             }
             None => SAVE_FAILED_TEXT,
         };
-        for (mut text, mut line) in &mut statuses {
+        for (mut text, mut color, mut line) in &mut statuses {
             text.0 = translations.text(*language, status);
+            color.0 = status_color(status);
             line.shown_secs = 0.0;
         }
         next_overlay.set(Overlay::None);
@@ -200,6 +237,7 @@ fn ask_to_overwrite_save(
         commands.spawn((
             dialog(
                 OVERWRITE_QUESTION,
+                ButtonKind::Danger,
                 ConfirmOverwrite(path.clone(), name.clone()),
             ),
             DespawnOnExit(Overlay::SaveGame),
@@ -215,14 +253,15 @@ fn overwrite_save(
     confirms: Query<&ConfirmOverwrite>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     mut session: ResMut<Session>,
-    mut statuses: Query<(&mut Text, &mut SaveStatus)>,
+    mut statuses: Query<(&mut Text, &mut TextColor, &mut SaveStatus)>,
     translations: Res<Translations>,
     language: Res<Language>,
 ) {
     if let Ok(ConfirmOverwrite(path, name)) = confirms.get(activate.entity) {
         let status = save_status(path, &mut session, name.trim());
-        for (mut text, mut line) in &mut statuses {
+        for (mut text, mut color, mut line) in &mut statuses {
             text.0 = translations.text(*language, status);
+            color.0 = status_color(status);
             line.shown_secs = 0.0;
         }
         next_overlay.set(Overlay::None);
@@ -242,16 +281,19 @@ fn spawn_load_game_overlay(
 ) {
     let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
     let root = commands
+        .spawn((overlay_root(), DespawnOnExit(Overlay::LoadGame)))
+        .id();
+    let card = commands
         .spawn((
-            overlay_root(),
-            children![Localized("load-game-title")],
-            DespawnOnExit(Overlay::LoadGame),
+            overlay_card(),
+            ChildOf(root),
+            children![heading("load-game-title")],
         ))
         .id();
     let now_secs = unix_now().as_secs();
-    let list = commands.spawn((save_list(), ChildOf(root))).id();
+    let list = commands.spawn((save_list(), ChildOf(card))).id();
     if saves.is_empty() {
-        commands.spawn((Localized(NO_SAVES_TEXT), ChildOf(list)));
+        commands.spawn((muted_label(NO_SAVES_TEXT), ChildOf(list)));
     }
     for entry in &saves {
         let row = commands
@@ -267,31 +309,43 @@ fn spawn_load_game_overlay(
         match entry {
             SaveEntry::Ready(path, save) => {
                 commands.spawn((
-                    text_button(save_label(
-                        save,
-                        is_autosave(path),
-                        now_secs,
-                        &translations,
-                        *language,
+                    row_button(save_row(
+                        save_name(save, is_autosave(path), &translations, *language),
+                        save_details(save, now_secs, &translations, *language),
                     )),
                     LoadSave(path.clone()),
                     ChildOf(row),
                 ));
             }
+            // flex_grow, like a row button's: the Delete beside it stays at the right edge
             SaveEntry::Incompatible(_) => {
-                commands.spawn((Localized(INCOMPATIBLE_SAVE_TEXT), ChildOf(row)));
+                commands.spawn((
+                    muted_label(INCOMPATIBLE_SAVE_TEXT),
+                    Node {
+                        flex_grow: 1.0,
+                        ..default()
+                    },
+                    ChildOf(row),
+                ));
             }
             SaveEntry::Unreadable(_) => {
-                commands.spawn((Localized(UNREADABLE_SAVE_TEXT), ChildOf(row)));
+                commands.spawn((
+                    muted_label(UNREADABLE_SAVE_TEXT),
+                    Node {
+                        flex_grow: 1.0,
+                        ..default()
+                    },
+                    ChildOf(row),
+                ));
             }
         }
         commands.spawn((
-            button("save-delete"),
+            button("save-delete", ButtonKind::Danger),
             DeleteSave(entry.path().to_path_buf()),
             ChildOf(row),
         ));
     }
-    commands.spawn((button("overlay-close"), CloseOverlay, ChildOf(root)));
+    commands.spawn((close_footer(), ChildOf(card)));
 }
 
 /// Starts the game in a save when its row is pressed, closing the overlay so it does not
@@ -324,7 +378,11 @@ fn ask_to_delete_save(
 ) {
     if let Ok(DeleteSave(path)) = delete_buttons.get(activate.entity) {
         commands.spawn((
-            dialog(DELETE_QUESTION, ConfirmDelete(path.clone())),
+            dialog(
+                DELETE_QUESTION,
+                ButtonKind::Danger,
+                ConfirmDelete(path.clone()),
+            ),
             DespawnOnExit(Overlay::LoadGame),
         ));
     }
@@ -363,38 +421,72 @@ fn save_list() -> impl Bundle {
     )
 }
 
-/// Returns a save's label in `language`: its name, or a stand-in for an autosave or a save
-/// the player gave no name, then its play time and how long ago it was saved. A save dated
-/// after `now_secs`, from a clock that was set back, counts as saved just now.
-fn save_label(
+/// Returns a row's content: the save's name, its details in small muted text underneath.
+fn save_row(name: String, details: String) -> impl Bundle {
+    (
+        Node {
+            flex_direction: FlexDirection::Column,
+            row_gap: px(SAVE_ROW_LINE_GAP_PX),
+            ..default()
+        },
+        children![
+            (Text::new(name), font(BODY_FONT_SIZE_PX), TextColor(TEXT)),
+            (
+                Text::new(details),
+                font(SMALL_FONT_SIZE_PX),
+                TextColor(TEXT_MUTED),
+            ),
+        ],
+    )
+}
+
+/// Returns muted body text showing a translation key: what a list says in place of a save.
+fn muted_label(key: &'static str) -> impl Bundle {
+    (
+        Localized(key),
+        font(BODY_FONT_SIZE_PX),
+        TextColor(TEXT_MUTED),
+    )
+}
+
+/// Returns a save's name in `language`, or its stand-in for an autosave or a save the player
+/// gave no name. An autosave's name comes from its file, not from inside it, so one written
+/// in English still reads in the language the player chose since.
+fn save_name(
     save: &SaveData,
     autosave: bool,
+    translations: &Translations,
+    language: Language,
+) -> String {
+    if autosave {
+        translations.text(language, "save-autosave")
+    } else if save.name.is_empty() {
+        translations.text(language, "save-unnamed")
+    } else {
+        save.name.clone()
+    }
+}
+
+/// Returns a save's details in `language`: its play time and how long ago it was saved. A
+/// save dated after `now_secs`, from a clock that was set back, counts as saved just now.
+fn save_details(
+    save: &SaveData,
     now_secs: u64,
     translations: &Translations,
     language: Language,
 ) -> String {
     let total_secs = save.play_secs as u64;
     let age_secs = now_secs.saturating_sub(save.saved_at_secs);
-    // an autosave's name comes from its file, not from inside it, so one written in
-    // English still reads in the language the player chose since
-    let name = if autosave {
-        translations.text(language, "save-autosave")
-    } else if save.name.is_empty() {
-        translations.text(language, "save-unnamed")
-    } else {
-        save.name.clone()
-    };
     let mut played_args = FluentArgs::new();
     played_args.set("hours", total_secs / 3600);
     played_args.set("minutes", format!("{:02}", (total_secs % 3600) / 60));
     let mut args = FluentArgs::new();
-    args.set("name", name);
     args.set(
         "played",
         translations.text_with(language, "save-played", &played_args),
     );
     args.set("age", age_label(age_secs, translations, language));
-    translations.text_with(language, "save-label", &args)
+    translations.text_with(language, "save-details", &args)
 }
 
 /// Returns an age in its largest whole unit, seconds, minutes, hours or days, in
@@ -414,8 +506,8 @@ fn age_label(age_secs: u64, translations: &Translations, language: Language) -> 
     translations.text_with(language, key, &args)
 }
 
-/// Writes the session to `path` and returns the line that tells the player how it went,
-/// logging the reason when it failed.
+/// Writes the session to `path` and returns the key of the line that tells the player how
+/// it went, logging the reason when it failed.
 fn save_status(path: &Path, session: &mut Session, name: &str) -> &'static str {
     match write_save(path, session, name) {
         Ok(()) => SAVED_TEXT,
@@ -424,6 +516,12 @@ fn save_status(path: &Path, session: &mut Session, name: &str) -> &'static str {
             SAVE_FAILED_TEXT
         }
     }
+}
+
+/// Returns the color of the status line for a `save_status` key: the accent for a save that
+/// worked, red for one that did not.
+fn status_color(status: &str) -> Color {
+    if status == SAVED_TEXT { ACCENT } else { DANGER }
 }
 
 // ==== Tests ==================================================================
@@ -444,82 +542,82 @@ mod tests {
         }
     }
 
+    // ---- save_name ----------------------------------------------------------
+
     #[test]
-    fn label_shows_hours_and_padded_minutes() {
+    fn save_shows_the_name_the_player_gave_it() {
         let translations = Translations::default();
-        let label = save_label(
-            &save("", 3661.0, 0),
+        let name = save_name(
+            &save("Castle", 0.0, 0),
             false,
-            0,
             &translations,
             Language::English,
         );
-        assert_eq!(label, "Unnamed · 1h 01m played · 0s ago");
+        assert_eq!(name, "Castle");
     }
 
     #[test]
-    fn label_starts_with_the_save_name() {
+    fn save_without_a_name_is_called_unnamed() {
         let translations = Translations::default();
-        let label = save_label(
-            &save("Castle", 3661.0, 0),
-            false,
-            0,
-            &translations,
-            Language::English,
-        );
-        assert_eq!(label, "Castle · 1h 01m played · 0s ago");
-    }
-
-    #[test]
-    fn save_dated_in_the_future_was_saved_zero_seconds_ago() {
-        let translations = Translations::default();
-        let label = save_label(
-            &save("", 0.0, 2 * 86400),
-            false,
-            86400,
-            &translations,
-            Language::English,
-        );
-        assert_eq!(label, "Unnamed · 0h 00m played · 0s ago");
+        let name = save_name(&save("", 0.0, 0), false, &translations, Language::English);
+        assert_eq!(name, "Unnamed");
     }
 
     #[test]
     fn autosave_is_named_by_its_file_in_the_chosen_language() {
         let translations = Translations::default();
-        let label = save_label(
+        let name = save_name(
             &save("Autosave", 0.0, 0),
             true,
-            0,
             &translations,
             Language::Japanese,
         );
-        assert!(label.starts_with("オートセーブ"), "{label}");
-    }
-
-    #[test]
-    fn label_reads_in_japanese() {
-        let translations = Translations::default();
-        let label = save_label(
-            &save("城", 3661.0, 0),
-            false,
-            2 * 86400,
-            &translations,
-            Language::Japanese,
-        );
-        assert_eq!(label, "城 · プレイ時間 1:01 · 2日前");
+        assert_eq!(name, "オートセーブ");
     }
 
     #[test]
     fn player_name_is_never_translated() {
         let translations = Translations::default();
-        let label = save_label(
+        let name = save_name(
             &save("Castle", 0.0, 0),
             false,
-            0,
             &translations,
             Language::Japanese,
         );
-        assert!(label.starts_with("Castle · "), "{label}");
+        assert_eq!(name, "Castle");
+    }
+
+    // ---- save_details -------------------------------------------------------
+
+    #[test]
+    fn details_show_hours_and_padded_minutes() {
+        let translations = Translations::default();
+        let details = save_details(&save("", 3661.0, 0), 0, &translations, Language::English);
+        assert_eq!(details, "1h 01m played · 0s ago");
+    }
+
+    #[test]
+    fn save_dated_in_the_future_was_saved_zero_seconds_ago() {
+        let translations = Translations::default();
+        let details = save_details(
+            &save("", 0.0, 2 * 86400),
+            86400,
+            &translations,
+            Language::English,
+        );
+        assert_eq!(details, "0h 00m played · 0s ago");
+    }
+
+    #[test]
+    fn details_read_in_japanese() {
+        let translations = Translations::default();
+        let details = save_details(
+            &save("", 3661.0, 0),
+            2 * 86400,
+            &translations,
+            Language::Japanese,
+        );
+        assert_eq!(details, "プレイ時間 1:01 · 2日前");
     }
 
     // ---- age_label: one test per unit, each well inside its range -----------
@@ -564,5 +662,17 @@ mod tests {
             age_label(5 * 60, &translations, Language::Japanese),
             "5分前"
         );
+    }
+
+    // ---- status_color -------------------------------------------------------
+
+    #[test]
+    fn saved_status_is_in_the_accent() {
+        assert_eq!(status_color(SAVED_TEXT), ACCENT);
+    }
+
+    #[test]
+    fn failed_status_is_red() {
+        assert_eq!(status_color(SAVE_FAILED_TEXT), DANGER);
     }
 }

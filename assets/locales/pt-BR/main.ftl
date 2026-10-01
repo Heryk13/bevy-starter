@@ -30,6 +30,7 @@ dialog-delete-save = Apagar este save?
 ## overlays
 
 overlay-close = Fechar
+credits-title = Créditos
 credits-made-with = Feito com Bevy
 settings-title = Opções
 settings-fullscreen = Tela cheia
@@ -47,7 +48,7 @@ save-incompatible = Save incompatível
 save-unreadable = Save ilegível
 save-unnamed = Sem nome
 save-autosave = Autosave
-save-label = { $name } · { $played } · { $age }
+save-details = { $played } · { $age }
 save-played = { $hours }h { $minutes }min jogados
 age-seconds = há { $count }s
 age-minutes = há { $count }min

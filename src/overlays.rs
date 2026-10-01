@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
 use crate::screens::gameplay::pause::Pause;
-use crate::ui::Dialog;
+use crate::ui::{ButtonKind, Dialog, button, card, floating_root};
 
 mod credits;
 mod saves;
@@ -13,7 +13,9 @@ mod settings;
 // room left above it on purpose, for anything that must draw over an overlay
 const OVERLAY_Z_INDEX: GlobalZIndex = GlobalZIndex(100);
 
-const OVERLAY_BACKDROP_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
+// wide enough for the Settings grid and a save's row with its Delete beside it
+const OVERLAY_WIDTH_PX: f32 = 520.0;
+// between the rows of a list or a grid inside a card
 const OVERLAY_GAP_PX: f32 = 12.0;
 
 // ==== Plugin =================================================================
@@ -27,23 +29,27 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(Update, go_back_on_esc);
 }
 
-// ==== Overlay Root ===========================================================
+// ==== Overlay Panel ==========================================================
 
-/// Returns the root every overlay spawns its panel in: the whole window, darkened, above
-/// the screen and the pause menu, and blocking clicks to them.
+/// Returns the root every overlay spawns in: floating above the screen and the pause menu,
+/// blurring and dimming them, and blocking clicks to them. Its one child is `overlay_card()`.
 fn overlay_root() -> impl Bundle {
+    floating_root(OVERLAY_Z_INDEX)
+}
+
+/// Returns the card every overlay draws its panel on.
+fn overlay_card() -> impl Bundle {
+    card(OVERLAY_WIDTH_PX)
+}
+
+/// Returns the row at the bottom of a card that holds its Close, on the right.
+fn close_footer() -> impl Bundle {
     (
         Node {
-            width: percent(100),
-            height: percent(100),
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            row_gap: px(OVERLAY_GAP_PX),
+            justify_content: JustifyContent::End,
             ..default()
         },
-        BackgroundColor(OVERLAY_BACKDROP_COLOR),
-        OVERLAY_Z_INDEX,
+        children![(button("overlay-close", ButtonKind::Quiet), CloseOverlay)],
     )
 }
 

@@ -31,6 +31,7 @@ dialog-delete-save = Delete this save?
 ## overlays
 
 overlay-close = Close
+credits-title = Credits
 credits-made-with = Made with Bevy
 settings-title = Settings
 settings-fullscreen = Fullscreen
@@ -48,8 +49,8 @@ save-incompatible = Incompatible Save
 save-unreadable = Unreadable Save
 save-unnamed = Unnamed
 save-autosave = Autosave
-# a row in the save lists: "Castle · 1h 01m played · 3d ago"
-save-label = { $name } · { $played } · { $age }
+# under a save's name in the lists: "1h 01m played · 3d ago"
+save-details = { $played } · { $age }
 # $minutes arrives already padded to two digits
 save-played = { $hours }h { $minutes }m played
 age-seconds = { $count }s ago

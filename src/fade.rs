@@ -49,6 +49,19 @@ impl Fade {
     }
 }
 
+// ==== Helpers ================================================================
+
+/// Returns `current` moved by at most `step` toward `target`, landing on it exactly rather
+/// than overshooting, from either side. For a value that chases a target that can change
+/// mid-way, such as a button easing toward hovered while the pointer leaves.
+pub(crate) fn approach(current: f32, target: f32, step: f32) -> f32 {
+    if current < target {
+        (current + step).min(target)
+    } else {
+        (current - step).max(target)
+    }
+}
+
 // ==== Tests ==================================================================
 
 #[cfg(test)]
@@ -108,5 +121,32 @@ mod tests {
             fade_out_secs: 0.0,
         };
         assert!((fade.alpha(3.0) - 0.0).abs() < TOLERANCE);
+    }
+
+    // ---- approach -----------------------------------------------------------
+
+    #[test]
+    fn approach_moves_up_by_the_step() {
+        assert!((approach(0.25, 1.0, 0.5) - 0.75).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn approach_moves_down_by_the_step() {
+        assert!((approach(0.75, 0.0, 0.5) - 0.25).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn approach_never_passes_the_target_going_up() {
+        assert_eq!(approach(0.75, 1.0, 0.5), 1.0);
+    }
+
+    #[test]
+    fn approach_never_passes_the_target_going_down() {
+        assert_eq!(approach(0.25, 0.0, 0.5), 0.0);
+    }
+
+    #[test]
+    fn approach_stays_on_the_target() {
+        assert_eq!(approach(1.0, 1.0, 0.5), 1.0);
     }
 }

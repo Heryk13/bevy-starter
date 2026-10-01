@@ -127,8 +127,9 @@ skipped rather than waited on.
 
 ### Menu
 
-Four layers under one root, spawned back to front: the background image, a gradient scrim that is
-dark on the left and clear on the right, the button column, and a black veil.
+Five layers under one root, spawned back to front: the background image, a gradient scrim that is
+dark on the left and clear on the right, the column (`GAME_TITLE` from `main.rs` over the
+`menu_button`s), the version in the bottom-right corner from `CARGO_PKG_VERSION`, and a black veil.
 `assets/menu/music.ogg` loops beside it with `DespawnOnExit(Screen::Menu)`, so the track's
 lifetime is the screen's.
 
@@ -227,10 +228,10 @@ so a failed autosave is logged once and tried again a full interval later instea
 frame. An autosave counts as a save, so quitting right after one asks nothing.
 
 **The pause menu** (`src/screens/gameplay/pause.rs`, registered by `gameplay.rs`'s plugin).
-`OnEnter(Pause::On)` spawns the panel with `DespawnOnExit(Pause::On)` over a half-black backdrop,
-so the frozen game shows dimmed behind it, and calls `Time<Virtual>::pause()`. `OnExit` calls
-`unpause()`. Any gameplay written later that reads `Res<Time>` stops while paused for free, with
-no `run_if` of its own.
+`OnEnter(Pause::On)` spawns the panel with `DespawnOnExit(Pause::On)`: a `floating_root` holding a
+`card`, so the frozen game shows blurred and dimmed behind it (see "Two cameras and the blur").
+It also calls `Time<Virtual>::pause()`, and `OnExit` calls `unpause()`. Any gameplay written later
+that reads `Res<Time>` stops while paused for free, with no `run_if` of its own.
 
 The buttons carry a `PauseAction` component, read by the `activate_pause_button` observer, the
 same shape as the menu's:
@@ -251,16 +252,19 @@ not count, so quitting right after starting never asks.
 
 ## Overlays
 
-Every panel follows the same three lines: spawn on `OnEnter(Overlay::X)`, build on
-`overlay_root()`, and carry `DespawnOnExit(Overlay::X)`. `overlay_root()` in `src/overlays.rs` is
-the full-window node every overlay shares: centred column, the row gap, a dark backdrop and
-`OVERLAY_Z_INDEX`. The backdrop is there because an overlay can now open over the pause menu, and
-without it the pause buttons would show through.
+Every panel follows the same lines: spawn on `OnEnter(Overlay::X)`, build an `overlay_root()` holding
+one `overlay_card()`, and carry `DespawnOnExit(Overlay::X)`. The card starts with `heading(key)`
+and ends with `close_footer()`, Close on the right. `overlay_root()` in `src/overlays.rs` is
+`floating_root(OVERLAY_Z_INDEX)` from `ui.rs`: the whole window, `Floating`, a dim that comes in
+with the card. The dim matters when an overlay opens over the pause menu: the pause card darkens
+under it instead of competing with it.
 
 - **Credits** (`src/overlays/credits.rs`): a translated line, the names as plain text, and a Close
   button.
-- **Settings** (`src/overlays/settings.rs`): a fullscreen checkbox and a 0–100 volume slider, both
-  from `bevy_ui_widgets`, plus Close. Its `update_fullscreen_checkbox` and `update_volume_thumb`
+- **Settings** (`src/overlays/settings.rs`): a grid of `setting_row`s, each a label in a column of
+  its own beside its control: a fullscreen checkbox and a 0–100 volume slider, both from
+  `bevy_ui_widgets`, and the language radios. The slider is as tall as its thumb, with a thin
+  track through it and a `VolumeFill` up to the thumb, in the accent. Its `update_fullscreen_checkbox` and `update_volume_thumb`
   are gated with `.run_if(in_state(Overlay::Settings))`; the widgets are headless, so those two
   systems are what actually draw the state. Both choices are remembered in `settings.ron` in the
   game's data folder: `load_settings` applies it at `Startup`, and `save_settings` writes it on
@@ -275,8 +279,10 @@ without it the pause buttons would show through.
   or no file, follows the OS through `sys_locale` and `language_from_locale`.
 - **Save Game** (`src/overlays/saves.rs`): a name field, a New Save button, then one row per file
   in the saves folder, then Close. The field is an `EditableText` marked `SaveName`, capped at
-  `SAVE_NAME_MAX_CHARS`; the widget is headless, so the field's own `BackgroundColor` and a
+  `SAVE_NAME_MAX_CHARS`; the widget is headless, so the field's own fill, border and a
   `TextCursorStyle` are what make it visible, and without the latter no cursor is drawn.
+  `paint_save_name_field` outlines it in the accent while `InputFocus` is on it. Each save is a
+  `row_button` holding `save_row`: `save_name` over `save_details` in small muted text.
 
   The folder is read once, on `OnEnter(Overlay::SaveGame)`. The rows are spawned in a `for`
   with `ChildOf(list)`, because `children![]` only holds a list known when the code is
@@ -284,8 +290,8 @@ without it the pause buttons would show through.
   column capped at `SAVE_LIST_MAX_HEIGHT_PX` with `Overflow::scroll_y()` and `ScrollArea`, so
   the mouse wheel scrolls the rows while the title, the field, New Save and Close stay put; it
   reuses `OVERLAY_GAP_PX`, since the panel's own gap only spaces its direct children. A save
-  the game can read is a button labelled by `save_label`, a pure function:
-  `Castle · 1h 01m played · 3d ago`. An incompatible or unreadable file is plain text, so nothing
+  the game can read is a row button showing `save_name` over `save_details`, both pure functions:
+  `Castle` over `1h 01m played · 3d ago`. An incompatible or unreadable file is muted text, so nothing
   that looks clickable does nothing. Autosaves are left out (`is_autosave` on each entry's
   `path()`): overwriting one would keep its name and turn a player's save into an "Autosave".
 
@@ -356,21 +362,55 @@ do this. The layers, bottom to top:
 | overlays | 100 | `OVERLAY_Z_INDEX` |
 | dialog | 200 | `DIALOG_Z_INDEX`, in `ui.rs` |
 
+Those numbers order roots *within a camera*. Every `Floating` root (pause, overlays, dialogs) is
+drawn by the floating camera, after the screen camera, so all of them are above every screen
+whatever its `GlobalZIndex`.
+
+## Two cameras and the blur
+
+`main.rs` spawns the **screen camera**: `Camera2d`, `IsDefaultUiCamera`, and the `BlurStrength`
+that `src/blur.rs` drives. Every UI root without a `UiTargetCamera` is drawn by it: the splash,
+the menu, loading, the intro, gameplay.
+
+`src/blur.rs` spawns the **floating camera** at `Startup`: order 1, so it draws after, and
+`ClearColorConfig::None`, so it draws over the screen camera's image instead of wiping it. An
+observer on `Add<Floating>` gives each new `Floating` root a `UiTargetCamera` pointing at it.
+Clicks need nothing: Bevy's UI picking tests both cameras and puts the later one's hits first.
+
+`update_blur` moves `BlurStrength` toward 1 while any `Floating` exists and toward 0 when none
+does, over `BLUR_RAMP_SECS`, on `Time<Real>` because the pause menu freezes virtual time. While
+it is above 0, the screen camera carries `BlurHorizontal` and `BlurVertical`, two
+`FullscreenMaterial`s running `assets/shaders/blur.wgsl` across then down. Both are ordered
+`.after(ui_pass).before(upscaling)` in `Core2d`: after the UI so the menu's buttons blur too, and
+outside Bevy's own post-processing, which runs before the UI. At 0 both components are removed
+and no pass runs. Three settings must stay as they are: `IsDefaultUiCamera` on the screen camera
+(or every root moves to the floating one), `ClearColorConfig::None` on the floating camera (or the
+screens vanish), and the same HDR and MSAA on both (or they stop sharing the image).
+
 ## Shared code
 
-Five files at the top of `src/`, each named after its domain, each used by more than one feature.
+Six files at the top of `src/`, each named after its domain, each used by more than one feature.
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
-| `src/ui.rs` | `button()`, `text_button()`, `dialog()`, the palette, `paint_buttons`, `play_button_sounds`, `close_dialog` | buttons in every screen; saves, deleting and quitting all ask questions |
+| `src/ui.rs` | the palette and type sizes, `button()`, `menu_button()`, `row_button()`, `ButtonKind`, `label()`, `heading()`, `floating_root()`, `card()`, `dialog()`, `paint_buttons`, `animate_entrances`, `play_button_sounds`, `close_dialog` | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
+| `src/blur.rs` | the floating camera, `Floating`, `BlurStrength`, the two blur passes | the pause menu, every overlay and every dialog float |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
-| `src/fade.rs` | the `Fade` struct and `alpha()` | the splash, the menu veil and the slideshow |
+| `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, card entrances; `approach` eases the blur and the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
 | `src/save.rs` | `Session`, `GameData`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `list_saves()`, `read_save()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves, settings are written to disk |
 
-**`src/ui.rs`** hands out the button bundle, `button(key)` for a translated label and
-`text_button(text)` for one built as it spawns, and paints every button in the app from `Hovered` and
-`Has<Pressed>`. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
+**`src/ui.rs`** is the look of the whole game. Its `Config` holds the palette (`SURFACE`, `BORDER`,
+`ACCENT`, `DANGER`, `TEXT`, `TEXT_MUTED`, ...) and the four type sizes, so a game made from the
+template recolors in one place. It hands out three buttons, all pills with a thin border:
+`button(key, kind)` with its label centered, `menu_button(key)` for a column of choices, label to
+the left, and `row_button(content)` around any bundle, for a list row. `ButtonKind` is a component:
+`Primary`, `Quiet` (no border until hovered, for Close and No) or `Danger` (red when hovered).
+`paint_buttons` eases each button's `ButtonMotion` toward its `Hovered` and `Has<Pressed>` state
+with `approach`, on `Time<Real>`, and paints its fill, border and glow from the pure
+`button_colors(kind, hover, press)`. `floating_root(z)` and `card(width)` are what every panel is
+built from; `animate_entrances` brings each new root in, its dim darkening and its card rising
+12 px and scaling up, by the `ENTRANCE` fade. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
 so there is no state to gate them on. `load_button_sounds` loads `ui/click.wav` and `ui/hover.wav`
 once at `Startup` into a `ButtonSounds` resource, and `play_button_sounds` spawns a one-shot player
 per hover and per press with `PlaybackSettings::DESPAWN`, so nothing accumulates.
@@ -424,8 +464,9 @@ writes through `write_atomic`, and only then sets `saved_play_secs`, so a failed
 counts as unsaved progress.
 
 **The dialog** in `src/ui.rs` answers "Yes or No?" for any feature without knowing what it asks.
-`dialog(question, on_yes)` returns the bundle, `question` being a translation key; both buttons
-carry `CloseDialog`, and the Yes also carries the caller's `on_yes` marker. `close_dialog` despawns
+`dialog(question, yes_kind, on_yes)` returns the bundle: a `floating_root` with a small card,
+`question` being a translation key and `yes_kind` the Yes button's kind, `Danger` when Yes destroys
+something. Both buttons carry `CloseDialog`, and the Yes also carries the caller's `on_yes` marker. `close_dialog` despawns
 the `Dialog` root on either answer, and the caller's own observer sees the same press and does the
 work. `DIALOG_Z_INDEX` is 200, above the overlays.
 
@@ -463,5 +504,5 @@ those three read the whole folder, so no code changes to add or remove one.
    `NextState<Screen>` for its own successor, so adding one in the middle is one line in the
    screen above it.
 
-An overlay is the same shape with `Overlay` in place of `Screen`, with `overlay_root()` as the
-root and `(button("Close"), CloseOverlay)` for the way out.
+An overlay is the same shape with `Overlay` in place of `Screen`: an `overlay_root()` holding an
+`overlay_card()` that starts with `heading(key)` and ends with `close_footer()`.

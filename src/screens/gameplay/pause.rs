@@ -2,17 +2,21 @@ use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
 use crate::fade::Fade;
-use crate::i18n::Localized;
 use crate::overlays::Overlay;
 use crate::save::{Session, has_unsaved_progress};
 use crate::screens::Screen;
-use crate::ui::{button, dialog};
+use crate::ui::{
+    ButtonKind, SMALL_FONT_SIZE_PX, TEXT_MUTED, card, dialog, floating_root, font, heading,
+    menu_button,
+};
 
 // ==== Config =================================================================
 
 // below the overlays, so settings opened from the pause menu draws over it
 const PAUSE_Z_INDEX: GlobalZIndex = GlobalZIndex(50);
-const BACKDROP_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
+// narrower than an overlay's card: it only holds a column of buttons
+const PAUSE_WIDTH_PX: f32 = 340.0;
+const PAUSE_BUTTON_GAP_PX: f32 = 10.0;
 
 // translation key
 const QUIT_QUESTION: &str = "dialog-quit-without-saving";
@@ -80,29 +84,40 @@ pub(crate) struct SaveStatus {
 
 // ==== Systems ================================================================
 
-/// Spawns the pause menu over a backdrop that dims the frozen game and blocks clicks to it.
+/// Spawns the pause menu, floating over the frozen game, blurring it and blocking clicks to it.
 fn spawn_pause_menu(mut commands: Commands) {
     commands.spawn((
-        Node {
-            width: percent(100),
-            height: percent(100),
-            flex_direction: FlexDirection::Column,
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            ..default()
-        },
-        children![
-            Localized("pause-title"),
-            (button("pause-resume"), PauseAction::Resume),
-            (button("pause-save"), PauseAction::Save),
-            (button("pause-load-game"), PauseAction::LoadGame),
-            (button("pause-settings"), PauseAction::Settings),
-            (button("pause-quit-to-menu"), PauseAction::QuitToMenu),
-            (button("pause-quit-to-desktop"), PauseAction::QuitToDesktop),
-            (Text::new(""), SaveStatus { shown_secs: 0.0 }),
-        ],
-        BackgroundColor(BACKDROP_COLOR),
-        PAUSE_Z_INDEX,
+        floating_root(PAUSE_Z_INDEX),
+        children![(
+            card(PAUSE_WIDTH_PX),
+            children![
+                heading("pause-title"),
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        row_gap: px(PAUSE_BUTTON_GAP_PX),
+                        ..default()
+                    },
+                    children![
+                        (menu_button("pause-resume"), PauseAction::Resume),
+                        (menu_button("pause-save"), PauseAction::Save),
+                        (menu_button("pause-load-game"), PauseAction::LoadGame),
+                        (menu_button("pause-settings"), PauseAction::Settings),
+                        (menu_button("pause-quit-to-menu"), PauseAction::QuitToMenu),
+                        (
+                            menu_button("pause-quit-to-desktop"),
+                            PauseAction::QuitToDesktop
+                        ),
+                    ],
+                ),
+                (
+                    Text::new(""),
+                    font(SMALL_FONT_SIZE_PX),
+                    TextColor(TEXT_MUTED),
+                    SaveStatus { shown_secs: 0.0 },
+                ),
+            ],
+        )],
         DespawnOnExit(Pause::On),
     ));
 }
@@ -139,7 +154,7 @@ fn activate_pause_button(
             PauseAction::QuitToMenu => {
                 if has_unsaved_progress(&session) {
                     commands.spawn((
-                        dialog(QUIT_QUESTION, ConfirmQuit(QuitTo::Menu)),
+                        dialog(QUIT_QUESTION, ButtonKind::Danger, ConfirmQuit(QuitTo::Menu)),
                         DespawnOnExit(Pause::On),
                     ));
                 } else {
@@ -149,7 +164,11 @@ fn activate_pause_button(
             PauseAction::QuitToDesktop => {
                 if has_unsaved_progress(&session) {
                     commands.spawn((
-                        dialog(QUIT_QUESTION, ConfirmQuit(QuitTo::Desktop)),
+                        dialog(
+                            QUIT_QUESTION,
+                            ButtonKind::Danger,
+                            ConfirmQuit(QuitTo::Desktop),
+                        ),
                         DespawnOnExit(Pause::On),
                     ));
                 } else {
