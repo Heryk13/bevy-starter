@@ -324,6 +324,7 @@ fn save_status(path: &Path, session: &mut Session, name: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::save::GameData;
 
     #[test]
     fn label_shows_hours_and_padded_minutes() {
@@ -332,6 +333,7 @@ mod tests {
             version: 0,
             name: String::new(),
             saved_at_secs: 0,
+            game: GameData::default(),
         };
         let label = save_label(&save, 0);
         assert_eq!(label, "Unnamed · 1h 01m played · 0s ago");
@@ -344,6 +346,7 @@ mod tests {
             version: 0,
             name: String::from("Castle"),
             saved_at_secs: 0,
+            game: GameData::default(),
         };
         let label = save_label(&save, 0);
         assert_eq!(label, "Castle · 1h 01m played · 0s ago");
@@ -356,6 +359,7 @@ mod tests {
             version: 0,
             name: String::new(),
             saved_at_secs: 2 * 86400,
+            game: GameData::default(),
         };
         let label = save_label(&save, 86400);
         assert_eq!(label, "Unnamed · 0h 00m played · 0s ago");

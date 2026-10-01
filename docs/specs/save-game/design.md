@@ -1,6 +1,6 @@
 # Saving and loading games, and the pause menu that needs them
 
-Status: **in progress** — steps 1 to 6 built.
+Status: **in progress** — steps 1 to 7 built.
 Anything still bothering us is settled while building it, and recorded at the bottom under
 "What changed while building it".
 Date: 2026-09-23
@@ -714,3 +714,47 @@ One commit per step.
 28. **`SaveEntry::path()` ended the `#[expect(dead_code)]`.** Leaving autosaves out of the
     Save list needs every entry's path, whatever its variant, so the annotations on
     `Incompatible` and `Unreadable` came off in step 6 rather than step 8.
+29. **Continue is hidden, not greyed, when no save can load.** The player chose a menu that
+    only offers what works. `show_continue_button`, chained after `spawn_menu_screen`, sets
+    the button's `Node::display` to `Display::None`, which takes it out of the column so the
+    buttons below close the gap; `Visibility::Hidden` would have left a hole. The button is
+    always spawned and only its display changes, so step 8 can show or hide it again on
+    `OnExit(Overlay::LoadGame)` without spawning into the middle of the column. Nothing uses
+    `InteractionDisabled` yet, so the disabled button colour waits for a feature that needs it.
+30. **`newest_ready` compares dates, never list order.** It returns `Option<&SaveData>`, the
+    one with the largest `saved_at_secs`. `list_saves` keeps `read_dir`'s order, which no OS
+    promises, and sorting by name would not help either: `autosave_` sorts before `save_`.
+    Its first test lists the newest save first, so taking the last entry fails it.
+31. **A loaded save becomes a session through `loaded_session`**, in `save.rs` because
+    Continue and the Load Game list both need it. It sets `play_secs` and `saved_play_secs`
+    to the file's play time, and a test checks a loaded game neither asks before quitting
+    nor autosaves at once, which is what leaving `saved_play_secs` at zero would do.
+32. **A save that fails to read on the click is only logged.** `read_save` returns `None` for
+    a missing, unreadable or other-version file; `load_save` logs it with `error!` and the
+    player stays on the list. The design had the list say so; the case needs the file to
+    change between opening the list and clicking it, and the next visit lists it correctly.
+33. **`start_session` is gone.** Both `StartGame` observers insert the `Session`, so gameplay
+    no longer resets it on entry, which would have zeroed every loaded game's play time.
+34. **Without the intro there is nothing to wait for.** `load_intro_assets` runs only with
+    `resource_equals(LoadingDestination::Intro)`, so `LoadingDestination` derives `PartialEq`.
+    `update_loading_bar` runs only while `IntroAssets` exists, and `leave_loading_screen`
+    takes it as an `Option`: without it, a game headed for gameplay leaves on the next frame.
+35. **`screens::loading` is `pub(crate)`**, so `overlays/saves.rs` can name
+    `LoadingDestination::Gameplay` when it triggers `StartGame`.
+36. **Both lists share `save_list()`**, the scrolling column, and the row texts
+    (`INCOMPATIBLE_SAVE_TEXT`, `UNREADABLE_SAVE_TEXT`, `NO_SAVES_TEXT`) are constants, so the
+    two overlays cannot drift apart. Rows still come in `read_dir`'s order, unsorted.
+37. **Loading from the pause menu asks nothing**, as designed, even with unsaved play time.
+    Unlike the quits, the player is picking a save on purpose; a "Load without saving?"
+    dialog can be added with the quit's `dialog()` if it turns out to be missed.
+38. **Step 7 was committed in parts**, each passing `just check`: the `StartGame` event with
+    New Game, Continue, Load Game in the menu, then Load Game in the pause menu.
+39. **The game's own state has a place before the game has any.** The design said "the
+    gameplay adds its fields" to `SaveData`, which would leave a later feature to wire the
+    new data through `write_save`, `loaded_session` and `StartGame` itself. Instead
+    `SaveData` and `Session` each carry a `game: GameData`, an empty struct that already
+    travels the whole way: `default()` for a new game, written by every save, handed back by
+    every load. A feature adds a field to `GameData` and reads it on
+    `OnEnter(Screen::Gameplay)`. `GameData` and the `game` field are `#[serde(default)]`, so
+    the saves already on disk, which have no `game`, still load, and a new field needs no
+    `SAVE_VERSION` bump; the version is for changes an older save cannot be read as.

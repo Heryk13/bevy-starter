@@ -40,7 +40,7 @@ src/
   overlays.rs       Overlay state and overlay plugins
   overlays/
     credits.rs      credits panel
-    saves.rs        the list of saved games: new save, or overwrite one
+    saves.rs        the lists of saved games: save new or over one, or load one
     settings.rs     fullscreen toggle and volume slider, remembered in settings.ron
   screens.rs        Screen state and screen plugins
   screens/

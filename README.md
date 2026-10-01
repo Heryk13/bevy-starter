@@ -5,15 +5,17 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 ## Features
 
 - Splash screen with the Bevy logo, then every logo in `assets/splash/logos/`, each one skippable
-- Main menu with background art, buttons and looping music that fades with the screen
+- Main menu with background art, buttons and looping music that fades with the screen:
+  New Game, Continue (only when a save can be loaded), Load Game, Settings, Credits, Quit
 - Credits and Settings overlays over the running screen: fullscreen toggle and volume slider,
   remembered between runs
 - Loading screen with a progress bar over the real asset load and a shuffled slideshow
 - Intro that plays a frame sequence with its soundtrack, skippable with keyboard or mouse
-- Pause menu on Esc that freezes game time: Resume, Save, Settings, Quit to Menu, Quit to
-  Desktop, asking "Quit without saving?" when there is unsaved play time
+- Pause menu on Esc that freezes game time: Resume, Save, Load Game, Settings, Quit to Menu,
+  Quit to Desktop, asking "Quit without saving?" when there is unsaved play time
 - Saved games, one file each in the per-user data folder: name a new save or overwrite an
-  older one from the pause menu, in a scrolling list
+  older one from the pause menu, and load any of them from the menu or the pause menu,
+  in a scrolling list
 - Autosave after every 5 minutes of unsaved play, each one kept as its own file
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies

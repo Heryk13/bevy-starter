@@ -10,8 +10,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 const UNSAVED_GRACE_SECS: f32 = 30.0;
 // unsaved play before the game saves by itself; a manual save starts it over
 const AUTOSAVE_INTERVAL_SECS: f32 = 300.0;
-// raised whenever `SaveData` changes shape, so an older save is listed as
-// incompatible instead of loaded wrong
+// raised whenever `SaveData` changes in a way an older save cannot be read as, a field
+// renamed or its meaning changed, so that save is listed as incompatible instead of loaded
+// wrong; a new `GameData` field only needs its default
 const SAVE_VERSION: u32 = 1;
 const SAVES_DIR_NAME: &str = "saves";
 // every autosave is a new file, kept like the player's own; the prefix is what tells the
@@ -22,14 +23,27 @@ pub(crate) const AUTOSAVE_NAME: &str = "Autosave";
 
 // ==== Session ================================================================
 
-/// The game in progress: how long it has been played, how long at its last save, and how
-/// long at the last autosave attempt, which a failed autosave waits a full interval from.
+/// The game in progress: its `GameData`, how long it has been played, how long at its last
+/// save, and how long at the last autosave attempt, which a failed autosave waits a full
+/// interval from.
 #[derive(Resource, Clone, Default)]
 pub(crate) struct Session {
+    pub(crate) game: GameData,
     pub(crate) play_secs: f32,
     pub(crate) saved_play_secs: f32,
     pub(crate) autosave_tried_secs: f32,
 }
+
+/// What the game itself keeps in a save: the world, the player, their progress. Empty until
+/// the gameplay has something to remember. It travels the whole way already: a new game
+/// starts from `default()`, every save writes it, and a loaded save hands it back in the
+/// `Session`, so gameplay builds its world from `Session::game` on `OnEnter(Screen::Gameplay)`
+/// and keeps it current for the next save.
+// `serde(default)` lets a save written before a field existed still load, with that field
+// at its default, so adding one needs no `SAVE_VERSION` bump
+#[derive(Serialize, Deserialize, Clone, Default)]
+#[serde(default)]
+pub(crate) struct GameData {}
 
 /// Returns whether quitting now would lose play time that is in no save.
 pub(crate) fn has_unsaved_progress(session: &Session) -> bool {
@@ -46,6 +60,7 @@ pub(crate) fn autosave_is_due(session: &Session) -> bool {
 /// was just read from a save.
 pub(crate) fn loaded_session(data: &SaveData) -> Session {
     Session {
+        game: data.game.clone(),
         play_secs: data.play_secs,
         saved_play_secs: data.play_secs,
         ..default()
@@ -54,13 +69,17 @@ pub(crate) fn loaded_session(data: &SaveData) -> Session {
 
 // ==== Save Data ==============================================================
 
-/// What one save file holds. The gameplay adds its fields here.
+/// What one save file holds: what the lists show about it, and the game itself. The
+/// gameplay adds its fields to `GameData`, not here.
 #[derive(Serialize, Deserialize)]
 pub(crate) struct SaveData {
     pub(crate) version: u32,
     pub(crate) name: String,
     pub(crate) saved_at_secs: u64,
     pub(crate) play_secs: f32,
+    // saves written before `GameData` existed have no `game` at all
+    #[serde(default)]
+    pub(crate) game: GameData,
 }
 
 /// One file in the saves folder, as far as the game could make sense of it.
@@ -229,6 +248,7 @@ pub(crate) fn write_save(path: &Path, session: &mut Session, name: &str) -> std:
         name: name.to_string(),
         saved_at_secs: unix_now().as_secs(),
         play_secs: session.play_secs,
+        game: session.game.clone(),
     };
     let text = ron::to_string(&save).map_err(std::io::Error::other)?;
     if let Some(parent) = path.parent() {
@@ -314,6 +334,7 @@ mod tests {
             name: String::new(),
             saved_at_secs: 0,
             play_secs: AUTOSAVE_INTERVAL_SECS * 2.0,
+            game: GameData::default(),
         };
         let session = loaded_session(&data);
         assert!(!has_unsaved_progress(&session));
@@ -440,6 +461,7 @@ mod tests {
             name: String::new(),
             saved_at_secs,
             play_secs: 0.0,
+            game: GameData::default(),
         };
         SaveEntry::Ready(PathBuf::new(), data)
     }

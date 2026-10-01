@@ -14,21 +14,30 @@ overlay opened over it closes.
 
 ```
   Splash --> Menu --> Loading --> Intro --> Gameplay
-              ^       waits on      |          |
-              |       the intro     +-- skip ->+
-              |       assets                   |
-              +<------ Quit to Menu -----------+  (from the pause menu)
+              ^        |  ^         |         ^  |
+              |        |  |         +- skip ->+  |
+              |        |  |                   |  |
+              |        +--|-- a loaded save --+  |
+              |           |                      |
+              |           +----- Load Game ------+  (from the pause menu)
+              |                                  |
+              +<------- Quit to Menu ------------+  (from the pause menu)
               |
               +--> Quit --> AppExit::Success
 ```
+
+- New Game, Continue and Load Game all leave the menu for `Loading`.
 
 - `Screen::Splash` is the `#[default]`, so the game starts there.
 - The plugins are registered in `screens.rs` in the same order the player meets them:
   `splash`, `menu`, `loading`, `intro`, `gameplay`.
 - A skip in `Splash` is not an edge on this diagram: it ends the current logo, and the sequence
   leaves for the menu on its own once the last one is done.
-- Quit to Menu out of `Gameplay` and the skip out of `Intro` are the only edges that are not the
-  plain next step. There is no way back into `Splash`, `Loading` or `Intro`.
+- `Loading` has two ways out: a new game goes on to `Intro`, a loaded save straight to
+  `Gameplay`. Whoever sends the player there says which, through `StartGame` (see
+  [Starting a game](#starting-a-game)).
+- Quit to Menu, Load Game out of `Gameplay` and the skip out of `Intro` are the other edges that
+  are not the plain next step. There is no way back into `Splash` or `Intro`.
 
 ## The overlay flow
 
@@ -40,6 +49,8 @@ overlay opened over it closes.
         +--[Credits button]---> Overlay::Credits ---+
         |                                           |
         +--[Save button]------> Overlay::SaveGame --+   (pause menu only; a save closes it too)
+        |                                           |
+        +--[Load Game button]-> Overlay::LoadGame --+   (menu and pause menu; a load closes it too)
 ```
 
 The overlay is drawn over whatever screen is below, and that screen keeps running: entering
@@ -56,6 +67,8 @@ That is why the menu music keeps playing while Settings is open.
   Pause::On --[Resume] / Esc -------------> Pause::Off
         |
         +--[Save]------------> Overlay::SaveGame --Close / Esc / a save--> back to Pause::On
+        +--[Load Game]-------> Overlay::LoadGame --Close / Esc--> back to Pause::On
+        |                                       \--a save------> Screen::Loading
         +--[Settings]--------> Overlay::Settings --Close / Esc--> back to Pause::On
         +--[Quit to Menu]----> (dialog, if progress is unsaved) --Yes--> Screen::Menu
         +--[Quit to Desktop]-> (dialog, if progress is unsaved) --Yes--> AppExit::Success
@@ -68,15 +81,30 @@ or the save list, and No or Esc despawns it and leaves what is underneath as it 
 gameplay removes it, so the next game starts unpaused without any code resetting it, and its
 `OnExit` still runs, so a game quit while paused never leaves the clock frozen.
 
+## Starting a game
+
+New Game, Continue and every row of the Load Game list start a game, from two screens that leave
+differently: the menu fades out behind its veil, gameplay cuts. So whoever starts a game triggers
+one event, `StartGame` in `src/screens.rs`, carrying the `Session` to play and the
+`LoadingDestination`, and the screen that is up decides how to leave:
+
+| Observer | Acts in | What it does |
+| --- | --- | --- |
+| `start_game_from_menu` (`menu.rs`) | `Screen::Menu` | inserts both resources, spawns the closing veil |
+| `start_game_from_gameplay` (`gameplay.rs`) | `Screen::Gameplay` | inserts both resources, sets `Screen::Loading` |
+
+Both are global observers, so both see every `StartGame`; each checks `State<Screen>` first, so
+only one acts. `overlays/saves.rs` triggers the event and never learns what a veil is.
+
 ## Screen by screen
 
 | Screen | Spawned by | Ends when | Ends by |
 | --- | --- | --- | --- |
 | `Splash` | `spawn_splash_screen` | the last logo is done, or skipped | `advance_splash_logos` |
 | `Menu` | `spawn_menu_screen`, `play_menu_music` | the closing veil finishes | `animate_veils` |
-| `Loading` | `spawn_loading_screen`, `load_intro_assets` | the intro's assets are in | `leave_loading_screen` |
+| `Loading` | `spawn_loading_screen`, `load_intro_assets` (new games only) | the intro's assets are in, or at once for a loaded save | `leave_loading_screen` |
 | `Intro` | `spawn_intro_screen`, `play_intro_music` | the last frame is done, or skipped | `leave_intro_screen`, `skip_intro_screen` |
-| `Gameplay` | `spawn_gameplay_screen` | Quit to Menu on the pause menu | `activate_pause_button` (`pause.rs`) |
+| `Gameplay` | `spawn_gameplay_screen` | Quit to Menu, or a save picked in Load Game | `activate_pause_button` (`pause.rs`), `start_game_from_gameplay` |
 
 ### Splash
 
@@ -109,12 +137,21 @@ The buttons carry a `MenuAction` component, and the `activate_menu_button` obser
 
 | Button | What it does |
 | --- | --- |
-| Play | spawns a second veil, this one fading *in* to black |
+| New Game | triggers `StartGame` with a fresh `Session`, headed for the intro |
+| Continue | triggers `StartGame` with the newest save `newest_ready` finds, headed for gameplay |
+| Load Game | sets `Overlay::LoadGame` |
 | Settings | sets `Overlay::Settings` |
 | Credits | sets `Overlay::Credits` |
 | Quit | writes `AppExit::Success` |
 
-Play does not set the next screen itself. `animate_veils` does, once the closing veil's timer
+Continue is only there when a save can be loaded: `show_continue_button`, chained after
+`spawn_menu_screen`, sets its `Node::display` to `Display::None` otherwise, which takes it out of
+the column so the buttons below close the gap. Its click lists the saves again rather than trust
+what the menu saw when it opened.
+
+`StartGame` reaches `start_game_from_menu`, which keeps the session and the destination as
+resources and spawns a second veil, this one fading *in* to black. Neither sets the next screen
+itself. `animate_veils` does, once the closing veil's timer
 finishes — that indirection is what makes the fade visible before the screen changes. Which screen
 comes next is `screen_after_veil`'s answer, a pure function with its own tests. The entrance
 veil is despawned when it finishes instead of being left at alpha 0, because a transparent
@@ -126,7 +163,14 @@ so the settings slider would otherwise do nothing to a track that is already pla
 
 ### Loading
 
-A slideshow over black with a progress bar along the bottom. `load_intro_assets` starts loading
+A slideshow over black with a progress bar along the bottom. Where it goes next is the
+`LoadingDestination` resource the caller left, `Intro` for a new game and `Gameplay` for a loaded
+save, and `screen_after_loading` turns it into a screen, a pure function with a test per
+destination. A loaded save has nothing to load yet, so `load_intro_assets` and
+`update_loading_bar` are skipped and `leave_loading_screen` leaves on the next frame; this is
+where the gameplay's own assets will be loaded later.
+
+For a new game, `load_intro_assets` starts loading
 `assets/intro/frames/` and `assets/intro/music.ogg` into the `IntroAssets` resource — a resource
 and not an entity, because an entity with `DespawnOnExit(Screen::Loading)` would drop the handles
 exactly when the intro needs them.
@@ -156,11 +200,24 @@ frames' memory back.
 
 ### Gameplay
 
-A full-window background colour and nothing else yet. `start_session` inserts a fresh `Session` on
-entry, and `count_play_time` adds each frame's virtual time to it, so the pause menu never counts
-as play. Until `StartGame` exists every game starts as a new one; the resource is also created at
-startup, because the pause menu's observer reads it on every button press in the app. Esc lives in
-`src/overlays.rs` with the rest of the "go back" rule.
+A full-window background colour and nothing else yet. The `Session` arrives with `StartGame`,
+fresh or loaded, and `count_play_time` adds each frame's virtual time to it, so the pause menu
+never counts as play. The resource is also created at startup, because the pause menu's observer
+reads it on every button press in the app. Esc lives in `src/overlays.rs` with the rest of the
+"go back" rule.
+
+**Where the game's own state goes.** `Session::game` is a `GameData`, the struct in `save.rs` that
+holds what the game keeps in a save: the world, the player, their progress. It is empty so far,
+and already wired end to end: New Game starts it from `default()`, every save writes it, and
+Continue and Load Game hand it back inside the `Session`. So a gameplay feature that must survive
+a save adds a field to `GameData`, builds its entities from `Session::game` on
+`OnEnter(Screen::Gameplay)`, and keeps the field current while playing, so whatever saves next
+writes it. `GameData` is `#[serde(default)]`, so a save written before a field existed still
+loads, with that field at its default.
+
+`start_game_from_gameplay` answers `StartGame` while gameplay is up, which is a save picked in the
+pause menu's Load Game list: it keeps the session and the destination as resources and sets
+`Screen::Loading` on a cut, since gameplay has no veil.
 
 `autosave_game` runs `.after(count_play_time)` and only in `Pause::Off`. Once
 `autosave_is_due`, after `AUTOSAVE_INTERVAL_SECS` of unsaved play, it writes a new
@@ -182,6 +239,7 @@ same shape as the menu's:
 | --- | --- |
 | Resume | sets `Pause::Off` |
 | Save | sets `Overlay::SaveGame`, drawn above the pause menu; how the save went shows under the buttons |
+| Load Game | sets `Overlay::LoadGame`, drawn above the pause menu; loading asks nothing, even with unsaved play |
 | Settings | sets `Overlay::Settings`, drawn above the pause menu |
 | Quit to Menu | sets `Screen::Menu`, or asks first when `has_unsaved_progress`; `Pause` goes with the screen |
 | Quit to Desktop | writes `AppExit::Success`, or asks first when `has_unsaved_progress` |
@@ -239,6 +297,13 @@ without it the pause buttons would show through.
   and fades it out by `STATUS_FADE`, counting `Time<Real>` because virtual time is frozen while
   paused. The dialog carries
   `DespawnOnExit(Overlay::SaveGame)`, so it cannot outlive the list.
+- **Load Game** (`src/overlays/saves.rs`, beside Save Game): the same scrolling `save_list()`
+  with the same labels, autosaves included, and "No saves yet" when the folder has none. It opens
+  from the menu and from the pause menu. A readable save's row carries `LoadSave(path)`, and the
+  `load_save` observer reads that file again with `read_save`, since the list may be stale, then
+  triggers `StartGame` with `loaded_session` headed for gameplay and sets `Overlay::None`, so the
+  panel does not outlive the screen it was opened over. A file that no longer reads is logged
+  with `error!` and the player stays on the list. Rows come in the folder's order, unsorted.
 
 **Closing.** No panel owns its Close button's behaviour. Each spawns `(button("Close"),
 CloseOverlay)`, and the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None`
@@ -285,7 +350,7 @@ Four files at the top of `src/`, each named after its domain, each used by more 
 | `src/ui.rs` | `button()`, `dialog()`, the palette, `paint_buttons`, `play_button_sounds`, `close_dialog` | buttons in every screen; saves, deleting and quitting all ask questions |
 | `src/fade.rs` | the `Fade` struct and `alpha()` | the splash, the menu veil and the slideshow |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
-| `src/save.rs` | `Session`, `has_unsaved_progress()`, `autosave_is_due()`, `SaveData`, `SaveEntry`, `list_saves()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the save list reads and writes saves, settings are written to disk |
+| `src/save.rs` | `Session`, `GameData`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `list_saves()`, `read_save()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves, settings are written to disk |
 
 **`src/ui.rs`** hands out the button bundle and paints every button in the app from `Hovered` and
 `Has<Pressed>`. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
@@ -306,6 +371,9 @@ what keep a sequence in step, which is why the intro's frames sort correctly.
 
 **`src/save.rs`** has no plugin yet. `Session` holds `play_secs` and `saved_play_secs`, and
 `has_unsaved_progress` is a pure function over it, tested at the bottom of the file.
+`loaded_session` turns a save into a session with all its play time counted as saved, so a game
+just loaded neither asks before quitting nor autosaves at once. `newest_ready` picks what
+Continue loads by `saved_at_secs`, never by list order, which no OS promises.
 
 Its `Disk` section is where files live and how they are written. `data_dir(os, var)` picks the
 per-user data folder of each OS plus the package name, and takes the environment as a function
@@ -319,6 +387,7 @@ Saves are one RON file each in `saves/` inside that data folder, named `save_<mi
 play time. `list_saves` returns a `SaveEntry` for every `.ron` file there, `Ready`, `Incompatible`
 (another `SAVE_VERSION`) or `Unreadable`, so the list can show a file it cannot load instead of
 hiding it; the sorting into those three is `parse_save`, a pure function over the file's text.
+`read_save` reads one file back, `None` when it is gone, unreadable or from another version.
 `write_save` is the one way a save reaches the disk: it creates the folder when it is missing,
 writes through `write_atomic`, and only then sets `saved_play_secs`, so a failed write still
 counts as unsaved progress.
