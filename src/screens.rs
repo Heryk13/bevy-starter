@@ -5,7 +5,7 @@ use loading::LoadingDestination;
 
 pub(crate) mod gameplay;
 mod intro;
-mod loading;
+pub(crate) mod loading;
 mod menu;
 mod splash;
 

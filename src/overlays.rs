@@ -57,6 +57,7 @@ pub(crate) enum Overlay {
     Credits,
     Settings,
     SaveGame,
+    LoadGame,
 }
 
 // ==== Components =============================================================

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::Screen;
+use super::{Screen, StartGame};
 use crate::save::{
     AUTOSAVE_NAME, Session, autosave_is_due, new_autosave_path, saves_dir, write_save,
 };
@@ -20,6 +20,7 @@ pub(super) fn plugin(app: &mut App) {
     // on every button press in the app, and a missing resource there panics
     app.init_resource::<Session>();
     app.add_systems(OnEnter(Screen::Gameplay), spawn_gameplay_screen);
+    app.add_observer(start_game_from_gameplay);
     app.add_plugins(pause::plugin);
     app.add_systems(
         Update,
@@ -65,4 +66,20 @@ fn autosave_game(mut session: ResMut<Session>) {
     if let Err(err) = write_save(&new_autosave_path(&dir), &mut session, AUTOSAVE_NAME) {
         error!("Failed to autosave game: {}", err);
     }
+}
+
+/// Starts the given game from gameplay: keeps it for the screens ahead, then cuts
+/// straight to the loading screen, since gameplay has no veil to fade out with.
+fn start_game_from_gameplay(
+    start_game: On<StartGame>,
+    screen: Res<State<Screen>>,
+    mut commands: Commands,
+    mut next_screen: ResMut<NextState<Screen>>,
+) {
+    if *screen.get() != Screen::Gameplay {
+        return;
+    }
+    commands.insert_resource(start_game.session.clone());
+    commands.insert_resource(start_game.destination);
+    next_screen.set(Screen::Loading);
 }

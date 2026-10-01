@@ -51,6 +51,7 @@ pub(super) fn plugin(app: &mut App) {
 enum MenuAction {
     NewGame,
     Continue,
+    LoadGame,
     Settings,
     Credits,
     Quit,
@@ -112,6 +113,7 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                 children![
                     (button("New Game"), MenuAction::NewGame),
                     (button("Continue"), MenuAction::Continue),
+                    (button("Load Game"), MenuAction::LoadGame),
                     (button("Settings"), MenuAction::Settings),
                     (button("Credits"), MenuAction::Credits),
                     (button("Quit"), MenuAction::Quit),
@@ -173,6 +175,9 @@ fn activate_menu_button(
                         destination: LoadingDestination::Gameplay,
                     });
                 }
+            }
+            MenuAction::LoadGame => {
+                next_overlay.set(Overlay::LoadGame);
             }
             MenuAction::Settings => {
                 next_overlay.set(Overlay::Settings);

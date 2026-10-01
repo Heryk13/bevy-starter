@@ -35,13 +35,19 @@ const LOADING_BAR_LEFT_PERCENT: f32 = (100.0 - LOADING_BAR_WIDTH_PERCENT) / 2.0;
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(
         OnEnter(Screen::Loading),
-        (spawn_loading_screen, load_intro_assets),
+        (
+            spawn_loading_screen,
+            load_intro_assets.run_if(resource_equals(LoadingDestination::Intro)),
+        ),
     );
     app.add_systems(
         Update,
         (
             (fill_slideshow, advance_slideshow, fade_slideshow).chain(),
-            (update_loading_bar, leave_loading_screen),
+            (
+                update_loading_bar.run_if(resource_exists::<IntroAssets>),
+                leave_loading_screen,
+            ),
         )
             .run_if(in_state(Screen::Loading)),
     );
@@ -75,7 +81,7 @@ pub(super) struct IntroAssets {
 
 /// Where the loading screen goes once its work is done, set by whoever sends the
 /// player there.
-#[derive(Resource, Clone, Copy)]
+#[derive(Resource, Clone, Copy, PartialEq)]
 pub(crate) enum LoadingDestination {
     Intro,
     Gameplay,
@@ -207,20 +213,24 @@ fn update_loading_bar(
 
 /// Leaves once the intro's frames and music are in, counting failures as done: Bevy
 /// already logs them, and a missing file is cosmetic where a screen that never ends
-/// is not.
+/// is not. Without intro assets, a game headed straight for gameplay, there is nothing
+/// to wait for.
 fn leave_loading_screen(
-    intro_assets: Res<IntroAssets>,
+    intro_assets: Option<Res<IntroAssets>>,
     asset_server: Res<AssetServer>,
     mut next_screen: ResMut<NextState<Screen>>,
     destination: Res<LoadingDestination>,
 ) {
-    let frames_load_state = asset_server.recursive_dependency_load_state(&intro_assets.frames);
-    let music_load_state = asset_server.load_state(&intro_assets.music);
-    let frames_done = frames_load_state.is_loaded() || frames_load_state.is_failed();
-    let music_done = music_load_state.is_loaded() || music_load_state.is_failed();
-    if frames_done && music_done {
-        next_screen.set(screen_after_loading(*destination));
+    if let Some(intro_assets) = intro_assets {
+        let frames_load_state = asset_server.recursive_dependency_load_state(&intro_assets.frames);
+        let music_load_state = asset_server.load_state(&intro_assets.music);
+        let frames_done = frames_load_state.is_loaded() || frames_load_state.is_failed();
+        let music_done = music_load_state.is_loaded() || music_load_state.is_failed();
+        if !(frames_done && music_done) {
+            return;
+        }
     }
+    next_screen.set(screen_after_loading(*destination));
 }
 
 // ==== Helpers ================================================================

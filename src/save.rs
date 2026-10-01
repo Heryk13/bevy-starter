@@ -209,6 +209,16 @@ pub(crate) fn list_saves(dir: &Path) -> Vec<SaveEntry> {
     saves
 }
 
+/// Reads one save file, or `None` when it is gone, unreadable or from another version.
+/// Picking a save reads it again rather than trusting the list, which may be stale.
+pub(crate) fn read_save(path: &Path) -> Option<SaveData> {
+    let text = std::fs::read_to_string(path).ok()?;
+    match parse_save(&text) {
+        ParsedSave::Ready(data) => Some(data),
+        ParsedSave::Incompatible | ParsedSave::Unreadable => None,
+    }
+}
+
 /// Writes the session to `path` as a save stamped with the current time, whether that
 /// file is new or an older save being overwritten. Creates the folder when it is missing,
 /// so the first save on a machine needs no setup. Marks the session as saved only once
@@ -536,6 +546,29 @@ mod tests {
         };
         assert!((save.play_secs - session.play_secs).abs() < 0.001);
         assert_eq!(save.name, name);
+    }
+
+    #[test]
+    fn written_save_reads_back() {
+        let dir = std::env::temp_dir().join("bevy-starter-read-save");
+        let path = dir.join("save.ron");
+        let mut session = Session::default();
+        session.play_secs = UNSAVED_GRACE_SECS * 2.0;
+        write_save(&path, &mut session, "save").unwrap();
+
+        let Some(save) = read_save(&path) else {
+            panic!("the written save did not read back");
+        };
+        assert!((save.play_secs - session.play_secs).abs() < 0.001);
+    }
+
+    #[test]
+    fn missing_save_reads_as_nothing() {
+        let path = std::env::temp_dir().join("bevy-starter-no-such-save.ron");
+        if path.exists() {
+            std::fs::remove_file(&path).unwrap();
+        }
+        assert!(read_save(&path).is_none());
     }
 
     #[test]

@@ -8,10 +8,12 @@ use super::OVERLAY_GAP_PX;
 use super::Overlay;
 use super::overlay_root;
 use crate::save::{
-    SaveData, SaveEntry, Session, is_autosave, list_saves, new_save_path, saves_dir, unix_now,
-    write_save,
+    SaveData, SaveEntry, Session, is_autosave, list_saves, loaded_session, new_save_path,
+    read_save, saves_dir, unix_now, write_save,
 };
+use crate::screens::StartGame;
 use crate::screens::gameplay::pause::SaveStatus;
+use crate::screens::loading::LoadingDestination;
 use crate::ui::{button, dialog};
 
 // ==== Config =================================================================
@@ -19,6 +21,9 @@ use crate::ui::{button, dialog};
 const OVERWRITE_QUESTION: &str = "Overwrite this save?";
 const SAVED_TEXT: &str = "Saved successfully.";
 const SAVE_FAILED_TEXT: &str = "Failed to save.";
+const NO_SAVES_TEXT: &str = "No saves yet";
+const INCOMPATIBLE_SAVE_TEXT: &str = "Incompatible Save";
+const UNREADABLE_SAVE_TEXT: &str = "Unreadable Save";
 
 const SAVE_LIST_MAX_HEIGHT_PX: f32 = 300.0;
 
@@ -39,6 +44,8 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(save_new_game);
     app.add_observer(ask_to_overwrite_save);
     app.add_observer(overwrite_save);
+    app.add_systems(OnEnter(Overlay::LoadGame), spawn_load_game_overlay);
+    app.add_observer(load_save);
 }
 
 // ==== Components =============================================================
@@ -60,7 +67,13 @@ struct ConfirmOverwrite(PathBuf, String);
 #[derive(Component)]
 struct SaveName;
 
+/// Marks a row that loads the save file it names.
+#[derive(Component)]
+struct LoadSave(PathBuf);
+
 // ==== Systems ================================================================
+
+// ---- save game --------------------------------------------------------------
 
 /// Spawns the save game panel over the current screen, blocking clicks to it.
 fn spawn_save_game_overlay(mut commands: Commands) {
@@ -93,19 +106,7 @@ fn spawn_save_game_overlay(mut commands: Commands) {
         ))
         .id();
     let now_secs = unix_now().as_secs();
-    let list = commands
-        .spawn((
-            Node {
-                flex_direction: FlexDirection::Column,
-                row_gap: px(OVERLAY_GAP_PX),
-                max_height: px(SAVE_LIST_MAX_HEIGHT_PX),
-                overflow: Overflow::scroll_y(),
-                ..default()
-            },
-            ChildOf(root),
-            ScrollArea,
-        ))
-        .id();
+    let list = commands.spawn((save_list(), ChildOf(root))).id();
     for entry in &saves {
         if is_autosave(entry.path()) {
             continue;
@@ -119,10 +120,10 @@ fn spawn_save_game_overlay(mut commands: Commands) {
                 ));
             }
             SaveEntry::Incompatible(_) => {
-                commands.spawn((Text::new("Incompatible Save"), ChildOf(list)));
+                commands.spawn((Text::new(INCOMPATIBLE_SAVE_TEXT), ChildOf(list)));
             }
             SaveEntry::Unreadable(_) => {
-                commands.spawn((Text::new("Unreadable Save"), ChildOf(list)));
+                commands.spawn((Text::new(UNREADABLE_SAVE_TEXT), ChildOf(list)));
             }
         }
     }
@@ -198,7 +199,80 @@ fn overwrite_save(
     }
 }
 
+// ---- load game --------------------------------------------------------------
+
+/// Spawns the load game panel over the current screen, listing every save, autosaves
+/// included, since loading one costs nothing that is not already in a save.
+fn spawn_load_game_overlay(mut commands: Commands) {
+    let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
+    let root = commands
+        .spawn((
+            overlay_root(),
+            children![Text::new("Load Game")],
+            DespawnOnExit(Overlay::LoadGame),
+        ))
+        .id();
+    let now_secs = unix_now().as_secs();
+    let list = commands.spawn((save_list(), ChildOf(root))).id();
+    if saves.is_empty() {
+        commands.spawn((Text::new(NO_SAVES_TEXT), ChildOf(list)));
+    }
+    for entry in &saves {
+        match entry {
+            SaveEntry::Ready(path, save) => {
+                commands.spawn((
+                    button(&save_label(save, now_secs)),
+                    LoadSave(path.clone()),
+                    ChildOf(list),
+                ));
+            }
+            SaveEntry::Incompatible(_) => {
+                commands.spawn((Text::new(INCOMPATIBLE_SAVE_TEXT), ChildOf(list)));
+            }
+            SaveEntry::Unreadable(_) => {
+                commands.spawn((Text::new(UNREADABLE_SAVE_TEXT), ChildOf(list)));
+            }
+        }
+    }
+    commands.spawn((button("Close"), CloseOverlay, ChildOf(root)));
+}
+
+/// Starts the game in a save when its row is pressed, closing the overlay so it does not
+/// outlive the screen it was opened over. A save that can no longer be read stays put.
+fn load_save(
+    activate: On<Activate>,
+    mut commands: Commands,
+    rows: Query<&LoadSave>,
+    mut next_overlay: ResMut<NextState<Overlay>>,
+) {
+    if let Ok(LoadSave(path)) = rows.get(activate.entity) {
+        let Some(data) = read_save(path) else {
+            error!("could not load the save at {}", path.display());
+            return;
+        };
+        commands.trigger(StartGame {
+            session: loaded_session(&data),
+            destination: LoadingDestination::Gameplay,
+        });
+        next_overlay.set(Overlay::None);
+    }
+}
+
 // ==== Helpers ================================================================
+
+/// Returns the scrolling column the save rows go in, the same in both overlays.
+fn save_list() -> impl Bundle {
+    (
+        Node {
+            flex_direction: FlexDirection::Column,
+            row_gap: px(OVERLAY_GAP_PX),
+            max_height: px(SAVE_LIST_MAX_HEIGHT_PX),
+            overflow: Overflow::scroll_y(),
+            ..default()
+        },
+        ScrollArea,
+    )
+}
 
 /// Returns a save's label: its name, or a stand-in when the player gave none, then its play
 /// time and how long ago it was saved. A save dated after `now_secs`, from a clock that
