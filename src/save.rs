@@ -128,6 +128,18 @@ pub(crate) fn newest_ready(entries: &[SaveEntry]) -> Option<&SaveData> {
         .max_by_key(|data| data.saved_at_secs)
 }
 
+/// Puts the newest save first, and the files the game cannot load, which have no date,
+/// last. The folder hands files back in no promised order.
+fn sort_newest_first(entries: &mut [SaveEntry]) {
+    // `None < Some`, so reversed, the dated saves come first and the undated last
+    entries.sort_by_key(|entry| {
+        std::cmp::Reverse(match entry {
+            SaveEntry::Ready(_, data) => Some(data.saved_at_secs),
+            SaveEntry::Incompatible(_) | SaveEntry::Unreadable(_) => None,
+        })
+    });
+}
+
 // ==== Disk ===================================================================
 
 /// Returns the folder this game keeps its files in, or `None` when the OS gives no home.
@@ -201,7 +213,7 @@ pub(crate) fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
 }
 
 /// Returns an entry for every save file in `dir`, readable or not, so the player can
-/// always see and delete what is there. A missing folder is an empty list.
+/// always see and delete what is there, newest first. A missing folder is an empty list.
 pub(crate) fn list_saves(dir: &Path) -> Vec<SaveEntry> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
@@ -225,6 +237,7 @@ pub(crate) fn list_saves(dir: &Path) -> Vec<SaveEntry> {
             ParsedSave::Unreadable => saves.push(SaveEntry::Unreadable(path)),
         }
     }
+    sort_newest_first(&mut saves);
     saves
 }
 
@@ -492,6 +505,35 @@ mod tests {
         ];
         assert!(newest_ready(&entries).is_none());
         assert!(newest_ready(&[]).is_none());
+    }
+
+    // ---- sort_newest_first: the order both lists show -----------------------
+
+    #[test]
+    fn lists_show_the_newest_save_first() {
+        let mut entries = [ready_save(100), ready_save(300), ready_save(200)];
+        sort_newest_first(&mut entries);
+        let dates: Vec<_> = entries
+            .iter()
+            .filter_map(|entry| match entry {
+                SaveEntry::Ready(_, data) => Some(data.saved_at_secs),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(dates, [300, 200, 100]);
+    }
+
+    #[test]
+    fn files_that_cannot_load_go_last() {
+        let mut entries = [
+            SaveEntry::Unreadable(PathBuf::new()),
+            ready_save(100),
+            SaveEntry::Incompatible(PathBuf::new()),
+        ];
+        sort_newest_first(&mut entries);
+        assert!(matches!(entries[0], SaveEntry::Ready(..)));
+        assert!(!matches!(entries[1], SaveEntry::Ready(..)));
+        assert!(!matches!(entries[2], SaveEntry::Ready(..)));
     }
 
     // ---- list_saves: a real folder per test, as for write_atomic ------------

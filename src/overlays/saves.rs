@@ -19,6 +19,7 @@ use crate::ui::{button, dialog};
 // ==== Config =================================================================
 
 const OVERWRITE_QUESTION: &str = "Overwrite this save?";
+const DELETE_QUESTION: &str = "Delete this save?";
 const SAVED_TEXT: &str = "Saved successfully.";
 const SAVE_FAILED_TEXT: &str = "Failed to save.";
 const NO_SAVES_TEXT: &str = "No saves yet";
@@ -46,6 +47,8 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(overwrite_save);
     app.add_systems(OnEnter(Overlay::LoadGame), spawn_load_game_overlay);
     app.add_observer(load_save);
+    app.add_observer(ask_to_delete_save);
+    app.add_observer(delete_save);
 }
 
 // ==== Components =============================================================
@@ -70,6 +73,14 @@ struct SaveName;
 /// Marks a row that loads the save file it names.
 #[derive(Component)]
 struct LoadSave(PathBuf);
+
+/// Marks a row's Delete button, with the save file it asks to delete.
+#[derive(Component)]
+struct DeleteSave(PathBuf);
+
+/// Marks the Yes of `DELETE_QUESTION`, with the save file to delete.
+#[derive(Component)]
+struct ConfirmDelete(PathBuf);
 
 // ==== Systems ================================================================
 
@@ -202,7 +213,9 @@ fn overwrite_save(
 // ---- load game --------------------------------------------------------------
 
 /// Spawns the load game panel over the current screen, listing every save, autosaves
-/// included, since loading one costs nothing that is not already in a save.
+/// included, since loading one costs nothing that is not already in a save. Every row has
+/// a Delete button, the files the game cannot load included, since this is the only way
+/// they leave the list.
 fn spawn_load_game_overlay(mut commands: Commands) {
     let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
     let root = commands
@@ -218,21 +231,36 @@ fn spawn_load_game_overlay(mut commands: Commands) {
         commands.spawn((Text::new(NO_SAVES_TEXT), ChildOf(list)));
     }
     for entry in &saves {
+        let row = commands
+            .spawn((
+                Node {
+                    column_gap: px(OVERLAY_GAP_PX),
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                ChildOf(list),
+            ))
+            .id();
         match entry {
             SaveEntry::Ready(path, save) => {
                 commands.spawn((
                     button(&save_label(save, now_secs)),
                     LoadSave(path.clone()),
-                    ChildOf(list),
+                    ChildOf(row),
                 ));
             }
             SaveEntry::Incompatible(_) => {
-                commands.spawn((Text::new(INCOMPATIBLE_SAVE_TEXT), ChildOf(list)));
+                commands.spawn((Text::new(INCOMPATIBLE_SAVE_TEXT), ChildOf(row)));
             }
             SaveEntry::Unreadable(_) => {
-                commands.spawn((Text::new(UNREADABLE_SAVE_TEXT), ChildOf(list)));
+                commands.spawn((Text::new(UNREADABLE_SAVE_TEXT), ChildOf(row)));
             }
         }
+        commands.spawn((
+            button("Delete"),
+            DeleteSave(entry.path().to_path_buf()),
+            ChildOf(row),
+        ));
     }
     commands.spawn((button("Close"), CloseOverlay, ChildOf(root)));
 }
@@ -255,6 +283,38 @@ fn load_save(
             destination: LoadingDestination::Gameplay,
         });
         next_overlay.set(Overlay::None);
+    }
+}
+
+/// Asks `DELETE_QUESTION` when a row's Delete is pressed, since a deleted save is gone for
+/// good.
+fn ask_to_delete_save(
+    activate: On<Activate>,
+    mut commands: Commands,
+    delete_buttons: Query<&DeleteSave>,
+) {
+    if let Ok(DeleteSave(path)) = delete_buttons.get(activate.entity) {
+        commands.spawn((
+            dialog(DELETE_QUESTION, ConfirmDelete(path.clone())),
+            DespawnOnExit(Overlay::LoadGame),
+        ));
+    }
+}
+
+/// Deletes a save once `DELETE_QUESTION` is answered Yes, then enters the overlay again,
+/// which reads the folder anew, so the list loses the row without code to rebuild it.
+/// A failed delete is logged, and the row stays.
+fn delete_save(
+    activate: On<Activate>,
+    confirms: Query<&ConfirmDelete>,
+    mut next_overlay: ResMut<NextState<Overlay>>,
+) {
+    if let Ok(ConfirmDelete(path)) = confirms.get(activate.entity) {
+        if let Err(err) = std::fs::remove_file(path) {
+            error!("could not delete the save at {}: {err}", path.display());
+        }
+        // `set`, not `set_if_neq`: the same state runs `OnExit` and `OnEnter` again
+        next_overlay.set(Overlay::LoadGame);
     }
 }
 

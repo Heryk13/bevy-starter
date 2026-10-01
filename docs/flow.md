@@ -303,7 +303,16 @@ without it the pause buttons would show through.
   `load_save` observer reads that file again with `read_save`, since the list may be stale, then
   triggers `StartGame` with `loaded_session` headed for gameplay and sets `Overlay::None`, so the
   panel does not outlive the screen it was opened over. A file that no longer reads is logged
-  with `error!` and the player stays on the list. Rows come in the folder's order, unsorted.
+  with `error!` and the player stays on the list.
+
+  Every row also has a Delete button carrying `DeleteSave(path)`, the files the game cannot load
+  included, since this is the only way they leave the list. `ask_to_delete_save` spawns "Delete
+  this save?" with `DespawnOnExit(Overlay::LoadGame)`, its Yes carrying `ConfirmDelete(path)`, and
+  `delete_save` removes the file and sets `Overlay::LoadGame` again. `set` re-enters a state it is
+  already in, so `OnExit` despawns the panel and `OnEnter` reads the folder anew: the list loses
+  the row with no code to rebuild it. A failed delete is logged with `error!` and the row stays.
+  That same `OnExit` runs the menu's `show_continue_button` again, so deleting the last save hides
+  Continue without leaving the menu.
 
 **Closing.** No panel owns its Close button's behaviour. Each spawns `(button("Close"),
 CloseOverlay)`, and the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None`
@@ -387,6 +396,8 @@ Saves are one RON file each in `saves/` inside that data folder, named `save_<mi
 play time. `list_saves` returns a `SaveEntry` for every `.ron` file there, `Ready`, `Incompatible`
 (another `SAVE_VERSION`) or `Unreadable`, so the list can show a file it cannot load instead of
 hiding it; the sorting into those three is `parse_save`, a pure function over the file's text.
+The folder hands files back in no promised order, so `sort_newest_first` puts the newest save
+first and the files without a date, the ones it cannot load, last; both lists show that order.
 `read_save` reads one file back, `None` when it is gone, unreadable or from another version.
 `write_save` is the one way a save reaches the disk: it creates the folder when it is missing,
 writes through `write_atomic`, and only then sets `saved_play_secs`, so a failed write still

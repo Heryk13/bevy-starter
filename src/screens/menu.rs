@@ -31,6 +31,11 @@ pub(super) fn plugin(app: &mut App) {
             play_menu_music,
         ),
     );
+    // a delete in the Load Game list may have taken the last save Continue could load
+    app.add_systems(
+        OnExit(Overlay::LoadGame),
+        show_continue_button.run_if(in_state(Screen::Menu)),
+    );
     app.add_observer(activate_menu_button);
     app.add_observer(start_game_from_menu);
     app.add_systems(

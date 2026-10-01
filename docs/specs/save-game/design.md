@@ -1,6 +1,6 @@
 # Saving and loading games, and the pause menu that needs them
 
-Status: **in progress** — steps 1 to 7 built.
+Status: **in progress** — steps 1 to 8 built.
 Anything still bothering us is settled while building it, and recorded at the bottom under
 "What changed while building it".
 Date: 2026-09-23
@@ -758,3 +758,17 @@ One commit per step.
     `OnEnter(Screen::Gameplay)`. `GameData` and the `game` field are `#[serde(default)]`, so
     the saves already on disk, which have no `game`, still load, and a new field needs no
     `SAVE_VERSION` bump; the version is for changes an older save cannot be read as.
+40. **Rebuilding the list after a delete is entering the overlay again.** `delete_save`
+    removes the file and calls `next_overlay.set(Overlay::LoadGame)` while already in it.
+    `NextState::set` runs `OnExit` and `OnEnter` even for the same state
+    (`bevy_state-0.19.1/src/state/resources.rs:197`; `set_if_neq` is the one that skips), so
+    the panel despawns and `spawn_load_game_overlay` reads the folder anew. The scroll
+    position resets with it, which a list that just lost a row can afford.
+41. **Every row has a Delete, the unloadable files included.** An `Incompatible` or
+    `Unreadable` row is text beside its Delete button; without one, such a file would sit in
+    the list forever. A failed delete is logged and the row stays.
+42. **Continue is re-checked on `OnExit(Overlay::LoadGame)`**, gated on `Screen::Menu`, as
+    designed; with item 29 it hides rather than greys out.
+43. **Both lists show the newest save first.** `list_saves` ends with `sort_newest_first`,
+    a pure function with two tests: dated saves newest first, undated ones (the files that
+    cannot load) last. Item 36's "unsorted" no longer holds.
