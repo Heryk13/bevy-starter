@@ -3,6 +3,7 @@
 
 #[cfg(feature = "dev")]
 use bevy::dev_tools::fps_overlay::FpsOverlayPlugin;
+use bevy::log::{DEFAULT_FILTER, LogPlugin};
 use bevy::prelude::*;
 
 mod assets;
@@ -19,13 +20,23 @@ fn main() {
     let mut app = App::new();
 
     // ---- engine -------------------------------------------------------------
-    app.add_plugins(DefaultPlugins.set(WindowPlugin {
-        primary_window: Some(Window {
-            title: "Bevy Starter".into(),
-            ..default()
-        }),
-        ..default()
-    }));
+    app.add_plugins(
+        DefaultPlugins
+            .set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Starter".into(),
+                    ..default()
+                }),
+                ..default()
+            })
+            .set(LogPlugin {
+                // parley leaves out ICU4X's Chinese/Japanese word dictionary on purpose, so
+                // every Japanese text it lays out warns that the model is missing. Harmless:
+                // line breaks come from separate rules, only word boundaries are lost
+                filter: format!("{DEFAULT_FILTER}icu_provider=error"),
+                ..default()
+            }),
+    );
 
     // ---- dev tools, left out of release builds ------------------------------
     #[cfg(feature = "dev")]
