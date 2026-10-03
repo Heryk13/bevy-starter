@@ -2,12 +2,13 @@ use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
 use crate::fade::Fade;
+use crate::i18n::{Language, Translations};
 use crate::overlays::Overlay;
-use crate::save::{Session, has_unsaved_progress};
+use crate::save::{SaveFinished, Session, has_unsaved_progress};
 use crate::screens::Screen;
 use crate::ui::{
-    ButtonKind, SMALL_FONT_SIZE_PX, TEXT_MUTED, card, dialog, floating_root, font, heading,
-    menu_button,
+    ACCENT, ButtonKind, DANGER, SMALL_FONT_SIZE_PX, TEXT_MUTED, card, dialog, floating_root, font,
+    heading, menu_button,
 };
 
 // ==== Config =================================================================
@@ -18,8 +19,10 @@ const PAUSE_Z_INDEX: GlobalZIndex = GlobalZIndex(50);
 const PAUSE_WIDTH_PX: f32 = 340.0;
 const PAUSE_BUTTON_GAP_PX: f32 = 10.0;
 
-// translation key
+// translation keys
 const QUIT_QUESTION: &str = "dialog-quit-without-saving";
+const SAVED_TEXT: &str = "status-saved";
+const SAVE_FAILED_TEXT: &str = "status-save-failed";
 
 // no delay and no fade in, so the player learns how the save went at once; only the
 // leaving is gentle
@@ -38,6 +41,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnExit(Pause::On), unpause_time);
     app.add_observer(activate_pause_button.run_if(in_state(Pause::On)));
     app.add_observer(confirm_quit.run_if(in_state(Pause::On)));
+    app.add_observer(show_save_status.run_if(in_state(Pause::On)));
     app.add_systems(Update, fade_save_status.run_if(in_state(Pause::On)));
 }
 
@@ -76,10 +80,10 @@ enum QuitTo {
 struct ConfirmQuit(QuitTo);
 
 /// Marks the pause menu's line of text that says how the last save went, with how long it
-/// has been shown. Whoever writes the line sets `shown_secs` back to zero.
+/// has been shown. `show_save_status` writes the line and sets `shown_secs` back to zero.
 #[derive(Component)]
-pub(crate) struct SaveStatus {
-    pub(crate) shown_secs: f32,
+struct SaveStatus {
+    shown_secs: f32,
 }
 
 // ==== Systems ================================================================
@@ -195,6 +199,26 @@ fn confirm_quit(
                 commands.write_message(AppExit::Success);
             }
         }
+    }
+}
+
+/// Writes how the last save went on the status line, in the accent or in red, and starts
+/// its fade over.
+fn show_save_status(
+    finished: On<SaveFinished>,
+    translations: Res<Translations>,
+    language: Res<Language>,
+    mut statuses: Query<(&mut Text, &mut TextColor, &mut SaveStatus)>,
+) {
+    let (key, new_color) = if finished.saved {
+        (SAVED_TEXT, ACCENT)
+    } else {
+        (SAVE_FAILED_TEXT, DANGER)
+    };
+    for (mut text, mut color, mut status) in &mut statuses {
+        text.0 = translations.text(*language, key);
+        color.0 = new_color;
+        status.shown_secs = 0.0;
     }
 }
 

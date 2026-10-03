@@ -300,14 +300,15 @@ under it instead of competing with it.
   | a save's row | `ask_to_overwrite_save` | spawns "Overwrite this save?", its Yes carrying `ConfirmOverwrite(path, name)` |
   | that Yes | `overwrite_save` | writes the session over that file, keeping the save's own name |
 
-  Both writes go through `save_status`, which calls `write_save` and returns `SAVED_TEXT` or
-  `SAVE_FAILED_TEXT`, logging the reason with `error!` on a failure. Either way the overlay
-  closes and the text lands on the pause menu's status line, a `Text` marked `SaveStatus` that
-  `pause.rs` spawns empty; no data folder at all counts as a failure too. Writing the line also
-  sets its `shown_secs` to zero, and `fade_save_status` in `pause.rs` shows it at once, holds it
-  and fades it out by `STATUS_FADE`, counting `Time<Real>` because virtual time is frozen while
-  paused. The dialog carries
-  `DespawnOnExit(Overlay::SaveGame)`, so it cannot outlive the list.
+  Both writes go through `try_write_save`, which calls `write_save` and returns whether it
+  worked, logging the reason with `error!` on a failure; no data folder at all counts as a
+  failure too. Either way the overlay triggers `SaveFinished { saved }` (in `save.rs`) and
+  closes, and never touches the pause menu's widgets: `show_save_status` in `pause.rs` answers
+  the event, writing `SAVED_TEXT` in the accent or `SAVE_FAILED_TEXT` in red on the status line,
+  a `Text` marked `SaveStatus` that `pause.rs` spawns empty. It also sets the line's
+  `shown_secs` to zero, and `fade_save_status` shows it at once, holds it and fades it out by
+  `STATUS_FADE`, counting `Time<Real>` because virtual time is frozen while paused. The dialog
+  carries `DespawnOnExit(Overlay::SaveGame)`, so it cannot outlive the list.
 - **Load Game** (`src/overlays/saves.rs`, beside Save Game): the same scrolling `save_list()`
   with the same labels, autosaves included, and "No saves yet" when the folder has none. It opens
   from the menu and from the pause menu. A readable save's row carries `LoadSave(path)`, and the
@@ -398,7 +399,7 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the blur and the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
-| `src/save.rs` | `Session`, `GameData`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `list_saves()`, `read_save()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves, settings are written to disk |
+| `src/save.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `list_saves()`, `read_save()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves, settings are written to disk |
 
 **`src/ui.rs`** is the look of the whole game. Its `Config` holds the palette (`SURFACE`, `BORDER`,
 `ACCENT`, `DANGER`, `TEXT`, `TEXT_MUTED`, ...) and the four type sizes, so a game made from the

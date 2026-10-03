@@ -65,6 +65,13 @@ pub(crate) fn loaded_session(data: &SaveData) -> Session {
     }
 }
 
+/// Says whether a save the player asked for was written, so whoever shows it decides how,
+/// and whoever writes it never learns about that screen's widgets.
+#[derive(Event)]
+pub(crate) struct SaveFinished {
+    pub(crate) saved: bool,
+}
+
 // ==== Save Data ==============================================================
 
 /// What one save file holds: what the lists show about it, and the game itself. The

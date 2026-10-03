@@ -8,15 +8,14 @@ use std::path::{Path, PathBuf};
 use super::{OVERLAY_GAP_PX, Overlay, close_footer, overlay_card, overlay_root};
 use crate::i18n::{Language, Localized, Translations};
 use crate::save::{
-    SaveData, SaveEntry, Session, is_autosave, list_saves, loaded_session, new_save_path,
-    read_save, saves_dir, unix_now, write_save,
+    SaveData, SaveEntry, SaveFinished, Session, is_autosave, list_saves, loaded_session,
+    new_save_path, read_save, saves_dir, unix_now, write_save,
 };
 use crate::screens::StartGame;
-use crate::screens::gameplay::pause::SaveStatus;
 use crate::screens::loading::LoadingDestination;
 use crate::ui::{
-    ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, ButtonKind, DANGER, FIELD_FILL,
-    SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, button, dialog, font, heading, row_button,
+    ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, ButtonKind, FIELD_FILL, SMALL_FONT_SIZE_PX, TEXT,
+    TEXT_MUTED, button, dialog, font, heading, row_button,
 };
 
 // ==== Config =================================================================
@@ -24,8 +23,6 @@ use crate::ui::{
 // ---- translation keys -------------------------------------------------------
 const OVERWRITE_QUESTION: &str = "dialog-overwrite-save";
 const DELETE_QUESTION: &str = "dialog-delete-save";
-const SAVED_TEXT: &str = "status-saved";
-const SAVE_FAILED_TEXT: &str = "status-save-failed";
 const NO_SAVES_TEXT: &str = "saves-none";
 const INCOMPATIBLE_SAVE_TEXT: &str = "save-incompatible";
 const UNREADABLE_SAVE_TEXT: &str = "save-unreadable";
@@ -197,12 +194,10 @@ fn paint_save_name_field(
 /// menu's status line says how it went.
 fn save_new_game(
     activate: On<Activate>,
+    mut commands: Commands,
     new_save_buttons: Query<(), With<NewSave>>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     mut session: ResMut<Session>,
-    mut statuses: Query<(&mut Text, &mut TextColor, &mut SaveStatus)>,
-    translations: Res<Translations>,
-    language: Res<Language>,
     names: Query<&EditableText, With<SaveName>>,
 ) {
     if new_save_buttons.contains(activate.entity) {
@@ -210,18 +205,14 @@ fn save_new_game(
             .single()
             .map(|field| field.value().to_string().trim().to_string())
             .unwrap_or_default();
-        let status = match saves_dir() {
+        let saved = match saves_dir() {
             Some(dir) => {
                 let path = new_save_path(&dir);
-                save_status(&path, &mut session, &name)
+                try_write_save(&path, &mut session, &name)
             }
-            None => SAVE_FAILED_TEXT,
+            None => false,
         };
-        for (mut text, mut color, mut line) in &mut statuses {
-            text.0 = translations.text(*language, status);
-            color.0 = status_color(status);
-            line.shown_secs = 0.0;
-        }
+        commands.trigger(SaveFinished { saved });
         next_overlay.set(Overlay::None);
     }
 }
@@ -250,20 +241,14 @@ fn ask_to_overwrite_save(
 /// pause menu's status line says how it went.
 fn overwrite_save(
     activate: On<Activate>,
+    mut commands: Commands,
     confirms: Query<&ConfirmOverwrite>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     mut session: ResMut<Session>,
-    mut statuses: Query<(&mut Text, &mut TextColor, &mut SaveStatus)>,
-    translations: Res<Translations>,
-    language: Res<Language>,
 ) {
     if let Ok(ConfirmOverwrite(path, name)) = confirms.get(activate.entity) {
-        let status = save_status(path, &mut session, name);
-        for (mut text, mut color, mut line) in &mut statuses {
-            text.0 = translations.text(*language, status);
-            color.0 = status_color(status);
-            line.shown_secs = 0.0;
-        }
+        let saved = try_write_save(path, &mut session, name);
+        commands.trigger(SaveFinished { saved });
         next_overlay.set(Overlay::None);
     }
 }
@@ -506,22 +491,12 @@ fn age_label(age_secs: u64, translations: &Translations, language: Language) -> 
     translations.text_with(language, key, &args)
 }
 
-/// Writes the session to `path` and returns the key of the line that tells the player how
-/// it went, logging the reason when it failed.
-fn save_status(path: &Path, session: &mut Session, name: &str) -> &'static str {
-    match write_save(path, session, name) {
-        Ok(()) => SAVED_TEXT,
-        Err(err) => {
-            error!("could not write the save: {err}");
-            SAVE_FAILED_TEXT
-        }
-    }
-}
-
-/// Returns the color of the status line for a `save_status` key: the accent for a save that
-/// worked, red for one that did not.
-fn status_color(status: &str) -> Color {
-    if status == SAVED_TEXT { ACCENT } else { DANGER }
+/// Writes the session to `path` and returns whether it worked, logging the reason when it
+/// did not.
+fn try_write_save(path: &Path, session: &mut Session, name: &str) -> bool {
+    write_save(path, session, name)
+        .inspect_err(|err| error!("could not write the save: {err}"))
+        .is_ok()
 }
 
 // ==== Tests ==================================================================
@@ -674,17 +649,5 @@ mod tests {
             age_label(5 * 60, &translations, Language::Japanese),
             "5分前"
         );
-    }
-
-    // ---- status_color -------------------------------------------------------
-
-    #[test]
-    fn saved_status_is_in_the_accent() {
-        assert_eq!(status_color(SAVED_TEXT), ACCENT);
-    }
-
-    #[test]
-    fn failed_status_is_red() {
-        assert_eq!(status_color(SAVE_FAILED_TEXT), DANGER);
     }
 }
