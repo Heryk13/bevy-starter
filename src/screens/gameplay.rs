@@ -14,11 +14,12 @@ const BACKGROUND_COLOR: Color = Color::srgb(0.10, 0.20, 0.25);
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
-    // from startup, not only from the first game: the pause menu's observer reads it
-    // on every button press in the app, and a missing resource there panics
+    // from startup, not only from the first game: a default session is a valid new
+    // game, so gameplay can be entered without the menu (a shortcut while building it)
+    // and count_play_time still finds one
     app.init_resource::<Session>();
     app.add_systems(OnEnter(Screen::Gameplay), spawn_gameplay_screen);
-    app.add_observer(start_game_from_gameplay);
+    app.add_observer(start_game_from_gameplay.run_if(in_state(Screen::Gameplay)));
     app.add_plugins(pause::plugin);
     app.add_systems(
         Update,
@@ -70,13 +71,9 @@ fn autosave_game(mut session: ResMut<Session>) {
 /// straight to the loading screen, since gameplay has no veil to fade out with.
 fn start_game_from_gameplay(
     start_game: On<StartGame>,
-    screen: Res<State<Screen>>,
     mut commands: Commands,
     mut next_screen: ResMut<NextState<Screen>>,
 ) {
-    if *screen.get() != Screen::Gameplay {
-        return;
-    }
     commands.insert_resource(start_game.session.clone());
     commands.insert_resource(start_game.destination);
     next_screen.set(Screen::Loading);

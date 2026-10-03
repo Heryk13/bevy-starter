@@ -89,6 +89,9 @@ The character tells the kind of boundary:
 - One plugin per screen or feature: `pub(super) fn plugin(app: &mut App)`.
 - Screen entities get `DespawnOnExit(Screen::X)`, screen systems get `.run_if(in_state(Screen::X))`.
   The same goes for `Overlay::X` and `Pause::On`: whatever a state spawns, its exit despawns.
+- An observer gets the same `run_if` as the state its buttons live in, so it never runs, nor
+  asks for that state's resources, anywhere else. Only observers whose buttons live
+  everywhere (`close_overlay`, `close_dialog`) stay global.
 - `Screen` is where the player is, `Overlay` what is drawn on top, `Pause` whether the game is
   frozen. Anything drawn over a live screen is an overlay, never a screen, so the screen
   underneath is never torn down (see `docs/flow.md`).

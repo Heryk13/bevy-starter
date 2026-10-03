@@ -52,9 +52,9 @@ const SETTINGS_FILE_NAME: &str = "settings.ron";
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(Startup, load_settings);
     app.add_systems(OnEnter(Overlay::Settings), spawn_settings_overlay);
-    app.add_observer(toggle_fullscreen);
-    app.add_observer(update_volume);
-    app.add_observer(choose_language);
+    app.add_observer(toggle_fullscreen.run_if(in_state(Overlay::Settings)));
+    app.add_observer(update_volume.run_if(in_state(Overlay::Settings)));
+    app.add_observer(choose_language.run_if(in_state(Overlay::Settings)));
     app.add_systems(
         Update,
         (

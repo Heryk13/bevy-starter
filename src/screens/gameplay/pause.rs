@@ -36,8 +36,8 @@ pub(super) fn plugin(app: &mut App) {
     app.add_sub_state::<Pause>();
     app.add_systems(OnEnter(Pause::On), (spawn_pause_menu, pause_time));
     app.add_systems(OnExit(Pause::On), unpause_time);
-    app.add_observer(activate_pause_button);
-    app.add_observer(confirm_quit);
+    app.add_observer(activate_pause_button.run_if(in_state(Pause::On)));
+    app.add_observer(confirm_quit.run_if(in_state(Pause::On)));
     app.add_systems(Update, fade_save_status.run_if(in_state(Pause::On)));
 }
 
@@ -214,4 +214,30 @@ fn fade_save_status(time: Res<Time<Real>>, mut statuses: Query<(&mut SaveStatus,
 /// never inherits a frozen clock.
 fn unpause_time(mut time: ResMut<Time<Virtual>>) {
     time.unpause();
+}
+
+// ==== Tests ==================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_click_outside_gameplay_needs_no_session() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, bevy::state::app::StatesPlugin));
+        app.init_state::<Screen>();
+        app.init_state::<Overlay>();
+        plugin(&mut app);
+        app.update();
+        let entity = app.world_mut().spawn_empty().id();
+        app.world_mut().trigger(Activate { entity });
+        app.update();
+        // reaching this line is the point: an unscoped observer asked for the
+        // missing Session and panicked before it
+        assert_eq!(
+            app.world().resource::<State<Screen>>().get(),
+            &Screen::Splash
+        );
+    }
 }

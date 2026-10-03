@@ -44,8 +44,8 @@ pub(super) fn plugin(app: &mut App) {
         OnExit(Overlay::LoadGame),
         show_continue_button.run_if(in_state(Screen::Menu)),
     );
-    app.add_observer(activate_menu_button);
-    app.add_observer(start_game_from_menu);
+    app.add_observer(activate_menu_button.run_if(in_state(Screen::Menu)));
+    app.add_observer(start_game_from_menu.run_if(in_state(Screen::Menu)));
     app.add_systems(
         Update,
         (
@@ -233,14 +233,7 @@ fn activate_menu_button(
 
 /// Starts the given game from the menu: keeps it for the screens ahead, then fades
 /// out, since the veil is what leaves for the loading screen.
-fn start_game_from_menu(
-    start_game: On<StartGame>,
-    screen: Res<State<Screen>>,
-    mut commands: Commands,
-) {
-    if *screen.get() != Screen::Menu {
-        return;
-    }
+fn start_game_from_menu(start_game: On<StartGame>, mut commands: Commands) {
     commands.insert_resource(start_game.session.clone());
     commands.insert_resource(start_game.destination);
     commands.spawn((

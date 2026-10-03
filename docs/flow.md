@@ -92,8 +92,7 @@ one event, `StartGame` in `src/screens.rs`, carrying the `Session` to play and t
 | `start_game_from_menu` (`menu.rs`) | `Screen::Menu` | inserts both resources, spawns the closing veil |
 | `start_game_from_gameplay` (`gameplay.rs`) | `Screen::Gameplay` | inserts both resources, sets `Screen::Loading` |
 
-Both are global observers, so both see every `StartGame`; each checks `State<Screen>` first, so
-only one acts. `overlays/saves.rs` triggers the event and never learns what a veil is.
+Each carries `.run_if(in_state(...))` for its screen, so only the one whose screen is up runs. `overlays/saves.rs` triggers the event and never learns what a veil is.
 
 ## Screen by screen
 
@@ -202,8 +201,8 @@ frames' memory back.
 
 A full-window background colour and nothing else yet. The `Session` arrives with `StartGame`,
 fresh or loaded, and `count_play_time` adds each frame's virtual time to it, so the pause menu
-never counts as play. The resource is also created at startup, because the pause menu's observer
-reads it on every button press in the app. Esc lives in `src/overlays.rs` with the rest of the
+never counts as play. The resource is also created at startup: a default `Session` is a valid
+new game, so gameplay can be entered without the menu while building the game. Esc lives in `src/overlays.rs` with the rest of the
 "go back" rule.
 
 **Where the game's own state goes.** `Session::game` is a `GameData`, the struct in `save.rs` that

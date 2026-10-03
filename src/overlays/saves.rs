@@ -52,13 +52,13 @@ pub(super) fn plugin(app: &mut App) {
         Update,
         paint_save_name_field.run_if(in_state(Overlay::SaveGame)),
     );
-    app.add_observer(save_new_game);
-    app.add_observer(ask_to_overwrite_save);
-    app.add_observer(overwrite_save);
+    app.add_observer(save_new_game.run_if(in_state(Overlay::SaveGame)));
+    app.add_observer(ask_to_overwrite_save.run_if(in_state(Overlay::SaveGame)));
+    app.add_observer(overwrite_save.run_if(in_state(Overlay::SaveGame)));
     app.add_systems(OnEnter(Overlay::LoadGame), spawn_load_game_overlay);
-    app.add_observer(load_save);
-    app.add_observer(ask_to_delete_save);
-    app.add_observer(delete_save);
+    app.add_observer(load_save.run_if(in_state(Overlay::LoadGame)));
+    app.add_observer(ask_to_delete_save.run_if(in_state(Overlay::LoadGame)));
+    app.add_observer(delete_save.run_if(in_state(Overlay::LoadGame)));
 }
 
 // ==== Components =============================================================
