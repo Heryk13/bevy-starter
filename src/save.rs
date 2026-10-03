@@ -201,10 +201,14 @@ pub(crate) fn is_autosave(path: &Path) -> bool {
 }
 
 /// Writes a file through a temporary one and a rename, so a crash mid-write leaves the
-/// old file whole.
+/// old file whole. Creates the folder when it is missing, so the first write on a machine
+/// needs no setup.
 // ponytail: read and written on the main thread; move to IoTaskPool when saves grow
 // past a few KB
 pub(crate) fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
     let tmp = path.with_extension("ron.tmp");
     std::fs::write(&tmp, text)?;
     std::fs::rename(tmp, path)
@@ -250,8 +254,7 @@ pub(crate) fn read_save(path: &Path) -> Option<SaveData> {
 }
 
 /// Writes the session to `path` as a save stamped with the current time, whether that
-/// file is new or an older save being overwritten. Creates the folder when it is missing,
-/// so the first save on a machine needs no setup. Marks the session as saved only once
+/// file is new or an older save being overwritten. Marks the session as saved only once
 /// the file is whole, so a failed write still counts as unsaved progress.
 pub(crate) fn write_save(path: &Path, session: &mut Session, name: &str) -> std::io::Result<()> {
     let save = SaveData {
@@ -262,9 +265,6 @@ pub(crate) fn write_save(path: &Path, session: &mut Session, name: &str) -> std:
         game: session.game.clone(),
     };
     let text = ron::to_string(&save).map_err(std::io::Error::other)?;
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
     write_atomic(path, &text)?;
     session.saved_play_secs = session.play_secs;
     Ok(())

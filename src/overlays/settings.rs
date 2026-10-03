@@ -332,10 +332,6 @@ fn save_settings(
         return;
     };
     // a failed write is logged, never dropped: the player would believe it was saved
-    if let Err(error) = std::fs::create_dir_all(&dir) {
-        error!("could not save the settings: {error}");
-        return;
-    }
     if let Err(error) = write_atomic(&dir.join(SETTINGS_FILE_NAME), &text) {
         error!("could not save the settings: {error}");
     }
