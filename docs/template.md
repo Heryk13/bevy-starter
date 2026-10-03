@@ -11,12 +11,16 @@ For setup and the day-to-day commands, see the [README](../README.md).
      macOS), where `settings.ron` and the `saves/` folder live. Renaming it leaves the old
      saves and settings behind, in the folder under the old name
    - `game` in `justfile`, which `just release` uses to find the executable
-   - the window `title` in `src/main.rs`
+   - `GAME_TITLE` in `src/main.rs`, the name on the window and on the menu
+
+   Then the two things that name the game's people and its release: `CREDITS_NAMES` in
+   `src/overlays/credits.rs`, and `version` in `Cargo.toml`, which the menu shows in its corner.
 2. Trim Bevy's default features in `Cargo.toml` to what the game uses, for smaller and faster builds.
-   For a 2D game:
+   For a 2D game, keeping the `jpeg` and `wav` the template's assets need:
    ```toml
-   bevy = { version = "0.19.1", default-features = false, features = ["2d", "ui", "audio"] }
+   bevy = { version = "0.19.1", default-features = false, features = ["2d", "ui", "audio", "jpeg", "wav"] }
    ```
+   Every screen, overlay and the blur build and run with exactly these (checked on 0.19.1).
 3. Keep the Bevy logo on the splash screen: it lets players know the game is made with Bevy
    and helps the engine grow. Use it unmodified (see [Assets](#assets)).
 4. Replace the [placeholder assets](#placeholders) with the game's own.
@@ -117,7 +121,7 @@ editing those constants. The game's name on the menu and the window is `GAME_TIT
 
 Every word the player reads is a key in `assets/locales/<code>/main.ftl`, in
 [Fluent](https://projectfluent.org/) syntax. Code names the key, never the words:
-`button("menu-new-game")`, `Localized("pause-title")` (it brings its own `Text`),
+`menu_button("menu-new-game")`, `Localized("pause-title")` (it brings its own `Text`),
 `dialog("dialog-delete-save", ...)`. Text built from values, like a save's row, is formatted
 with `Translations::text_with`.
 

@@ -1,6 +1,6 @@
 # Localization: English, Portuguese and Japanese
 
-Status: **built**, not yet tried in the game — steps 1 to 8 written together on 2026-10-02.
+Status: **built** — steps 1 to 8 written together on 2026-10-02, committed in `0cfc9ed`.
 Date: 2026-10-02
 Bevy: 0.19.1
 

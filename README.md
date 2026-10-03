@@ -45,6 +45,7 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 | `just run`     | Run the game in dev mode                               |
 | `just fix`     | Apply clippy fixes and format the code                 |
 | `just check`   | Check formatting and lints, and run the tests          |
+| `just test`    | Run the tests only                                     |
 | `just release` | Build an optimized release and package it into `dist/` |
 
 - Turning this template into your own game: [docs/template.md](docs/template.md)

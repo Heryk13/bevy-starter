@@ -11,13 +11,18 @@ it is a decision. An exception without one is drift.
 
 1. **Plan**: find where the change belongs. Code is organized by feature, not by who wrote it:
    each screen or feature is a plugin in its own file (e.g. `src/screens/menu.rs`).
+   A change bigger than one commit is designed first in `docs/specs/<feature>/design.md`:
+   the decisions with their reasons, then an implementation order of one commit per step.
+   What the build changes from the plan goes in its "What changed while building it".
 2. **Write** following the [code conventions](#code-conventions).
 3. **Test** the logic (see [Tests](#tests)).
 4. **Fix and check**: `just fix`, then `just check`.
 5. **Run**: `just run` and try the change in the game.
 6. **Docs**: update `README.md` if features, commands or requirements changed,
    `docs/flow.md` if a screen, an overlay or the way the player moves between them changed,
+   `docs/template.md` if what a game made from the template changes or where it lives moved,
    and the rest of `docs/` if the project structure or the way a feature works changed.
+   A built spec is history: only its status line changes after it lands.
 7. **Commit** (see [Commits](#commits)).
 
 ## Code conventions
@@ -32,7 +37,7 @@ Every `.rs` file follows the same order, skipping the sections it doesn't have:
 4. `Plugin`: the `plugin` function, a summary of what the file does
 5. in a shared file, what it hands to other files, in a section named after it
    (`Widgets` in `ui.rs`), not under `Helpers`
-6. types: `State`, `Components`, `Resources`
+6. types: `State`, `Events`, `Components`, `Resources`
 7. `Systems`: in the order they run (spawn, update, ...)
 8. `Helpers`: pure functions used by the systems, next to the tests that cover them
 9. `Tests`
@@ -83,6 +88,20 @@ The character tells the kind of boundary:
 
 - One plugin per screen or feature: `pub(super) fn plugin(app: &mut App)`.
 - Screen entities get `DespawnOnExit(Screen::X)`, screen systems get `.run_if(in_state(Screen::X))`.
+  The same goes for `Overlay::X` and `Pause::On`: whatever a state spawns, its exit despawns.
+- `Screen` is where the player is, `Overlay` what is drawn on top, `Pause` whether the game is
+  frozen. Anything drawn over a live screen is an overlay, never a screen, so the screen
+  underneath is never torn down (see `docs/flow.md`).
+- A button carries a component naming what it does (`MenuAction`, `CloseOverlay`), and one
+  observer per file reads it off `activate.entity`.
+- Anything that must keep moving while the game is paused (the UI, the blur) counts
+  `Time<Real>`. Gameplay counts `Res<Time>`, which the pause menu freezes for free.
+- Floating UI (overlays, the pause menu, dialogs) is built from `floating_root()` and `card()`
+  in `ui.rs`; colors and type sizes come from its `Config`, never from a literal.
+- Roots that must stack carry a named `GlobalZIndex` constant (`*_Z_INDEX`), listed in
+  `docs/flow.md`.
+- Files on disk live in the game's data folder and are written with `write_atomic`, so a
+  crash mid-write leaves the old file whole.
 - State that belongs to an entity is a component on it, not a global resource.
 - Exactly one entity: `Single<...>`. Zero or more: `Query<...>`.
 - Ask for the minimum access: `&` to read, `&mut` only to write.
@@ -97,9 +116,20 @@ The character tells the kind of boundary:
   A missing asset should cost a frame of the animation, never the whole game.
 - Dev-only code goes behind `#[cfg(feature = "dev")]`.
 
+### Text
+
+- Every word the player reads is a key in every `assets/locales/<code>/main.ftl`. Code names
+  the key, never the words: `label("menu-new-game")`, `Localized("pause-title")`, and
+  `Translations::text_with` for text built from values. A test fails while one file lacks a
+  key another has.
+- A key belongs to one place in the UI, even when its English repeats another's
+  (`menu-settings`, `pause-settings`): another language may need two different words.
+- Proper nouns are never translated: the game's title, people's names, each language's own
+  name in the language picker.
+
 ### Naming
 
-- Systems: verb + noun (`spawn_splash_screen`, `tick_splash_timer`).
+- Systems and observers: verb + noun (`spawn_splash_screen`, `advance_splash_logos`).
 - Constants: `SCREAMING_SNAKE_CASE`, with the unit in the name (`LOGO_HOLD_SECS`).
 
 ## Tests
@@ -115,6 +145,9 @@ The character tells the kind of boundary:
 - Write the times and sizes a test uses as expressions over the constants
   (`SLIDE_SECS / 2.0`), so the test follows the code when a constant changes, and pick them
   away from the boundary between two phases, where `f32` rounding decides the answer.
+- A test that touches the disk gets a folder of its own under `std::env::temp_dir()`
+  (`bevy-starter-list-saves`), so tests running in parallel never share files. It never
+  touches the real data folder, where the player's saves are.
 
 ## Commits
 
@@ -126,5 +159,7 @@ The character tells the kind of boundary:
 ## Dependencies
 
 - New crates are fine when they save real work, but check first if Bevy or the standard library already does it.
+  In a template every crate is friction for whoever clones it: each one has to move to the
+  next Bevy release before the template can.
 - `just release` checks every dependency license against `about.toml`.
   Review a new license before adding it to the list.

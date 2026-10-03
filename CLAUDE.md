@@ -17,13 +17,32 @@
 - Claude writes the surrounding prose without being asked: `///` doc comments, the `// ====`
   and `// ----` separators at column 80, the comments that record an exception's reason, and
   lint attributes. The user writes the Rust.
+- Pure renames and cut-and-paste moves are Claude's to do: they teach nothing. Do only the
+  mechanical part, say where things went, and leave any naming judgment it raises to the user.
+- When the user asks Claude to implement ("implementa aí"), implement the whole sub-step, never
+  half of it, then explain it with a table of what changed and why. Offer the task first next
+  time anyway: writing the Rust stays the default.
+- Before proposing to move or restructure code, grep `docs/flow.md` and `docs/specs/` for the
+  names involved: where code sits may be a recorded decision. Cite the doc that agrees, or
+  present both sides when one disagrees.
+
+## Plans and specs
+
+- A change bigger than one commit starts as a spec: `docs/specs/<feature>/design.md`, with a
+  status line, the decisions, an implementation order of one commit per step, and a
+  "What changed while building it" section filled in as the build departs from the plan.
+- Once built, a spec is history: leave its text as written, and update only its status line.
+  The living docs are `README.md`, `docs/flow.md` and `docs/template.md`.
+- `docs/specs/refactor/design.md` is the refactor plan for the 1.0 template, worked through
+  one step per commit, in its order.
 
 ## Every implementation
 
 Whenever a change is made, by the user or by you, before calling it done:
 
 1. Read the diff and check it against every rule in `CONTRIBUTING.md`:
-   the loop, file layout, separators, comments, Bevy patterns, naming, tests and docs.
+   the loop, file layout, separators, comments, Bevy patterns, text, naming, tests and docs.
+   Grep every renamed identifier in `README.md`, `docs/flow.md` and `docs/template.md`.
 2. Run `just check` yourself. Never report it as passing without running it.
    Skip it for a docs-only change: there is nothing in it for `just check` to check.
 3. Report a short checklist: what follows the conventions, what is missing,

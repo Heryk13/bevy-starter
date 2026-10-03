@@ -27,7 +27,6 @@ overlay opened over it closes.
 ```
 
 - New Game, Continue and Load Game all leave the menu for `Loading`.
-
 - `Screen::Splash` is the `#[default]`, so the game starts there.
 - The plugins are registered in `screens.rs` in the same order the player meets them:
   `splash`, `menu`, `loading`, `intro`, `gameplay`.
@@ -104,7 +103,7 @@ only one acts. `overlays/saves.rs` triggers the event and never learns what a ve
 | `Menu` | `spawn_menu_screen`, `play_menu_music` | the closing veil finishes | `animate_veils` |
 | `Loading` | `spawn_loading_screen`, `load_intro_assets` (new games only) | the intro's assets are in, or at once for a loaded save | `leave_loading_screen` |
 | `Intro` | `spawn_intro_screen`, `play_intro_music` | the last frame is done, or skipped | `leave_intro_screen`, `skip_intro_screen` |
-| `Gameplay` | `spawn_gameplay_screen` | Quit to Menu, or a save picked in Load Game | `activate_pause_button` (`pause.rs`), `start_game_from_gameplay` |
+| `Gameplay` | `spawn_gameplay_screen` | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
 
 ### Splash
 
@@ -264,9 +263,10 @@ under it instead of competing with it.
 - **Settings** (`src/overlays/settings.rs`): a grid of `setting_row`s, each a label in a column of
   its own beside its control: a fullscreen checkbox and a 0–100 volume slider, both from
   `bevy_ui_widgets`, and the language radios. The slider is as tall as its thumb, with a thin
-  track through it and a `VolumeFill` up to the thumb, in the accent. Its `update_fullscreen_checkbox` and `update_volume_thumb`
-  are gated with `.run_if(in_state(Overlay::Settings))`; the widgets are headless, so those two
-  systems are what actually draw the state. Both choices are remembered in `settings.ron` in the
+  track through it and a `VolumeFill` up to the thumb, in the accent. Its
+  `update_fullscreen_checkbox`, `update_volume_thumb` and `update_language_radios` are gated
+  with `.run_if(in_state(Overlay::Settings))`; the widgets are headless, so those systems are
+  what actually draw the state. All three choices are remembered in `settings.ron` in the
   game's data folder: `load_settings` applies it at `Startup`, and `save_settings` writes it on
   `OnExit(Overlay::Settings)`, once per visit rather than on every slider move. The `Window` and
   `GlobalVolume` stay the only copy of the state; the file is read from them and written back to
@@ -326,10 +326,11 @@ under it instead of competing with it.
   That same `OnExit` runs the menu's `show_continue_button` again, so deleting the last save hides
   Continue without leaving the menu.
 
-**Closing.** No panel owns its Close button's behaviour. Each spawns `(button("Close"),
-CloseOverlay)`, and the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None`
-when the activated entity carries the marker. `go_back_on_esc` is the second way out, and it holds
-the whole "go back" rule in one place, first match wins:
+**Closing.** No panel owns its Close button's behaviour. Each ends its card with
+`close_footer()`, which holds `(button("overlay-close", ButtonKind::Quiet), CloseOverlay)`, and
+the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None` when the activated
+entity carries the marker. `go_back_on_esc` is the second way out, and it holds the whole
+"go back" rule in one place, first match wins:
 
 1. a dialog is open → close it
 2. an overlay is open → close it (back to the pause menu, if paused)
@@ -393,10 +394,10 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
-| `src/ui.rs` | the palette and type sizes, `button()`, `menu_button()`, `row_button()`, `ButtonKind`, `label()`, `heading()`, `floating_root()`, `card()`, `dialog()`, `paint_buttons`, `animate_entrances`, `play_button_sounds`, `close_dialog` | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
+| `src/ui.rs` | the palette and type sizes, `font()`, `button()`, `menu_button()`, `row_button()`, `ButtonKind`, `label()`, `heading()`, `floating_root()`, `card()`, `dialog()`, `paint_buttons`, `animate_entrances`, `play_button_sounds`, `close_dialog` | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
 | `src/blur.rs` | the floating camera, `Floating`, `BlurStrength`, the two blur passes | the pause menu, every overlay and every dialog float |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
-| `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, card entrances; `approach` eases the blur and the buttons |
+| `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the blur and the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
 | `src/save.rs` | `Session`, `GameData`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `list_saves()`, `read_save()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves, settings are written to disk |
 

@@ -1,6 +1,6 @@
 # UI style: a darker, calmer look, with a blur behind every panel
 
-Status: **built**, not yet tried by the user — all nine steps written together on 2026-10-02, uncommitted.
+Status: **built** — all nine steps written together on 2026-10-02, committed in `87df405`.
 Date: 2026-10-02
 Bevy: 0.19.1
 

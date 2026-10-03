@@ -18,6 +18,7 @@ check:
     cargo clippy --no-default-features -- -D warnings
     cargo test
 
+# run the tests only
 test:
     cargo test
 
