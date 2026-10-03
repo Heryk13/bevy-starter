@@ -8,14 +8,14 @@ run:
 
 # apply clippy fixes and format the code
 fix:
-    cargo clippy --fix --allow-dirty
+    cargo clippy --all-targets --fix --allow-dirty
     cargo fmt
 
-# check formatting, lints in dev and release configs, and run the tests
+# check formatting, lints (tests included) in dev and release configs, and run the tests
 check:
     cargo fmt --check
-    cargo clippy -- -D warnings
-    cargo clippy --no-default-features -- -D warnings
+    cargo clippy --all-targets -- -D warnings
+    cargo clippy --all-targets --no-default-features -- -D warnings
     cargo test
 
 # run the tests only

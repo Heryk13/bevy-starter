@@ -263,22 +263,28 @@ mod tests {
 
     #[test]
     fn short_play_has_no_unsaved_progress() {
-        let mut session = Session::default();
-        session.play_secs = UNSAVED_GRACE_SECS / 2.0;
+        let session = Session {
+            play_secs: UNSAVED_GRACE_SECS / 2.0,
+            ..default()
+        };
         assert!(!has_unsaved_progress(&session));
     }
 
     #[test]
     fn long_play_has_unsaved_progress() {
-        let mut session = Session::default();
-        session.play_secs = UNSAVED_GRACE_SECS * 2.0;
+        let session = Session {
+            play_secs: UNSAVED_GRACE_SECS * 2.0,
+            ..default()
+        };
         assert!(has_unsaved_progress(&session));
     }
 
     #[test]
     fn saving_clears_unsaved_progress() {
-        let mut session = Session::default();
-        session.play_secs = UNSAVED_GRACE_SECS * 2.0;
+        let mut session = Session {
+            play_secs: UNSAVED_GRACE_SECS * 2.0,
+            ..default()
+        };
         assert!(has_unsaved_progress(&session));
         session.saved_play_secs = session.play_secs;
         assert!(!has_unsaved_progress(&session));
@@ -286,22 +292,28 @@ mod tests {
 
     #[test]
     fn autosave_waits_for_the_interval() {
-        let mut session = Session::default();
-        session.play_secs = AUTOSAVE_INTERVAL_SECS / 2.0;
+        let session = Session {
+            play_secs: AUTOSAVE_INTERVAL_SECS / 2.0,
+            ..default()
+        };
         assert!(!autosave_is_due(&session));
     }
 
     #[test]
     fn autosave_is_due_after_the_interval() {
-        let mut session = Session::default();
-        session.play_secs = AUTOSAVE_INTERVAL_SECS * 2.0;
+        let session = Session {
+            play_secs: AUTOSAVE_INTERVAL_SECS * 2.0,
+            ..default()
+        };
         assert!(autosave_is_due(&session));
     }
 
     #[test]
     fn saving_puts_the_autosave_off() {
-        let mut session = Session::default();
-        session.play_secs = AUTOSAVE_INTERVAL_SECS * 2.0;
+        let mut session = Session {
+            play_secs: AUTOSAVE_INTERVAL_SECS * 2.0,
+            ..default()
+        };
         assert!(autosave_is_due(&session));
         session.saved_play_secs = session.play_secs;
         assert!(!autosave_is_due(&session));
@@ -309,8 +321,10 @@ mod tests {
 
     #[test]
     fn failed_autosave_waits_a_full_interval() {
-        let mut session = Session::default();
-        session.play_secs = AUTOSAVE_INTERVAL_SECS * 2.0;
+        let mut session = Session {
+            play_secs: AUTOSAVE_INTERVAL_SECS * 2.0,
+            ..default()
+        };
         session.autosave_tried_secs = session.play_secs;
         assert!(!autosave_is_due(&session));
         session.play_secs += AUTOSAVE_INTERVAL_SECS * 2.0;
@@ -503,8 +517,10 @@ mod tests {
         let dir = std::env::temp_dir().join("bevy-starter-written-save");
         std::fs::create_dir_all(&dir).unwrap();
 
-        let mut session = Session::default();
-        session.play_secs = UNSAVED_GRACE_SECS * 2.0;
+        let mut session = Session {
+            play_secs: UNSAVED_GRACE_SECS * 2.0,
+            ..default()
+        };
         let name = "save";
         write_save(&dir.join("ready.ron"), &mut session, name).unwrap();
         assert!(!has_unsaved_progress(&session));
@@ -522,8 +538,10 @@ mod tests {
     fn written_save_reads_back() {
         let dir = std::env::temp_dir().join("bevy-starter-read-save");
         let path = dir.join("save.ron");
-        let mut session = Session::default();
-        session.play_secs = UNSAVED_GRACE_SECS * 2.0;
+        let mut session = Session {
+            play_secs: UNSAVED_GRACE_SECS * 2.0,
+            ..default()
+        };
         write_save(&path, &mut session, "save").unwrap();
 
         let Some(save) = read_save(&path) else {
@@ -548,8 +566,10 @@ mod tests {
             std::fs::remove_dir_all(&dir).unwrap();
         }
 
-        let mut session = Session::default();
-        session.play_secs = 123.4;
+        let mut session = Session {
+            play_secs: 123.4,
+            ..default()
+        };
         let name = "save";
         write_save(&dir.join("ready.ron"), &mut session, name).unwrap();
 
