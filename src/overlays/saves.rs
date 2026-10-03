@@ -208,7 +208,7 @@ fn save_new_game(
     if new_save_buttons.contains(activate.entity) {
         let name = names
             .single()
-            .map(|field| field.value().to_string())
+            .map(|field| field.value().to_string().trim().to_string())
             .unwrap_or_default();
         let status = match saves_dir() {
             Some(dir) => {
@@ -258,7 +258,7 @@ fn overwrite_save(
     language: Res<Language>,
 ) {
     if let Ok(ConfirmOverwrite(path, name)) = confirms.get(activate.entity) {
-        let status = save_status(path, &mut session, name.trim());
+        let status = save_status(path, &mut session, name);
         for (mut text, mut color, mut line) in &mut statuses {
             text.0 = translations.text(*language, status);
             color.0 = status_color(status);
@@ -460,7 +460,7 @@ fn save_name(
 ) -> String {
     if autosave {
         translations.text(language, "save-autosave")
-    } else if save.name.is_empty() {
+    } else if save.name.trim().is_empty() {
         translations.text(language, "save-unnamed")
     } else {
         save.name.clone()
@@ -560,6 +560,18 @@ mod tests {
     fn save_without_a_name_is_called_unnamed() {
         let translations = Translations::default();
         let name = save_name(&save("", 0.0, 0), false, &translations, Language::English);
+        assert_eq!(name, "Unnamed");
+    }
+
+    #[test]
+    fn blank_name_is_called_unnamed() {
+        let translations = Translations::default();
+        let name = save_name(
+            &save("     ", 0.0, 0),
+            false,
+            &translations,
+            Language::English,
+        );
         assert_eq!(name, "Unnamed");
     }
 
