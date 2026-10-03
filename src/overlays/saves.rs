@@ -155,18 +155,15 @@ fn spawn_save_game_overlay(
             SaveEntry::Ready(path, save) => {
                 commands.spawn((
                     row_button(save_row(
-                        save_name(save, is_autosave(path), &translations, *language),
+                        save_name(save, false, &translations, *language),
                         save_details(save, now_secs, &translations, *language),
                     )),
                     OverwriteSave(path.clone(), save.name.clone()),
                     ChildOf(list),
                 ));
             }
-            SaveEntry::Incompatible(_) => {
-                commands.spawn((muted_label(INCOMPATIBLE_SAVE_TEXT), ChildOf(list)));
-            }
-            SaveEntry::Unreadable(_) => {
-                commands.spawn((muted_label(UNREADABLE_SAVE_TEXT), ChildOf(list)));
+            SaveEntry::Incompatible(_) | SaveEntry::Unreadable(_) => {
+                commands.spawn((muted_label(unloadable_save_text(entry)), ChildOf(list)));
             }
         }
     }
@@ -303,19 +300,9 @@ fn spawn_load_game_overlay(
                 ));
             }
             // flex_grow, like a row button's: the Delete beside it stays at the right edge
-            SaveEntry::Incompatible(_) => {
+            SaveEntry::Incompatible(_) | SaveEntry::Unreadable(_) => {
                 commands.spawn((
-                    muted_label(INCOMPATIBLE_SAVE_TEXT),
-                    Node {
-                        flex_grow: 1.0,
-                        ..default()
-                    },
-                    ChildOf(row),
-                ));
-            }
-            SaveEntry::Unreadable(_) => {
-                commands.spawn((
-                    muted_label(UNREADABLE_SAVE_TEXT),
+                    muted_label(unloadable_save_text(entry)),
                     Node {
                         flex_grow: 1.0,
                         ..default()
@@ -434,6 +421,16 @@ fn muted_label(key: &'static str) -> impl Bundle {
     )
 }
 
+/// Returns the key a list shows in place of a save it cannot load: one from another version
+/// says so, anything else is unreadable.
+fn unloadable_save_text(entry: &SaveEntry) -> &'static str {
+    if matches!(entry, SaveEntry::Incompatible(_)) {
+        INCOMPATIBLE_SAVE_TEXT
+    } else {
+        UNREADABLE_SAVE_TEXT
+    }
+}
+
 /// Returns a save's name in `language`, or its stand-in for an autosave or a save the player
 /// gave no name. An autosave's name comes from its file, not from inside it, so one written
 /// in English still reads in the language the player chose since.
@@ -515,6 +512,20 @@ mod tests {
             saved_at_secs,
             game: GameData::default(),
         }
+    }
+
+    // ---- unloadable_save_text -----------------------------------------------
+
+    #[test]
+    fn save_from_another_version_says_so() {
+        let entry = SaveEntry::Incompatible(PathBuf::from("save_1.ron"));
+        assert_eq!(unloadable_save_text(&entry), INCOMPATIBLE_SAVE_TEXT);
+    }
+
+    #[test]
+    fn broken_save_reads_as_unreadable() {
+        let entry = SaveEntry::Unreadable(PathBuf::from("save_1.ron"));
+        assert_eq!(unloadable_save_text(&entry), UNREADABLE_SAVE_TEXT);
     }
 
     // ---- save_name ----------------------------------------------------------

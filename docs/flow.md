@@ -143,7 +143,7 @@ The buttons carry a `MenuAction` component, and the `activate_menu_button` obser
 | Credits | sets `Overlay::Credits` |
 | Quit | writes `AppExit::Success` |
 
-Continue is only there when a save can be loaded: `show_continue_button`, chained after
+Continue is only there when a save can be loaded: `update_continue_button`, chained after
 `spawn_menu_screen`, sets its `Node::display` to `Display::None` otherwise, which takes it out of
 the column so the buttons below close the gap. Its click lists the saves again rather than trust
 what the menu saw when it opened.
@@ -308,7 +308,7 @@ under it instead of competing with it.
   the event, writing `SAVED_TEXT` in the accent or `SAVE_FAILED_TEXT` in red on the status line,
   a `Text` marked `SaveStatus` that `pause.rs` spawns empty. It also sets the line's
   `shown_secs` to zero, and `fade_save_status` shows it at once, holds it and fades it out by
-  `STATUS_FADE`, counting `Time<Real>` because virtual time is frozen while paused. The dialog
+  `SAVE_STATUS_FADE`, counting `Time<Real>` because virtual time is frozen while paused. The dialog
   carries `DespawnOnExit(Overlay::SaveGame)`, so it cannot outlive the list.
 - **Load Game** (`src/overlays/saves.rs`, beside Save Game): the same scrolling `save_list()`
   with the same labels, autosaves included, and "No saves yet" when the folder has none. It opens
@@ -324,7 +324,7 @@ under it instead of competing with it.
   `delete_save` removes the file and sets `Overlay::LoadGame` again. `set` re-enters a state it is
   already in, so `OnExit` despawns the panel and `OnEnter` reads the folder anew: the list loses
   the row with no code to rebuild it. A failed delete is logged with `error!` and the row stays.
-  That same `OnExit` runs the menu's `show_continue_button` again, so deleting the last save hides
+  That same `OnExit` runs the menu's `update_continue_button` again, so deleting the last save hides
   Continue without leaving the menu.
 
 **Closing.** No panel owns its Close button's behaviour. Each ends its card with

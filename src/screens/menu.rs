@@ -7,7 +7,9 @@ use super::{Screen, StartGame};
 use crate::GAME_TITLE;
 use crate::overlays::Overlay;
 use crate::save::{Session, loaded_session, newest_ready, saves_on_disk};
-use crate::ui::{SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, TITLE_FONT_SIZE_PX, font, menu_button};
+use crate::ui::{
+    BUTTON_GAP_PX, SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, TITLE_FONT_SIZE_PX, font, menu_button,
+};
 use veil::{MenuTransition, VEIL_Z_INDEX, Veil, animate_veils, veil, veil_alpha};
 
 mod veil;
@@ -19,7 +21,6 @@ const SCRIM_ALPHA: f32 = 0.85;
 const SCRIM_STOP_PERCENT: f32 = 65.0;
 
 // ---- button column, under the game's name -----------------------------------
-const BUTTON_GAP_PX: f32 = 10.0;
 const COLUMN_WIDTH_PX: f32 = 260.0;
 const COLUMN_PADDING_LEFT_PX: f32 = 80.0;
 // more room under the title than between buttons, so the name reads apart from the choices
@@ -35,14 +36,14 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(
         OnEnter(Screen::Menu),
         (
-            (spawn_menu_screen, show_continue_button).chain(),
+            (spawn_menu_screen, update_continue_button).chain(),
             play_menu_music,
         ),
     );
     // a delete in the Load Game list may have taken the last save Continue could load
     app.add_systems(
         OnExit(Overlay::LoadGame),
-        show_continue_button.run_if(in_state(Screen::Menu)),
+        update_continue_button.run_if(in_state(Screen::Menu)),
     );
     app.add_observer(activate_menu_button.run_if(in_state(Screen::Menu)));
     app.add_observer(start_game_from_menu.run_if(in_state(Screen::Menu)));
@@ -164,9 +165,9 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 
-/// Hides Continue while no save can be loaded. `Display::None` takes it out of the
-/// column, so the buttons below close the gap instead of leaving a hole.
-fn show_continue_button(mut buttons: Query<(&MenuAction, &mut Node)>) {
+/// Shows Continue when a save can be loaded and hides it otherwise. `Display::None` takes
+/// it out of the column, so the buttons below close the gap instead of leaving a hole.
+fn update_continue_button(mut buttons: Query<(&MenuAction, &mut Node)>) {
     let saves = saves_on_disk();
     let has_save = newest_ready(&saves).is_some();
     for (action, mut node) in &mut buttons {

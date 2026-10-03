@@ -159,11 +159,7 @@ fn fade_splash_logo(logo: Single<(&mut ImageNode, &SplashSequence)>) {
 
 /// Returns the logo after `index`, or `None` when the last one has been shown.
 fn next_logo(index: usize, count: usize) -> Option<usize> {
-    if index + 1 < count {
-        Some(index + 1)
-    } else {
-        None
-    }
+    (index + 1 < count).then_some(index + 1)
 }
 
 // ==== Tests ==================================================================

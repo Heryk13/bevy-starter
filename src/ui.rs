@@ -37,6 +37,8 @@ const BUTTON_HEIGHT_PX: f32 = 44.0;
 const BUTTON_MIN_WIDTH_PX: f32 = 120.0;
 const BUTTON_PADDING_PX: f32 = 20.0;
 const ROW_BUTTON_PADDING_PX: f32 = 8.0;
+// between buttons stacked in a column or set side by side: the menu, the pause menu, a dialog
+pub(crate) const BUTTON_GAP_PX: f32 = 10.0;
 pub(crate) const BORDER_PX: f32 = 1.0;
 // the glow is a shadow the color of the border, soft enough to read as light
 const BUTTON_GLOW_BLUR_PX: f32 = 18.0;
@@ -68,7 +70,6 @@ const ENTRANCE_START_SCALE: f32 = 0.96;
 // ---- dialog: drawn above the overlays, to ask over any of them --------------
 const DIALOG_Z_INDEX: GlobalZIndex = GlobalZIndex(200);
 const DIALOG_WIDTH_PX: f32 = 400.0;
-const DIALOG_BUTTON_GAP_PX: f32 = 10.0;
 
 // ==== Plugin =================================================================
 
@@ -231,7 +232,7 @@ pub(crate) fn dialog(
                 (
                     Node {
                         justify_content: JustifyContent::End,
-                        column_gap: px(DIALOG_BUTTON_GAP_PX),
+                        column_gap: px(BUTTON_GAP_PX),
                         ..default()
                     },
                     children![

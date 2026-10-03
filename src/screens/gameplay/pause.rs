@@ -7,8 +7,8 @@ use crate::overlays::Overlay;
 use crate::save::{SaveFinished, Session, has_unsaved_progress};
 use crate::screens::Screen;
 use crate::ui::{
-    ACCENT, ButtonKind, DANGER, SMALL_FONT_SIZE_PX, TEXT_MUTED, card, dialog, floating_root, font,
-    heading, menu_button,
+    ACCENT, BUTTON_GAP_PX, ButtonKind, DANGER, SMALL_FONT_SIZE_PX, TEXT_MUTED, card, dialog,
+    floating_root, font, heading, menu_button,
 };
 
 // ==== Config =================================================================
@@ -17,7 +17,6 @@ use crate::ui::{
 const PAUSE_Z_INDEX: GlobalZIndex = GlobalZIndex(50);
 // narrower than an overlay's card: it only holds a column of buttons
 const PAUSE_WIDTH_PX: f32 = 340.0;
-const PAUSE_BUTTON_GAP_PX: f32 = 10.0;
 
 // translation keys
 const QUIT_QUESTION: &str = "dialog-quit-without-saving";
@@ -26,7 +25,7 @@ const SAVE_FAILED_TEXT: &str = "status-save-failed";
 
 // no delay and no fade in, so the player learns how the save went at once; only the
 // leaving is gentle
-const STATUS_FADE: Fade = Fade {
+const SAVE_STATUS_FADE: Fade = Fade {
     delay_secs: 0.0,
     fade_in_secs: 0.0,
     hold_secs: 2.0,
@@ -99,7 +98,7 @@ fn spawn_pause_menu(mut commands: Commands) {
                 (
                     Node {
                         flex_direction: FlexDirection::Column,
-                        row_gap: px(PAUSE_BUTTON_GAP_PX),
+                        row_gap: px(BUTTON_GAP_PX),
                         ..default()
                     },
                     children![
@@ -204,15 +203,13 @@ fn show_save_status(
     }
 }
 
-/// Fades the save status line out by `STATUS_FADE`. It counts real time, because virtual
+/// Fades the save status line out by `SAVE_STATUS_FADE`. It counts real time, because virtual
 /// time is frozen while paused and a line timed by it would never leave.
 fn fade_save_status(time: Res<Time<Real>>, mut statuses: Query<(&mut SaveStatus, &mut TextColor)>) {
     for (mut status, mut color) in &mut statuses {
-        status.shown_secs += time.delta_secs();
-        if status.shown_secs > STATUS_FADE.total_secs() {
-            status.shown_secs = STATUS_FADE.total_secs();
-        }
-        color.0.set_alpha(STATUS_FADE.alpha(status.shown_secs));
+        status.shown_secs =
+            (status.shown_secs + time.delta_secs()).min(SAVE_STATUS_FADE.total_secs());
+        color.0.set_alpha(SAVE_STATUS_FADE.alpha(status.shown_secs));
     }
 }
 
