@@ -196,8 +196,8 @@ fn bundle(language: Language) -> FluentBundle<FluentResource> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use fluent_syntax::ast::Entry;
-    use std::collections::BTreeSet;
+    use fluent_syntax::ast::{Entry, Expression, InlineExpression, Pattern, PatternElement};
+    use std::collections::{BTreeMap, BTreeSet};
 
     /// Returns the message keys a translation file defines.
     fn keys(source: &str) -> BTreeSet<String> {
@@ -209,6 +209,55 @@ mod tests {
                 _ => None,
             })
             .collect()
+    }
+
+    /// Returns the variables each message of a translation file uses in its value, by key.
+    // ponytail: message attributes and function arguments (`NUMBER($x)`) are not walked, as
+    // no .ftl here uses either; walk them the day one does
+    fn variables(source: &str) -> BTreeMap<String, BTreeSet<String>> {
+        let resource = FluentResource::try_new(source.to_string()).unwrap();
+        resource
+            .entries()
+            .filter_map(|entry| match entry {
+                Entry::Message(message) => {
+                    let mut names = BTreeSet::new();
+                    if let Some(pattern) = &message.value {
+                        pattern_variables(pattern, &mut names);
+                    }
+                    Some((message.id.name.to_string(), names))
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Adds the variables a pattern uses, including inside each variant of a select.
+    fn pattern_variables(pattern: &Pattern<&str>, names: &mut BTreeSet<String>) {
+        for element in &pattern.elements {
+            if let PatternElement::Placeable { expression } = element {
+                expression_variables(expression, names);
+            }
+        }
+    }
+
+    /// Adds the variables an expression uses: its own, a select's selector, and its variants'.
+    fn expression_variables(expression: &Expression<&str>, names: &mut BTreeSet<String>) {
+        let inline = match expression {
+            Expression::Inline(inline) => inline,
+            Expression::Select { selector, variants } => {
+                for variant in variants {
+                    pattern_variables(&variant.value, names);
+                }
+                selector
+            }
+        };
+        match inline {
+            InlineExpression::VariableReference { id } => {
+                names.insert(id.name.to_string());
+            }
+            InlineExpression::Placeable { expression } => expression_variables(expression, names),
+            _ => {}
+        }
     }
 
     // ---- language_from_locale -----------------------------------------------
@@ -239,6 +288,11 @@ mod tests {
     }
 
     #[test]
+    fn underscore_locale_is_read_like_a_dash() {
+        assert_eq!(language_from_locale("pt_BR"), Language::Portuguese);
+    }
+
+    #[test]
     fn empty_locale_falls_back_to_english() {
         assert_eq!(language_from_locale(""), Language::English);
     }
@@ -261,6 +315,18 @@ mod tests {
         let english = keys(ENGLISH_FTL);
         for language in Language::ALL {
             assert_eq!(keys(language.source()), english, "{}", language.code());
+        }
+    }
+
+    #[test]
+    fn no_translation_uses_a_variable_english_lacks() {
+        let english = variables(ENGLISH_FTL);
+        for language in Language::ALL {
+            for (key, names) in variables(language.source()) {
+                let known = english.get(&key).cloned().unwrap_or_default();
+                let unknown: BTreeSet<_> = names.difference(&known).collect();
+                assert!(unknown.is_empty(), "{} {key}: {unknown:?}", language.code());
+            }
         }
     }
 

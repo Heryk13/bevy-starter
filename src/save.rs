@@ -254,6 +254,7 @@ pub(crate) fn write_save(path: &Path, session: &mut Session, name: &str) -> std:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::disk::fresh_test_dir;
 
     #[test]
     fn new_game_has_no_unsaved_progress() {
@@ -460,8 +461,7 @@ mod tests {
 
     #[test]
     fn every_kind_of_save_file_is_listed() {
-        let dir = std::env::temp_dir().join("bevy-starter-list-saves");
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = fresh_test_dir("bevy-starter-list-saves");
 
         let ready_path = dir.join("ready.ron");
         write_atomic(
@@ -504,18 +504,14 @@ mod tests {
 
     #[test]
     fn missing_folder_lists_nothing() {
-        let dir = std::env::temp_dir().join("bevy-starter-missing-folder");
-        if dir.exists() {
-            std::fs::remove_dir_all(&dir).unwrap();
-        }
+        let dir = fresh_test_dir("bevy-starter-missing-folder").join("saves");
         let saves = list_saves(&dir);
         assert!(saves.is_empty());
     }
 
     #[test]
     fn written_save_lists_back_ready() {
-        let dir = std::env::temp_dir().join("bevy-starter-written-save");
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = fresh_test_dir("bevy-starter-written-save");
 
         let mut session = Session {
             play_secs: UNSAVED_GRACE_SECS * 2.0,
@@ -536,7 +532,7 @@ mod tests {
 
     #[test]
     fn written_save_reads_back() {
-        let dir = std::env::temp_dir().join("bevy-starter-read-save");
+        let dir = fresh_test_dir("bevy-starter-read-save");
         let path = dir.join("save.ron");
         let mut session = Session {
             play_secs: UNSAVED_GRACE_SECS * 2.0,
@@ -552,19 +548,13 @@ mod tests {
 
     #[test]
     fn missing_save_reads_as_nothing() {
-        let path = std::env::temp_dir().join("bevy-starter-no-such-save.ron");
-        if path.exists() {
-            std::fs::remove_file(&path).unwrap();
-        }
+        let path = fresh_test_dir("bevy-starter-no-such-save").join("save.ron");
         assert!(read_save(&path).is_none());
     }
 
     #[test]
     fn save_is_written_into_a_missing_folder() {
-        let dir = std::env::temp_dir().join("bevy-starter-write-save-missing-folder");
-        if dir.exists() {
-            std::fs::remove_dir_all(&dir).unwrap();
-        }
+        let dir = fresh_test_dir("bevy-starter-write-save-missing-folder").join("saves");
 
         let mut session = Session {
             play_secs: 123.4,

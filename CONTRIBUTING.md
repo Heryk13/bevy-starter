@@ -125,7 +125,7 @@ The character tells the kind of boundary:
 - Every word the player reads is a key in every `assets/locales/<code>/main.ftl`. Code names
   the key, never the words: `label("menu-new-game")`, `Localized("pause-title")`, and
   `Translations::text_with` for text built from values. A test fails while one file lacks a
-  key another has.
+  key another has, or uses a variable (`{ $count }`) the English message does not pass.
 - A key belongs to one place in the UI, even when its English repeats another's
   (`menu-settings`, `pause-settings`): another language may need two different words.
 - Proper nouns are never translated: the game's title, people's names, each language's own
@@ -149,9 +149,10 @@ The character tells the kind of boundary:
 - Write the times and sizes a test uses as expressions over the constants
   (`SLIDE_SECS / 2.0`), so the test follows the code when a constant changes, and pick them
   away from the boundary between two phases, where `f32` rounding decides the answer.
-- A test that touches the disk gets a folder of its own under `std::env::temp_dir()`
-  (`bevy-starter-list-saves`), so tests running in parallel never share files. It never
-  touches the real data folder, where the player's saves are.
+- A test that touches the disk starts with `fresh_test_dir("bevy-starter-list-saves")` from
+  `disk.rs`: a folder of its own under `std::env::temp_dir()`, emptied first, so tests running
+  in parallel never share files and no earlier run leaves any behind. It never touches the
+  real data folder, where the player's saves are.
 
 ## Commits
 

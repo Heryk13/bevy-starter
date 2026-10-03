@@ -39,6 +39,19 @@ pub(crate) fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     std::fs::rename(tmp, path)
 }
 
+/// Returns an empty folder of its own for a test that touches the disk, cleared of whatever
+/// an earlier run left there, so the test sees only the files it writes.
+#[cfg(test)]
+pub(crate) fn fresh_test_dir(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(name);
+    match std::fs::remove_dir_all(&dir) {
+        Err(error) if error.kind() != std::io::ErrorKind::NotFound => panic!("{error}"),
+        _ => {}
+    }
+    std::fs::create_dir_all(&dir).unwrap();
+    dir
+}
+
 // ==== Tests ==================================================================
 
 #[cfg(test)]
@@ -107,8 +120,7 @@ mod tests {
 
     #[test]
     fn written_file_reads_back_whole() {
-        let dir = std::env::temp_dir().join("bevy-starter-write-atomic");
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = fresh_test_dir("bevy-starter-write-atomic");
         let path = dir.join("settings.ron");
 
         write_atomic(&path, "(volume: 0.5)").unwrap();
