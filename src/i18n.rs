@@ -78,7 +78,7 @@ impl Language {
     pub(crate) fn native_name(self) -> &'static str {
         match self {
             Self::English => "English",
-            Self::Portuguese => "Português",
+            Self::Portuguese => "Português (Brasil)",
             Self::Japanese => "日本語",
         }
     }

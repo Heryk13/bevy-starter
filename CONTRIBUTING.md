@@ -130,6 +130,9 @@ The character tells the kind of boundary:
   (`menu-settings`, `pause-settings`): another language may need two different words.
 - Proper nouns are never translated: the game's title, people's names, each language's own
   name in the language picker.
+- Casing copies the English on buttons, titles and labels (`Tela Cheia`, `Sem Nome`), and
+  questions and status lines are written as sentences (`Sair sem salvar?`). It is the rule of
+  Microsoft's pt-BR style guide, and it decides every new key without a judgment call.
 
 ### Naming
 

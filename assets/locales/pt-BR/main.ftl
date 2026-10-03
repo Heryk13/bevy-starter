@@ -12,11 +12,11 @@ menu-quit = Sair
 ## pause menu
 
 pause-title = Pausado
-pause-resume = Voltar
+pause-resume = Retomar
 pause-save = Salvar
 pause-load-game = Carregar
 pause-settings = Opções
-pause-quit-to-menu = Ir ao Menu
+pause-quit-to-menu = Voltar ao Menu
 pause-quit-to-desktop = Sair do Jogo
 
 ## dialogs
@@ -24,8 +24,8 @@ pause-quit-to-desktop = Sair do Jogo
 dialog-yes = Sim
 dialog-no = Não
 dialog-quit-without-saving = Sair sem salvar?
-dialog-overwrite-save = Sobrescrever este save?
-dialog-delete-save = Apagar este save?
+dialog-overwrite-save = Sobrescrever este jogo salvo?
+dialog-delete-save = Apagar este jogo salvo?
 
 ## overlays
 
@@ -33,7 +33,7 @@ overlay-close = Fechar
 credits-title = Créditos
 credits-made-with = Feito com Bevy
 settings-title = Opções
-settings-fullscreen = Tela cheia
+settings-fullscreen = Tela Cheia
 settings-volume = Volume
 settings-language = Idioma
 
@@ -41,13 +41,13 @@ settings-language = Idioma
 
 save-game-title = Salvar Jogo
 load-game-title = Carregar Jogo
-save-new = Novo Save
+save-new = Novo Salvamento
 save-delete = Apagar
-saves-none = Nenhum save ainda
-save-incompatible = Save incompatível
-save-unreadable = Save ilegível
-save-unnamed = Sem nome
-save-autosave = Autosave
+saves-none = Nenhum jogo salvo
+save-incompatible = Jogo Salvo Incompatível
+save-unreadable = Jogo Salvo Ilegível
+save-unnamed = Sem Nome
+save-autosave = Salvamento Automático
 save-details = { $played } · { $age }
 save-played = { $hours }h { $minutes }min jogados
 age-seconds = há { $count }s

@@ -17,7 +17,7 @@ pause-resume = 再開
 pause-save = セーブ
 pause-load-game = ロード
 pause-settings = 設定
-pause-quit-to-menu = タイトルへ
+pause-quit-to-menu = タイトルへ戻る
 pause-quit-to-desktop = ゲーム終了
 
 ## dialogs
