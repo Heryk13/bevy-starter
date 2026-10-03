@@ -1,7 +1,8 @@
 # Refactor plan for the 1.0 template
 
-Status: **proposed** — written 2026-10-02 after the 1.0 features landed (`87df405`). Nothing in
-`src/` has changed yet: every step below is for the user to write, one commit each, in order.
+Status: **built** — written 2026-10-02 after the 1.0 features landed (`87df405`), built
+2026-10-03 one commit per step, tagged `v1.0.0`. What differs from the plan is recorded at the
+bottom, under "What changed while building it"; everything above it is the plan as written.
 
 ## Goal
 
@@ -628,3 +629,28 @@ Done in the same pass as this plan, since they described the code wrongly:
   https://raw.githubusercontent.com/InventivetalentDev/minecraft-assets/1.21/assets/minecraft/lang/pt_br.json
 - Fluent best practices (one ID per context): https://mozilla-l10n.github.io/documentation/localization/dev_best_practices.html
 - Language names in their own language: https://www.w3.org/International/questions/qa-navigation-select
+
+## What changed while building it
+
+- **Who wrote what.** The user wrote steps 1 to 4 and the first half of step 5. At their
+  request Claude implemented the rest of step 5, steps 6 to 8 and 12 to 14, besides the moves
+  (9 to 11) and the docs (15) it had been given.
+- **Step 4.** The helper that writes a save and says whether it worked is `try_write_save`.
+- **Step 6.** `EscAction` sits in `Helpers`, in a group with `esc_action` and next to its tests,
+  rather than in a types section: it is only that function's answer.
+- **Step 7.** `list_saves` became private once `saves_on_disk` was its only caller outside the
+  tests, with a comment on why it still takes the folder.
+- **Step 8.** `saves.rs` lost about 12 lines, not 35: the Save Game arms were one line each, and
+  `unloadable_save_text` gained two tests. The user's names: `update_continue_button`,
+  `SAVE_STATUS_FADE`, and `saves-none` kept.
+- **Step 10.** What stays in `save.rs`'s old `Disk` section is now named `Save Files`.
+  `docs/flow.md` still said `write_save` creates the folder, stale since step 2; fixed there.
+- **Step 11.** Measured after step 8: `ui.rs` 73 lines, `button.rs` 310, `panel.rs` 222,
+  `blur.rs` 157. `panel.rs` reaches the buttons through `ui`'s re-exports, like any caller.
+- **Step 12.** The user picked `1.0.0` in `Cargo.toml` plus the `v1.0.0` tag.
+- **Step 13.** The two tests that need a missing folder ask for one inside a fresh folder
+  (`fresh_test_dir(...).join("saves")`), so it is missing by construction.
+- **Step 14.** The whole table went in, and the casing rule is Microsoft's; CONTRIBUTING's Text
+  section records it. "Português (Brasil)" still needs a look with `just run`.
+- **Docs as they went.** Each step updated `docs/flow.md`, `docs/template.md` and CONTRIBUTING in
+  its own commit, so step 15 was left with this section and the status line.
