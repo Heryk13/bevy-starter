@@ -363,7 +363,7 @@ do this. The layers, bottom to top:
 | menu veil | 1 | `VEIL_Z_INDEX` |
 | pause menu | 50 | `PAUSE_Z_INDEX` |
 | overlays | 100 | `OVERLAY_Z_INDEX` |
-| dialog | 200 | `DIALOG_Z_INDEX`, in `ui.rs` |
+| dialog | 200 | `DIALOG_Z_INDEX`, in `ui/panel.rs` |
 
 Those numbers order roots *within a camera*. Every `Floating` root (pause, overlays, dialogs) is
 drawn by the floating camera, after the screen camera, so all of them are above every screen
@@ -372,10 +372,10 @@ whatever its `GlobalZIndex`.
 ## Two cameras and the blur
 
 `main.rs` spawns the **screen camera**: `Camera2d`, `IsDefaultUiCamera`, and the `BlurStrength`
-that `src/blur.rs` drives. Every UI root without a `UiTargetCamera` is drawn by it: the splash,
+that `src/ui/blur.rs` drives. Every UI root without a `UiTargetCamera` is drawn by it: the splash,
 the menu, loading, the intro, gameplay.
 
-`src/blur.rs` spawns the **floating camera** at `Startup`: order 1, so it draws after, and
+`src/ui/blur.rs` spawns the **floating camera** at `Startup`: order 1, so it draws after, and
 `ClearColorConfig::None`, so it draws over the screen camera's image instead of wiping it. An
 observer on `Add<Floating>` gives each new `Floating` root a `UiTargetCamera` pointing at it.
 Clicks need nothing: Bevy's UI picking tests both cameras and puts the later one's hits first.
@@ -396,15 +396,17 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
-| `src/ui.rs` | the palette and type sizes, `font()`, `button()`, `menu_button()`, `row_button()`, `ButtonKind`, `label()`, `heading()`, `floating_root()`, `card()`, `dialog()`, `paint_buttons`, `animate_entrances`, `play_button_sounds`, `close_dialog` | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
-| `src/blur.rs` | the floating camera, `Floating`, `BlurStrength`, the two blur passes | the pause menu, every overlay and every dialog float |
+| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
+| `src/ui/blur.rs` | the floating camera, `Floating`, `BlurStrength`, the two blur passes | the pause menu, every overlay and every dialog float |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the blur and the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
 | `src/save.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `is_autosave()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves |
 | `src/disk.rs` | `game_data_dir()`, `write_atomic()` | saves and settings both live in the data folder and are written atomically |
 
-**`src/ui.rs`** is the look of the whole game. Its `Config` holds the palette (`SURFACE`, `BORDER`,
+**`src/ui.rs`** is the look of the whole game, split the usual way: `ui.rs` keeps the palette,
+the type and the text widgets, `ui/button.rs` the buttons, `ui/panel.rs` the floating roots,
+cards and dialogs, and `ui/blur.rs` the blur; callers import from `ui`, or `ui::blur` for the blur. Its `Config` holds the palette (`SURFACE`, `BORDER`,
 `ACCENT`, `DANGER`, `TEXT`, `TEXT_MUTED`, ...) and the four type sizes, so a game made from the
 template recolors in one place. It hands out three buttons, all pills with a thin border:
 `button(key, kind)` with its label centered, `menu_button(key)` for a column of choices, label to
@@ -469,7 +471,7 @@ so the tests can hand it Windows, Linux and macOS on any machine; `game_data_dir
 with the real ones. `write_atomic` writes to a `.tmp` beside the target and renames it over, so
 a crash mid-write leaves the old file whole, and it is tested against a real temporary folder.
 
-**The dialog** in `src/ui.rs` answers "Yes or No?" for any feature without knowing what it asks.
+**The dialog** in `src/ui/panel.rs` answers "Yes or No?" for any feature without knowing what it asks.
 `dialog(question, yes_kind, on_yes)` returns the bundle: a `floating_root` with a small card,
 `question` being a translation key and `yes_kind` the Yes button's kind, `Danger` when Yes destroys
 something. Both buttons carry `CloseDialog`, and the Yes also carries the caller's `on_yes` marker. `close_dialog` despawns
@@ -487,7 +489,7 @@ work. `DIALOG_Z_INDEX` is 200, above the overlays.
 | `assets/loading/` | `loading.rs` | any image in the folder is a slide, shuffled |
 | `assets/intro/frames/` | `loading.rs` loads, `intro.rs` plays | sorted by file name |
 | `assets/intro/music.ogg` | `loading.rs` loads, `intro.rs` plays | loaded early, starts with frame one |
-| `assets/ui/click.wav`, `assets/ui/hover.wav` | `ui.rs` | loaded once at `Startup` |
+| `assets/ui/click.wav`, `assets/ui/hover.wav` | `ui/button.rs` | loaded once at `Startup` |
 | `assets/locales/<code>/main.ftl` | `i18n.rs` | compiled in with `include_str!`, not loaded |
 | `assets/fonts/NotoSansJP-Regular.otf` | `i18n.rs` | compiled in with `include_bytes!`, not loaded |
 

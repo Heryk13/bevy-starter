@@ -44,7 +44,7 @@ assets/             game assets, loaded at runtime
 src/
   main.rs           app entry point
   assets.rs         reading a loaded folder's images, shared by the screens
-  blur.rs           the floating camera and the blur behind every panel, shared
+  disk.rs           the data folder and safe file writes, shared
   fade.rs           the fade timing every screen shares
   i18n.rs           languages, translations and the UI font, shared
   overlays.rs       Overlay state and overlay plugins
@@ -63,8 +63,12 @@ src/
     gameplay.rs     the game itself, empty so far
     gameplay/
       pause.rs      pause state and pause menu, freezing game time
-  save.rs           the game in progress, save files, the data folder and safe file writes
-  ui.rs             the look: palette, type, buttons, cards, dialogs and button sounds, shared
+  save.rs           the game in progress and the save files, shared
+  ui.rs             the look: palette, type and text, shared
+  ui/
+    button.rs       buttons, their paint and their sounds
+    panel.rs        floating roots, cards, their entrance and dialogs
+    blur.rs         the floating camera and the blur behind every panel
 docs/
   template.md       this file: turning the template into a game
   flow.md           how the screens, overlays and fades fit together
