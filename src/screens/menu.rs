@@ -6,7 +6,7 @@ use super::loading::LoadingDestination;
 use super::{Screen, StartGame};
 use crate::GAME_TITLE;
 use crate::overlays::Overlay;
-use crate::save::{Session, list_saves, loaded_session, newest_ready, saves_dir};
+use crate::save::{Session, loaded_session, newest_ready, saves_on_disk};
 use crate::ui::{SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, TITLE_FONT_SIZE_PX, font, menu_button};
 use veil::{MenuTransition, VEIL_Z_INDEX, Veil, animate_veils, veil, veil_alpha};
 
@@ -167,7 +167,7 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Hides Continue while no save can be loaded. `Display::None` takes it out of the
 /// column, so the buttons below close the gap instead of leaving a hole.
 fn show_continue_button(mut buttons: Query<(&MenuAction, &mut Node)>) {
-    let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
+    let saves = saves_on_disk();
     let has_save = newest_ready(&saves).is_some();
     for (action, mut node) in &mut buttons {
         if matches!(action, MenuAction::Continue) {
@@ -207,7 +207,7 @@ fn activate_menu_button(
             }
             MenuAction::Continue => {
                 // read again on the click, in case a save changed since the menu opened
-                let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
+                let saves = saves_on_disk();
                 if let Some(data) = newest_ready(&saves) {
                     commands.trigger(StartGame {
                         session: loaded_session(data),

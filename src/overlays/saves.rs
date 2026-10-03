@@ -8,8 +8,8 @@ use std::path::{Path, PathBuf};
 use super::{OVERLAY_GAP_PX, Overlay, close_footer, overlay_card, overlay_root};
 use crate::i18n::{Language, Localized, Translations};
 use crate::save::{
-    SaveData, SaveEntry, SaveFinished, Session, is_autosave, list_saves, loaded_session,
-    new_save_path, read_save, saves_dir, unix_now, write_save,
+    SaveData, SaveEntry, SaveFinished, Session, is_autosave, loaded_session, new_save_path,
+    read_save, saves_dir, saves_on_disk, unix_now, write_save,
 };
 use crate::screens::StartGame;
 use crate::screens::loading::LoadingDestination;
@@ -100,7 +100,7 @@ fn spawn_save_game_overlay(
     translations: Res<Translations>,
     language: Res<Language>,
 ) {
-    let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
+    let saves = saves_on_disk();
     let root = commands
         .spawn((overlay_root(), DespawnOnExit(Overlay::SaveGame)))
         .id();
@@ -264,7 +264,7 @@ fn spawn_load_game_overlay(
     translations: Res<Translations>,
     language: Res<Language>,
 ) {
-    let saves = saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default();
+    let saves = saves_on_disk();
     let root = commands
         .spawn((overlay_root(), DespawnOnExit(Overlay::LoadGame)))
         .id();

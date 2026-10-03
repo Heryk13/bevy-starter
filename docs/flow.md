@@ -401,7 +401,7 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the blur and the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
-| `src/save.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `list_saves()`, `read_save()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves, settings are written to disk |
+| `src/save.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves, settings are written to disk |
 
 **`src/ui.rs`** is the look of the whole game. Its `Config` holds the palette (`SURFACE`, `BORDER`,
 `ACCENT`, `DANGER`, `TEXT`, `TEXT_MUTED`, ...) and the four type sizes, so a game made from the
@@ -456,7 +456,8 @@ a crash mid-write leaves the old file whole, and it is tested against a real tem
 Saves are one RON file each in `saves/` inside that data folder, named `save_<millis>.ron`, or
 `autosave_<millis>.ron` for an autosave; the prefix is how `is_autosave` tells them apart.
 `SaveData` is what a file holds: a version, the player's name for it, when it was saved and the
-play time. `list_saves` returns a `SaveEntry` for every `.ron` file there, `Ready`, `Incompatible`
+play time. `saves_on_disk` returns a `SaveEntry` for every `.ron` file there (through the private
+`list_saves`, which takes the folder so its tests can use a temporary one), `Ready`, `Incompatible`
 (another `SAVE_VERSION`) or `Unreadable`, so the list can show a file it cannot load instead of
 hiding it; the sorting into those three is `parse_save`, a pure function over the file's text.
 The folder hands files back in no promised order, so `sort_newest_first` puts the newest save

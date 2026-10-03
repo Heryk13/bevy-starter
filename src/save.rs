@@ -221,9 +221,16 @@ pub(crate) fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
     std::fs::rename(tmp, path)
 }
 
+/// Returns every save in the saves folder, as `list_saves` reads them. No data folder at
+/// all is an empty list, the same as a folder with nothing in it.
+pub(crate) fn saves_on_disk() -> Vec<SaveEntry> {
+    saves_dir().map(|dir| list_saves(&dir)).unwrap_or_default()
+}
+
 /// Returns an entry for every save file in `dir`, readable or not, so the player can
 /// always see and delete what is there, newest first. A missing folder is an empty list.
-pub(crate) fn list_saves(dir: &Path) -> Vec<SaveEntry> {
+// takes the folder rather than finding it, so its tests can point it at a temporary one
+fn list_saves(dir: &Path) -> Vec<SaveEntry> {
     let Ok(entries) = std::fs::read_dir(dir) else {
         return Vec::new();
     };
