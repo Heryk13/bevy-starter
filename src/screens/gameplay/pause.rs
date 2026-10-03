@@ -65,11 +65,11 @@ enum PauseAction {
     Save,
     LoadGame,
     Settings,
-    QuitToMenu,
-    QuitToDesktop,
+    Quit(QuitTo),
 }
 
 /// Where a quit from the pause menu leaves for.
+#[derive(Clone, Copy)]
 enum QuitTo {
     Menu,
     Desktop,
@@ -107,10 +107,13 @@ fn spawn_pause_menu(mut commands: Commands) {
                         (menu_button("pause-save"), PauseAction::Save),
                         (menu_button("pause-load-game"), PauseAction::LoadGame),
                         (menu_button("pause-settings"), PauseAction::Settings),
-                        (menu_button("pause-quit-to-menu"), PauseAction::QuitToMenu),
+                        (
+                            menu_button("pause-quit-to-menu"),
+                            PauseAction::Quit(QuitTo::Menu)
+                        ),
                         (
                             menu_button("pause-quit-to-desktop"),
-                            PauseAction::QuitToDesktop
+                            PauseAction::Quit(QuitTo::Desktop)
                         ),
                     ],
                 ),
@@ -155,28 +158,14 @@ fn activate_pause_button(
             PauseAction::Settings => {
                 next_overlay.set(Overlay::Settings);
             }
-            PauseAction::QuitToMenu => {
+            PauseAction::Quit(to) => {
                 if has_unsaved_progress(&session) {
                     commands.spawn((
-                        dialog(QUIT_QUESTION, ButtonKind::Danger, ConfirmQuit(QuitTo::Menu)),
+                        dialog(QUIT_QUESTION, ButtonKind::Danger, ConfirmQuit(*to)),
                         DespawnOnExit(Pause::On),
                     ));
                 } else {
-                    next_screen.set(Screen::Menu);
-                }
-            }
-            PauseAction::QuitToDesktop => {
-                if has_unsaved_progress(&session) {
-                    commands.spawn((
-                        dialog(
-                            QUIT_QUESTION,
-                            ButtonKind::Danger,
-                            ConfirmQuit(QuitTo::Desktop),
-                        ),
-                        DespawnOnExit(Pause::On),
-                    ));
-                } else {
-                    commands.write_message(AppExit::Success);
+                    quit_to(*to, &mut next_screen, &mut commands);
                 }
             }
         }
@@ -190,15 +179,8 @@ fn confirm_quit(
     confirms: Query<&ConfirmQuit>,
     mut next_screen: ResMut<NextState<Screen>>,
 ) {
-    if let Ok(confirm) = confirms.get(activate.entity) {
-        match confirm {
-            ConfirmQuit(QuitTo::Menu) => {
-                next_screen.set(Screen::Menu);
-            }
-            ConfirmQuit(QuitTo::Desktop) => {
-                commands.write_message(AppExit::Success);
-            }
-        }
+    if let Ok(ConfirmQuit(to)) = confirms.get(activate.entity) {
+        quit_to(*to, &mut next_screen, &mut commands);
     }
 }
 
@@ -238,6 +220,19 @@ fn fade_save_status(time: Res<Time<Real>>, mut statuses: Query<(&mut SaveStatus,
 /// never inherits a frozen clock.
 fn unpause_time(mut time: ResMut<Time<Virtual>>) {
     time.unpause();
+}
+
+// ==== Helpers ================================================================
+
+/// Leaves for `to` at once, whether the quit was confirmed or had nothing to lose.
+// not pure like most helpers: it is the leaving itself, shared by two observers
+fn quit_to(to: QuitTo, next_screen: &mut NextState<Screen>, commands: &mut Commands) {
+    match to {
+        QuitTo::Menu => next_screen.set(Screen::Menu),
+        QuitTo::Desktop => {
+            commands.write_message(AppExit::Success);
+        }
+    }
 }
 
 // ==== Tests ==================================================================

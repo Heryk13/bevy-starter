@@ -244,8 +244,9 @@ same shape as the menu's:
 | Quit to Desktop | writes `AppExit::Success`, or asks first when `has_unsaved_progress` |
 
 "Quit without saving?" is `dialog()` from `ui.rs`, spawned with `DespawnOnExit(Pause::On)` so it
-cannot outlive the pause menu. Its Yes carries `ConfirmQuit(QuitTo)`, and the `confirm_quit`
-observer reads where to go from it. Play time within `UNSAVED_GRACE_SECS` of the last save does
+cannot outlive the pause menu. Both quit buttons are one action, `PauseAction::Quit(QuitTo)`, and
+the dialog's Yes carries the same `QuitTo` in `ConfirmQuit`. Whether the quit asked first or not,
+the leaving itself is `quit_to`, called by `activate_pause_button` and `confirm_quit` alike. Play time within `UNSAVED_GRACE_SECS` of the last save does
 not count, so quitting right after starting never asks.
 
 ## Overlays
