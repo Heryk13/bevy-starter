@@ -2,7 +2,7 @@ use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
-use crate::screens::gameplay::pause::Pause;
+use crate::screens::Pause;
 use crate::ui::{ButtonKind, Dialog, button, card, floating_root};
 
 mod credits;

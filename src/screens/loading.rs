@@ -2,7 +2,7 @@ use bevy::asset::LoadedFolder;
 use bevy::prelude::*;
 use rand::seq::SliceRandom;
 
-use super::Screen;
+use super::{LoadingDestination, Screen};
 use crate::assets::images_in;
 use crate::fade::Fade;
 
@@ -77,14 +77,6 @@ struct LoadingBarFill;
 pub(super) struct IntroAssets {
     pub(super) frames: Handle<LoadedFolder>,
     pub(super) music: Handle<AudioSource>,
-}
-
-/// Where the loading screen goes once its work is done, set by whoever sends the
-/// player there.
-#[derive(Resource, Clone, Copy, PartialEq)]
-pub(crate) enum LoadingDestination {
-    Intro,
-    Gameplay,
 }
 
 // ==== Systems ================================================================

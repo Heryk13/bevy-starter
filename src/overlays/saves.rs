@@ -11,8 +11,7 @@ use crate::save::{
     SaveData, SaveEntry, SaveFinished, Session, is_autosave, loaded_session, new_save_path,
     read_save, saves_dir, saves_on_disk, unix_now, write_save,
 };
-use crate::screens::StartGame;
-use crate::screens::loading::LoadingDestination;
+use crate::screens::{LoadingDestination, StartGame};
 use crate::ui::{
     ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, ButtonKind, FIELD_FILL, SMALL_FONT_SIZE_PX, TEXT,
     TEXT_MUTED, button, dialog, font, heading, row_button,

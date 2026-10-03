@@ -1,13 +1,14 @@
 use bevy::prelude::*;
 
 use crate::save::Session;
-use loading::LoadingDestination;
 
-pub(crate) mod gameplay;
+mod gameplay;
 mod intro;
-pub(crate) mod loading;
+mod loading;
 mod menu;
 mod splash;
+
+pub(crate) use gameplay::pause::Pause;
 
 // ==== Plugin =================================================================
 
@@ -42,4 +43,14 @@ pub(crate) enum Screen {
 pub(crate) struct StartGame {
     pub(crate) session: Session,
     pub(crate) destination: LoadingDestination,
+}
+
+// ==== Resources ==============================================================
+
+/// Where the loading screen goes once its work is done, set by whoever sends the
+/// player there.
+#[derive(Resource, Clone, Copy, PartialEq)]
+pub(crate) enum LoadingDestination {
+    Intro,
+    Gameplay,
 }

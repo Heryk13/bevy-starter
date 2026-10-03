@@ -2,7 +2,7 @@ use bevy::audio::Volume;
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
-use super::loading::LoadingDestination;
+use super::LoadingDestination;
 use super::{Screen, StartGame};
 use crate::GAME_TITLE;
 use crate::overlays::Overlay;
