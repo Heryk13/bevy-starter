@@ -330,8 +330,9 @@ under it instead of competing with it.
 **Closing.** No panel owns its Close button's behaviour. Each ends its card with
 `close_footer()`, which holds `(button("overlay-close", ButtonKind::Quiet), CloseOverlay)`, and
 the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None` when the activated
-entity carries the marker. `go_back_on_esc` is the second way out, and it holds the whole
-"go back" rule in one place, first match wins:
+entity carries the marker. `go_back_on_esc` is the second way out, run only on the frame Esc is
+pressed (`input_just_pressed`). The whole "go back" rule lives in one pure function beside it,
+`esc_action`, which returns an `EscAction` and has a test per line, first match wins:
 
 1. a dialog is open → close it
 2. an overlay is open → close it (back to the pause menu, if paused)

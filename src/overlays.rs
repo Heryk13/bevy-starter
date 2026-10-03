@@ -1,3 +1,4 @@
+use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
@@ -26,7 +27,10 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins(saves::plugin);
     app.add_plugins(settings::plugin);
     app.add_observer(close_overlay);
-    app.add_systems(Update, go_back_on_esc);
+    app.add_systems(
+        Update,
+        go_back_on_esc.run_if(input_just_pressed(KeyCode::Escape)),
+    );
 }
 
 // ==== Overlay Panel ==========================================================
@@ -85,29 +89,90 @@ fn close_overlay(
     }
 }
 
-/// Closes the topmost thing on Esc, one layer per press: a dialog, then an overlay, and
-/// with neither open it pauses or resumes gameplay.
+/// Closes the topmost thing on Esc, one layer per press, as `esc_action` decides.
 fn go_back_on_esc(
     mut commands: Commands,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
     dialogs: Query<Entity, With<Dialog>>,
     overlay: Res<State<Overlay>>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     pause: Option<Res<State<Pause>>>,
     mut next_pause: ResMut<NextState<Pause>>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Escape) {
-        if !dialogs.is_empty() {
+    let pause = pause.map(|pause| *pause.get());
+    match esc_action(!dialogs.is_empty(), *overlay.get(), pause) {
+        EscAction::CloseDialog => {
             for dialog in &dialogs {
                 commands.entity(dialog).despawn();
             }
-        } else if *overlay.get() != Overlay::None {
-            next_overlay.set(Overlay::None);
-        } else if let Some(pause) = pause {
-            match pause.get() {
-                Pause::On => next_pause.set(Pause::Off),
-                Pause::Off => next_pause.set(Pause::On),
-            }
         }
+        EscAction::CloseOverlay => next_overlay.set(Overlay::None),
+        EscAction::SetPause(pause) => next_pause.set(pause),
+        EscAction::Nothing => {}
+    }
+}
+
+// ==== Helpers ================================================================
+
+// ---- the Esc rule -----------------------------------------------------------
+
+/// What one press of Esc does.
+#[derive(Debug, PartialEq)]
+enum EscAction {
+    CloseDialog,
+    CloseOverlay,
+    SetPause(Pause),
+    Nothing,
+}
+
+/// Returns what Esc does: it closes a dialog first, then an overlay, and with neither open
+/// it pauses or resumes gameplay. Outside gameplay, where `pause` is `None`, it does nothing.
+fn esc_action(dialog_open: bool, overlay: Overlay, pause: Option<Pause>) -> EscAction {
+    if dialog_open {
+        EscAction::CloseDialog
+    } else if overlay != Overlay::None {
+        EscAction::CloseOverlay
+    } else {
+        match pause {
+            Some(Pause::On) => EscAction::SetPause(Pause::Off),
+            Some(Pause::Off) => EscAction::SetPause(Pause::On),
+            None => EscAction::Nothing,
+        }
+    }
+}
+
+// ==== Tests ==================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn esc_closes_a_dialog_before_anything_under_it() {
+        let action = esc_action(true, Overlay::Settings, Some(Pause::On));
+        assert_eq!(action, EscAction::CloseDialog);
+    }
+
+    #[test]
+    fn esc_closes_an_overlay_before_resuming() {
+        let action = esc_action(false, Overlay::Settings, Some(Pause::On));
+        assert_eq!(action, EscAction::CloseOverlay);
+    }
+
+    #[test]
+    fn esc_resumes_a_paused_game() {
+        let action = esc_action(false, Overlay::None, Some(Pause::On));
+        assert_eq!(action, EscAction::SetPause(Pause::Off));
+    }
+
+    #[test]
+    fn esc_pauses_a_running_game() {
+        let action = esc_action(false, Overlay::None, Some(Pause::Off));
+        assert_eq!(action, EscAction::SetPause(Pause::On));
+    }
+
+    #[test]
+    fn esc_does_nothing_outside_gameplay_with_nothing_open() {
+        let action = esc_action(false, Overlay::None, None);
+        assert_eq!(action, EscAction::Nothing);
     }
 }

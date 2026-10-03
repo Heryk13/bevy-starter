@@ -48,7 +48,7 @@ pub(super) fn plugin(app: &mut App) {
 // ==== State ==================================================================
 
 /// Whether the game is frozen. It only exists during gameplay, and starts `Off`.
-#[derive(SubStates, Clone, PartialEq, Eq, Hash, Debug, Default)]
+#[derive(SubStates, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 #[source(Screen = Screen::Gameplay)]
 pub(crate) enum Pause {
     #[default]
