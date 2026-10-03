@@ -47,6 +47,9 @@ print_stdout = "warn"
 redundant_closure_for_method_calls = "warn"
 redundant_else = "warn"
 semicolon_if_nothing_returned = "warn"
+# CONTRIBUTING forbids mod.rs (a split module is `player.rs` next to `player/`), and this
+# lint makes the rule hold without review
+mod_module_files = "warn"
 
 # light optimization for our code, so dev builds run smoothly and still compile fast
 [profile.dev]

@@ -60,7 +60,8 @@ Every `.rs` file follows the same order, skipping the sections it doesn't have:
   or when you find yourself scrolling to look for "the part about X".
   That part becomes its own file.
 - A split module follows the `screens.rs` pattern: `player.rs` next to a `player/` folder
-  with the parts (`player/movement.rs`), never `mod.rs`.
+  with the parts (`player/movement.rs`), never `mod.rs`; clippy's `mod_module_files` fails
+  `just check` on one.
 - Unit tests stay in the file they test, `tests/` is only for integration tests.
 
 ### Separators
