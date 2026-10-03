@@ -10,6 +10,7 @@ use blur::BlurStrength;
 
 mod assets;
 mod blur;
+mod disk;
 mod fade;
 mod i18n;
 mod overlays;

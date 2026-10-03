@@ -401,7 +401,8 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the blur and the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
-| `src/save.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `is_autosave()`, `game_data_dir()`, `write_atomic()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves, settings are written to disk |
+| `src/save.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `is_autosave()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves |
+| `src/disk.rs` | `game_data_dir()`, `write_atomic()` | saves and settings both live in the data folder and are written atomically |
 
 **`src/ui.rs`** is the look of the whole game. Its `Config` holds the palette (`SURFACE`, `BORDER`,
 `ACCENT`, `DANGER`, `TEXT`, `TEXT_MUTED`, ...) and the four type sizes, so a game made from the
@@ -447,13 +448,8 @@ what keep a sequence in step, which is why the intro's frames sort correctly.
 just loaded neither asks before quitting nor autosaves at once. `newest_ready` picks what
 Continue loads by `saved_at_secs`, never by list order, which no OS promises.
 
-Its `Disk` section is where files live and how they are written. `data_dir(os, var)` picks the
-per-user data folder of each OS plus the package name, and takes the environment as a function
-so the tests can hand it Windows, Linux and macOS on any machine; `game_data_dir()` calls it
-with the real ones. `write_atomic` writes to a `.tmp` beside the target and renames it over, so
-a crash mid-write leaves the old file whole, and it is tested against a real temporary folder.
-
-Saves are one RON file each in `saves/` inside that data folder, named `save_<millis>.ron`, or
+Saves are one RON file each in `saves/` inside the data folder (`src/disk.rs`, below), named
+`save_<millis>.ron`, or
 `autosave_<millis>.ron` for an autosave; the prefix is how `is_autosave` tells them apart.
 `SaveData` is what a file holds: a version, the player's name for it, when it was saved and the
 play time. `saves_on_disk` returns a `SaveEntry` for every `.ron` file there (through the private
@@ -463,9 +459,15 @@ hiding it; the sorting into those three is `parse_save`, a pure function over th
 The folder hands files back in no promised order, so `sort_newest_first` puts the newest save
 first and the files without a date, the ones it cannot load, last; both lists show that order.
 `read_save` reads one file back, `None` when it is gone, unreadable or from another version.
-`write_save` is the one way a save reaches the disk: it creates the folder when it is missing,
-writes through `write_atomic`, and only then sets `saved_play_secs`, so a failed write still
+`write_save` is the one way a save reaches the disk: it writes through `write_atomic`, which
+creates the folder when it is missing, and only then sets `saved_play_secs`, so a failed write still
 counts as unsaved progress.
+
+**`src/disk.rs`** is where files live and how they are written. `data_dir(os, var)` picks the
+per-user data folder of each OS plus the package name, and takes the environment as a function
+so the tests can hand it Windows, Linux and macOS on any machine; `game_data_dir()` calls it
+with the real ones. `write_atomic` writes to a `.tmp` beside the target and renames it over, so
+a crash mid-write leaves the old file whole, and it is tested against a real temporary folder.
 
 **The dialog** in `src/ui.rs` answers "Yes or No?" for any feature without knowing what it asks.
 `dialog(question, yes_kind, on_yes)` returns the bundle: a `floating_root` with a small card,

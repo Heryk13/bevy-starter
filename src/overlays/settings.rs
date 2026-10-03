@@ -9,8 +9,8 @@ use bevy::window::WindowMode;
 use serde::{Deserialize, Serialize};
 
 use super::{Overlay, close_footer, overlay_card, overlay_root};
+use crate::disk::{game_data_dir, write_atomic};
 use crate::i18n::{Language, language_from_locale};
-use crate::save::{game_data_dir, write_atomic};
 use crate::ui::{
     ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, FIELD_FILL, TEXT, TEXT_MUTED, font, heading,
     label,
