@@ -2,7 +2,9 @@
 #![cfg_attr(not(feature = "dev"), windows_subsystem = "windows")]
 
 #[cfg(feature = "dev")]
-use bevy::dev_tools::fps_overlay::FpsOverlayPlugin;
+use bevy::dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
+#[cfg(feature = "dev")]
+use bevy::input::common_conditions::input_just_pressed;
 use bevy::log::{DEFAULT_FILTER, LogPlugin};
 use bevy::prelude::*;
 
@@ -21,6 +23,9 @@ mod ui;
 
 // the game's name, on the window and the menu; a proper noun, so never translated
 pub(crate) const GAME_TITLE: &str = "Bevy Starter";
+// shows and hides the FPS overlay in dev builds
+#[cfg(feature = "dev")]
+const FPS_TOGGLE_KEY: KeyCode = KeyCode::F3;
 
 // ==== App ====================================================================
 
@@ -50,6 +55,11 @@ fn main() {
     // ---- dev tools, left out of release builds ------------------------------
     #[cfg(feature = "dev")]
     app.add_plugins(FpsOverlayPlugin::default());
+    #[cfg(feature = "dev")]
+    app.add_systems(
+        Update,
+        toggle_fps_overlay.run_if(input_just_pressed(FPS_TOGGLE_KEY)),
+    );
 
     // ---- game ---------------------------------------------------------------
     app.add_plugins(i18n::plugin);
@@ -67,4 +77,11 @@ fn main() {
 /// float. Its image is what gets blurred behind a floating panel.
 fn spawn_camera(mut commands: Commands) {
     commands.spawn((Camera2d, IsDefaultUiCamera, BlurStrength::default()));
+}
+
+/// Shows or hides the FPS overlay, its frame time graph along with its text.
+#[cfg(feature = "dev")]
+fn toggle_fps_overlay(mut config: ResMut<FpsOverlayConfig>) {
+    config.enabled = !config.enabled;
+    config.frame_time_graph_config.enabled = config.enabled;
 }

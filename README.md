@@ -23,7 +23,7 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   rise in over a real blur of the screen behind them
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies
-- FPS overlay and asset hot reloading in dev builds
+- FPS overlay, shown and hidden with F3, and asset hot reloading in dev builds
 - Fast linking on Windows with `rust-lld`
 - Release packaging into a ready-to-ship `dist/` folder
 - Third-party license notices generated on every release
