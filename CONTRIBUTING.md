@@ -166,12 +166,19 @@ The character tells the kind of boundary:
 
 ## Branches
 
-- `main` is the template for any game, and each genre (`3d`, `2d`, `multiplayer`) is a branch
-  cut from it. A change that every genre needs goes into `main`, never into a genre branch:
-  `main` is the one place it is written, and each genre branch takes it with
-  `git merge main`.
-- A genre branch only adds to `main`. Anything it changes in the shared code is a change
-  `main` is missing, so it goes to `main` first and arrives by the merge.
+- The branches are a tree. `main` is the template for any game, a genre's base branch
+  (`3d/base`) is cut from `main`, and each kind of game in that genre (`3d/first-person`) is
+  cut from the genre's base. The README lists them.
+- A change goes into the highest branch that every user of it lives under, and nowhere else:
+  something every game needs into `main`, something every 3D game needs into `3d/base`.
+  Written once there, it reaches the branches below by merging down, one level at a time:
+  `main` into `3d/base`, then `3d/base` into each `3d/*`.
+- A branch only adds to the one it starts from. Anything it changes in the shared code is a
+  change its parent is missing, so it goes to the parent first and arrives by the merge.
+- A branch's specs are about that branch: `3d/base` designs only what every 3D game shares,
+  so a branch cut from it never inherits plans that are not its own.
+- Git cannot hold a branch `3d` next to `3d/base`, since a branch name is a file and a
+  `/` makes it a folder: a genre's base is always `<genre>/base`.
 - Models stay plain binary files in `.gitattributes`, not Git LFS: this repository has LFS
   disabled on GitHub, which refuses the push.
 
