@@ -32,19 +32,18 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 ## Branches
 
 `main` holds the template itself, with nothing tied to one kind of game. The variants grow
-from it as a tree of branches: a genre's base branch starts from `main`, and each kind of
-game in that genre starts from the genre's base. Clone the branch closest to the game you
-are making.
+from it as a tree of branches: a genre's base branch starts from `main`, and every other
+branch starts from the one it builds on. Clone the branch closest to the game you are making.
 
 | Branch            | Starts from | What it is for                                                           |
 | ----------------- | ----------- | ------------------------------------------------------------------------ |
 | `main`            |             | The template for any game                                                |
-| `3d/base`         | `main`      | What every 3D game shares: a test level (`playroom.glb`), light, physics |
-| `3d/first-person` | `3d/base`   | A player walking the level, seen through their own eyes                  |
+| `3d/base`         | `main`      | A test level (`playroom.glb`) on screen, lit, before a still camera      |
+| `3d/first-person` | `3d/base`   | Physics, and a player walking the level, seen through their own eyes     |
 
 Each branch's `docs/specs/` holds the designs built on it and what is still to come.
-More are planned: `3d/third-person`, `3d/combined` (both cameras, switched with F5), `2d`
-and `multiplayer`.
+More are planned: `3d/third-person` (from `3d/first-person`, with the camera behind the
+player), `3d/combined` (both cameras, switched with F5), `2d` and `multiplayer`.
 
 ## Requirements
 
