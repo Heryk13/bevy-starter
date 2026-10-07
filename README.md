@@ -29,6 +29,19 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 - Third-party license notices generated on every release
 - No console window on Windows release builds
 
+## Branches
+
+`main` holds the template itself, with nothing tied to one kind of game. Each genre gets a
+branch of its own that starts from `main` and adds what that genre needs. Clone the branch
+closest to the game you are making.
+
+| Branch | What it adds to `main`                                                            |
+| ------ | --------------------------------------------------------------------------------- |
+| `main` | Nothing: the base template                                                        |
+| `3d`   | A 3D test scene (`assets/gameplay/playroom.glb`) and its Blender source in `art/` |
+
+More genres (`2d`, `multiplayer`) will follow as branches of their own.
+
 ## Requirements
 
 - Rust (latest stable) via [rustup](https://rustup.rs/)

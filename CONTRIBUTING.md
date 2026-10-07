@@ -164,6 +164,17 @@ The character tells the kind of boundary:
 - One change per commit.
 - `git commit --amend` only before pushing.
 
+## Branches
+
+- `main` is the template for any game, and each genre (`3d`, `2d`, `multiplayer`) is a branch
+  cut from it. A change that every genre needs goes into `main`, never into a genre branch:
+  `main` is the one place it is written, and each genre branch takes it with
+  `git merge main`.
+- A genre branch only adds to `main`. Anything it changes in the shared code is a change
+  `main` is missing, so it goes to `main` first and arrives by the merge.
+- Models stay plain binary files in `.gitattributes`, not Git LFS: this repository has LFS
+  disabled on GitHub, which refuses the push.
+
 ## Dependencies
 
 - New crates are fine when they save real work, but check first if Bevy or the standard library already does it.
