@@ -167,12 +167,16 @@ The character tells the kind of boundary:
 ## Branches
 
 - The branches are a tree. `main` is the template for any game, a genre's base branch
-  (`3d/base`) is cut from `main`, and each kind of game in that genre (`3d/first-person`) is
-  cut from the genre's base. The README lists them.
+  (`3d/base`) is cut from `main`, and every other branch is cut from the one it builds on:
+  `3d/first-person` from `3d/base`, `3d/third-person` from `3d/first-person`. The README
+  lists them.
 - A change goes into the highest branch that every user of it lives under, and nowhere else:
   something every game needs into `main`, something every 3D game needs into `3d/base`.
   Written once there, it reaches the branches below by merging down, one level at a time:
-  `main` into `3d/base`, then `3d/base` into each `3d/*`.
+  `main` into `3d/base`, `3d/base` into `3d/first-person`, and so on down.
+- A genre's base stays as small as the genre allows: `3d/base` is the level on screen
+  and nothing that moves, so no branch below it has to take apart a body or a camera it
+  does not want.
 - A branch only adds to the one it starts from. Anything it changes in the shared code is a
   change its parent is missing, so it goes to the parent first and arrives by the merge.
 - A branch's specs are about that branch: `3d/base` designs only what every 3D game shares,
