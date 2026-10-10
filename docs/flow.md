@@ -383,7 +383,7 @@ Clicks need nothing: Bevy's UI picking tests both cameras and puts the later one
 `update_blur` moves `BlurStrength` toward 1 while any `Floating` exists and toward 0 when none
 does, over `BLUR_RAMP_SECS`, on `Time<Real>` because the pause menu freezes virtual time. While
 it is above 0, the screen camera carries `BlurHorizontal` and `BlurVertical`, two
-`FullscreenMaterial`s running `assets/shaders/blur.wgsl` across then down. Both are ordered
+`FullscreenMaterial`s running `assets/shaders/blur.wesl` across then down. Both are ordered
 `.after(ui_pass).before(upscaling)` in `Core2d`: after the UI so the menu's buttons blur too, and
 outside Bevy's own post-processing, which runs before the UI. At 0 both components are removed
 and no pass runs. Three settings must stay as they are: `IsDefaultUiCamera` on the screen camera

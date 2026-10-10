@@ -21,9 +21,9 @@ For setup and the day-to-day commands, see the [README](../README.md).
 2. Trim Bevy's default features in `Cargo.toml` to what the game uses, for smaller and faster builds.
    For a 2D game, keeping the `jpeg` and `wav` the template's assets need:
    ```toml
-   bevy = { version = "0.19.1", default-features = false, features = ["2d", "ui", "audio", "jpeg", "wav"] }
+   bevy = { version = "0.20.0", default-features = false, features = ["2d", "ui", "audio", "jpeg", "wav"] }
    ```
-   Every screen, overlay and the blur build and run with exactly these (checked on 0.19.1).
+   Every screen, overlay and the blur build with exactly these on 0.20.0, and ran with them on 0.19.1.
 3. Keep the Bevy logo on the splash screen: it lets players know the game is made with Bevy
    and helps the engine grow. Use it unmodified (see [Assets](#assets)).
 4. Replace the [placeholder assets](#placeholders) with the game's own.
@@ -40,7 +40,7 @@ assets/             game assets, loaded at runtime
   loading/          the loading screen's slideshow pictures
   locales/          one folder per language, each with its main.ftl translations
   menu/             the menu's background and music
-  shaders/          blur.wgsl, the blur behind every floating panel
+  shaders/          blur.wesl, the blur behind every floating panel
   splash/           the Bevy logo
     logos/          the game's own logos, shown after the Bevy one
   ui/               the button sounds

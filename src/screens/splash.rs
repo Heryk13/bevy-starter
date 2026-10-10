@@ -71,6 +71,9 @@ fn spawn_splash_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
         Node {
             width: percent(100),
             height: percent(100),
+            // a grid item never shrinks below its content by default, so a logo wider than
+            // the window would stretch this past it and push the logo off centre
+            min_width: px(0),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
