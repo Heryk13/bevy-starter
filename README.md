@@ -38,7 +38,7 @@ branch starts from the one it builds on. Clone the branch closest to the game yo
 | Branch            | Starts from | What it is for                                                           |
 | ----------------- | ----------- | ------------------------------------------------------------------------ |
 | `main`            |             | The template for any game                                                |
-| `3d/base`         | `main`      | A test level (`playroom.glb`) on screen, lit, before a still camera      |
+| `3d/base`         | `main`      | A test level (`playroom.glb`) under a sky and a glaring sun              |
 | `3d/first-person` | `3d/base`   | Physics, and a player walking the level, seen through their own eyes     |
 
 Each branch's `docs/specs/` holds the designs built on it and what is still to come.

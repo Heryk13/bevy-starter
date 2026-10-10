@@ -1,4 +1,4 @@
-use bevy::asset::LoadedFolder;
+use bevy::asset::{LoadedFolder, RecursiveDependencyLoadState};
 use bevy::prelude::*;
 use rand::seq::SliceRandom;
 
@@ -202,7 +202,8 @@ fn update_loading_bar(
 ) {
     let mut loaded = 0;
     let mut total = 1;
-    if asset_server.is_loaded_with_dependencies(&gameplay_assets.playroom) {
+    // the same test `leave_loading_screen` leaves on, so a failed playroom still fills the bar
+    if finished(asset_server.recursive_dependency_load_state(&gameplay_assets.playroom)) {
         loaded += 1;
     }
 
@@ -238,18 +239,15 @@ fn leave_loading_screen(
     destination: Res<LoadingDestination>,
 ) {
     if let Some(intro_assets) = intro_assets {
-        let frames_load_state = asset_server.recursive_dependency_load_state(&intro_assets.frames);
+        let frames_done =
+            finished(asset_server.recursive_dependency_load_state(&intro_assets.frames));
         let music_load_state = asset_server.load_state(&intro_assets.music);
-        let frames_done = frames_load_state.is_loaded() || frames_load_state.is_failed();
         let music_done = music_load_state.is_loaded() || music_load_state.is_failed();
         if !(frames_done && music_done) {
             return;
         }
     }
-    let playroom_load_state =
-        asset_server.recursive_dependency_load_state(&gameplay_assets.playroom);
-    let playroom_done = playroom_load_state.is_loaded() || playroom_load_state.is_failed();
-    if !playroom_done {
+    if !finished(asset_server.recursive_dependency_load_state(&gameplay_assets.playroom)) {
         return;
     }
     next_screen.set(screen_after_loading(*destination));
@@ -260,6 +258,12 @@ fn leave_loading_screen(
 /// Returns the slide after `index`, wrapping back to the first after the last.
 fn next_slide(index: usize, count: usize) -> usize {
     (index + 1) % count
+}
+
+/// Returns whether an asset and everything it depends on are done loading, failures
+/// included: a missing file is cosmetic, a screen that never ends is not.
+fn finished(state: RecursiveDependencyLoadState) -> bool {
+    state.is_loaded() || state.is_failed()
 }
 
 /// Returns how far along the load is, from 0.0 to 1.0. Nothing to load counts as
