@@ -281,7 +281,9 @@ under it instead of competing with it.
   in the saves folder, then Close. The field is an `EditableText` marked `SaveName`, capped at
   `SAVE_NAME_MAX_CHARS`; the widget is headless, so the field's own fill, border and a
   `TextCursorStyle` are what make it visible, and without the latter no cursor is drawn.
-  `paint_save_name_field` outlines it in the accent while `InputFocus` is on it. Each save is a
+  `EditableText` only holds the text: `TextInput` is what types into it, and `TabIndex` is what
+  lets a click give it the keyboard, since Bevy hands focus on a click only to an entity with
+  one. `paint_save_name_field` outlines it in the accent while `InputFocus` is on it. Each save is a
   `row_button` holding `save_row`: `save_name` over `save_details` in small muted text.
 
   The folder is read once, on `OnEnter(Overlay::SaveGame)`. The rows are spawned in a `for`
@@ -383,7 +385,7 @@ Clicks need nothing: Bevy's UI picking tests both cameras and puts the later one
 `update_blur` moves `BlurStrength` toward 1 while any `Floating` exists and toward 0 when none
 does, over `BLUR_RAMP_SECS`, on `Time<Real>` because the pause menu freezes virtual time. While
 it is above 0, the screen camera carries `BlurHorizontal` and `BlurVertical`, two
-`FullscreenMaterial`s running `assets/shaders/blur.wgsl` across then down. Both are ordered
+`FullscreenMaterial`s running `assets/shaders/blur.wesl` across then down. Both are ordered
 `.after(ui_pass).before(upscaling)` in `Core2d`: after the UI so the menu's buttons blur too, and
 outside Bevy's own post-processing, which runs before the UI. At 0 both components are removed
 and no pass runs. Three settings must stay as they are: `IsDefaultUiCamera` on the screen camera

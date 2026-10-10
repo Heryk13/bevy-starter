@@ -92,7 +92,7 @@ fn close_overlay(
 /// Closes the topmost thing on Esc, one layer per press, as `esc_action` decides.
 fn go_back_on_esc(
     mut commands: Commands,
-    dialogs: Query<Entity, With<Dialog>>,
+    dialogs: Query<(), With<Dialog>>,
     overlay: Res<State<Overlay>>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     pause: Option<Res<State<Pause>>>,
@@ -100,11 +100,7 @@ fn go_back_on_esc(
 ) {
     let pause = pause.map(|pause| *pause.get());
     match esc_action(!dialogs.is_empty(), *overlay.get(), pause) {
-        EscAction::CloseDialog => {
-            for dialog in &dialogs {
-                commands.entity(dialog).despawn();
-            }
-        }
+        EscAction::CloseDialog => commands.despawn_all::<With<Dialog>>(),
         EscAction::CloseOverlay => next_overlay.set(Overlay::None),
         EscAction::SetPause(pause) => next_pause.set(pause),
         EscAction::Nothing => {}

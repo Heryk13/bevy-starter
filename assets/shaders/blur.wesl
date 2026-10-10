@@ -1,11 +1,11 @@
-// One direction of a Gaussian blur over the whole screen camera's image; `src/blur.rs` runs
+// One direction of a Gaussian blur over the whole screen camera's image; `src/ui/blur.rs` runs
 // it twice, across then down, which together blur in both directions for a fraction of the
 // samples.
 //
 // Texels are read with `textureLoad` rather than sampled: the pass's sampler is the default
 // nearest one, and loading whole texels needs no filtering at all.
 
-#import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput
+import bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput;
 
 struct Blur {
     // (1, 0) across or (0, 1) down
