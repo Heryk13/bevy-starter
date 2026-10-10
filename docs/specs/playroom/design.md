@@ -81,3 +81,38 @@ One commit per step. `just check` passes after each one, and `just run` shows it
   with the same window, format and MSAA one shared texture, cleared only by the first camera
   each frame. That changes once the still camera has `Hdr` and `Msaa::Off`, so both steps
   check it again.
+- **Bevy's default tonemapping, not `AcesFitted`.** Bevy documents `AcesFitted` as "not
+  neutral": bright greens and reds turn orange, bright blues magenta. Every 3D branch inherits
+  this camera, so its look belongs to each game, not to the base, and a neutral curve shows
+  what the light is doing when judging it by eye. `TonyMcMapface` is that curve and Bevy's
+  default, so the camera carries no `Tonemapping` at all. `AgX` looked the same here.
+- **The still camera looks up, not at the origin.** It stands at about 41 m and looks at a
+  point high over the level, so the level fills the bottom of the view and the sky, the sun
+  and the shadows falling towards the camera can all be judged at once.
+- **The project moved to Bevy 0.20 partway through step 1**, merged down from `main`.
+- **The UI cameras take `Hdr` during gameplay.** `Bloom` brings `Hdr`, which moved the still
+  camera onto an image of its own, and the screen camera's opaque clear then hid the level
+  (Bevy alpha-blends every camera after the first onto the window). Clearing it transparent
+  would have shown the level but left the blur blind to it. Giving the screen camera `Hdr`
+  too froze the view instead: the floating camera never clears, and alone on its own image
+  it kept showing the last frame they had shared. So `give_ui_cameras_hdr` gives every
+  `Camera2d` `Hdr` on entering gameplay, and `take_ui_cameras_hdr` takes it back on leaving,
+  and the three cameras share one image again. Step 2's `Msaa::Off` splits them the same way,
+  so the UI cameras will need it too. Rendering the level into a `ViewportNode` was the
+  fallback, kept for if this stops holding.
+- **The sun's disk is wider than the real one.** A directional light without a `SunDisk` is
+  drawn with `SunDisk::EARTH` anyway, so the plain preset changed nothing on screen. At its
+  real size the sun was an 8 px dot, so `SUN_DISK_SCALE` draws it five times as wide, as
+  games often do. It changes only the disk, not the light or the shadows.
+- **The sun's halo stays soft.** `Bloom::NATURAL` gives it one, but no brighter disk makes
+  it larger: `Bloom`'s first downsample always runs a firefly filter (a Karis average) that
+  "limits luma to [0, 1]", so the sun counts barely brighter than the sky beside it. A
+  stronger `Bloom` would haze the whole view, and a lens flare is a feature of its own; both
+  are a game's choice of look, not the base's, so the base keeps the soft halo. A hazier sky
+  (the Earth preset's Mie term scaled up) was tried and dropped: it widens the bright sky
+  around the sun, not the blinding glare and rays a camera shows, which are lens effects. A
+  sun glare drawn over the sun's place on screen is left to a design of its own.
+- **The sky lights the shadows at less than its real strength.** At the physical 1.0 the
+  shadows read too light for the exposure the sunlit side needs, so
+  `STILL_CAMERA_SKY_LIGHT_INTENSITY` lowers only the sky's share. Step 2's SSAO darkens
+  creases and contacts, so the value is worth revisiting once it is in.
