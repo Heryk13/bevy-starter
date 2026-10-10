@@ -15,10 +15,10 @@ mod sun_glare;
 
 // ---- still camera: framed to judge the sky, the sun and the shadows ---------
 // where it stands, in metres, about 41 m from the level's centre
-const STILL_CAMERA_POSITION: Vec3 = Vec3::new(-10.0, 3.0, 40.0);
+const STILL_CAMERA_POSITION_M: Vec3 = Vec3::new(-10.0, 3.0, 40.0);
 // what it looks at: high over the origin, so it tilts about 14° up and the horizon sits in
 // the bottom fifth of the default 45° view, the level along the bottom and the sky above
-const STILL_CAMERA_TARGET: Vec3 = Vec3::new(0.0, 13.0, 0.0);
+const STILL_CAMERA_TARGET_M: Vec3 = Vec3::new(0.0, 13.0, 0.0);
 // below the screen camera's default order of 0, so the level is drawn first and the UI
 // lands on top of it
 const STILL_CAMERA_ORDER: isize = -1;
@@ -61,14 +61,18 @@ pub(super) fn plugin(app: &mut App) {
         OnEnter(Screen::Gameplay),
         (spawn_playroom, match_ui_cameras_to_still_camera),
     );
-    app.add_systems(OnExit(Screen::Gameplay), reset_ui_cameras);
+    app.add_systems(
+        OnExit(Screen::Gameplay),
+        (reset_ui_cameras, unload_gameplay_assets),
+    );
     app.add_plugins(sun_glare::plugin);
 }
 
 // ==== Systems ================================================================
 
 /// Spawns the playroom's level, already loaded by the loading screen, the still camera
-/// that shows it, the sun that lights it and the sky over it.
+/// that shows it, the sun that lights it and the sky over it. It needs `GameplayAssets`, so
+/// gameplay is entered through the loading screen, never straight from the menu.
 fn spawn_playroom(
     mut commands: Commands,
     gameplay_assets: Res<GameplayAssets>,
@@ -103,7 +107,8 @@ fn spawn_playroom(
         Msaa::Off,
         // smooths edges in MSAA's place, from the finished image, so SSAO keeps working
         Smaa::default(),
-        Transform::from_translation(STILL_CAMERA_POSITION).looking_at(STILL_CAMERA_TARGET, Vec3::Y),
+        Transform::from_translation(STILL_CAMERA_POSITION_M)
+            .looking_at(STILL_CAMERA_TARGET_M, Vec3::Y),
         DespawnOnExit(Screen::Gameplay),
     ));
     commands.spawn((
@@ -160,4 +165,10 @@ fn reset_ui_cameras(
             .insert(Msaa::default());
     }
     screen_camera.clear_color = ClearColorConfig::Default;
+}
+
+/// Drops the playroom's handles once gameplay ends, so Bevy can free the level's memory
+/// while the player is in the menu. A load from the pause menu loads it again.
+fn unload_gameplay_assets(mut commands: Commands) {
+    commands.remove_resource::<GameplayAssets>();
 }

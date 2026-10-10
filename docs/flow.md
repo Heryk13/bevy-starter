@@ -211,7 +211,10 @@ entering gameplay and stops the screen camera clearing, since each camera clears
 image on its own, and `reset_ui_cameras` undoes it on leaving. The `Session` arrives with `StartGame`,
 fresh or loaded, and `count_play_time` adds each frame's virtual time to it, so the pause menu
 never counts as play. The resource is also created at startup: a default `Session` is a valid
-new game, so gameplay can be entered without the menu while building the game. Esc lives in `src/overlays.rs` with the rest of the
+new game, so gameplay can be entered without the menu while building the game. On `3d/base`
+that shortcut goes through `Screen::Loading`, not straight to `Screen::Gameplay`: the playroom
+needs the `GameplayAssets` only the loading screen inserts, and `unload_gameplay_assets` removes
+them again when gameplay ends. Esc lives in `src/overlays.rs` with the rest of the
 "go back" rule.
 
 **Where the game's own state goes.** `Session::game` is a `GameData`, the struct in `save.rs` that

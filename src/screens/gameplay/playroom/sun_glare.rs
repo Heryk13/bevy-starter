@@ -14,21 +14,21 @@ use crate::screens::Screen;
 const SUN_GLARE_DEGREES: f32 = 30.0;
 // the glare is three layers added together; every size below is a share of its half-width.
 // The blinding core: a white ball, wide enough to hide the sun's shape
-const SUN_GLARE_CORE_RADIUS: f32 = 0.14;
+const SUN_GLARE_CORE_RADIUS_SHARE: f32 = 0.14;
 // the wide glow that lightens the sky around the core, and how far out it reaches before
 // fading to about a third
 const SUN_GLARE_HALO_STRENGTH: f32 = 0.3;
-const SUN_GLARE_HALO_REACH: f32 = 0.12;
+const SUN_GLARE_HALO_REACH_SHARE: f32 = 0.12;
 // the rays, as the blades of a camera's aperture make them: how many, how narrow (the
 // higher, the thinner), how bright, and how far out each reaches before fading to about a
 // third. Short, as in a photo
 const SUN_GLARE_RAY_COUNT: u32 = 6;
 const SUN_GLARE_RAY_SHARPNESS: f32 = 200.0;
 const SUN_GLARE_RAY_STRENGTH: f32 = 0.4;
-const SUN_GLARE_RAY_LENGTH: f32 = 0.09;
+const SUN_GLARE_RAY_LENGTH_SHARE: f32 = 0.09;
 // where the glare starts fading to nothing, so the square it is drawn on never shows its
 // edge
-const SUN_GLARE_FADE_START: f32 = 0.6;
+const SUN_GLARE_FADE_START_SHARE: f32 = 0.6;
 // warm white, past 1.0 so the core blows out and feeds `Bloom`; unlit, so no exposure
 // dims it on the way to the screen
 const SUN_GLARE_COLOR: Color = Color::linear_rgb(4.0, 3.6, 3.0);
@@ -95,6 +95,7 @@ fn spawn_sun_glare(
 /// after propagation, so it sets the glare's `GlobalTransform` too: it has no parent, so the
 /// two are the same.
 fn place_sun_glare(
+    // the one 3D camera: a second one, from a glTF or a branch below, would skip this silently
     camera: Single<&GlobalTransform, (With<Camera3d>, Without<SunGlare>)>,
     glare: Single<(&mut Transform, &mut GlobalTransform), With<SunGlare>>,
 ) {
@@ -144,20 +145,17 @@ fn glare_image() -> Image {
 /// all reaching zero by the square's edge.
 fn glare_brightness(offset: Vec2) -> f32 {
     let radius = offset.length();
-    let core = (-(radius / SUN_GLARE_CORE_RADIUS).powi(2)).exp();
-    let halo = SUN_GLARE_HALO_STRENGTH * (-radius / SUN_GLARE_HALO_REACH).exp();
+    let core = (-(radius / SUN_GLARE_CORE_RADIUS_SHARE).powi(2)).exp();
+    let halo = SUN_GLARE_HALO_STRENGTH * (-radius / SUN_GLARE_HALO_REACH_SHARE).exp();
     let angle = offset.y.atan2(offset.x);
     let ray_count = SUN_GLARE_RAY_COUNT as f32;
     let ray = ((1.0 + (ray_count * angle).cos()) / 2.0).powf(SUN_GLARE_RAY_SHARPNESS);
-    let rays = SUN_GLARE_RAY_STRENGTH * ray * (-radius / SUN_GLARE_RAY_LENGTH).exp();
-    let fade = 1.0 - smoothstep(SUN_GLARE_FADE_START, 1.0, radius);
+    let rays = SUN_GLARE_RAY_STRENGTH * ray * (-radius / SUN_GLARE_RAY_LENGTH_SHARE).exp();
+    let fade = 1.0
+        - EaseFunction::SmoothStep.sample_clamped(
+            (radius - SUN_GLARE_FADE_START_SHARE) / (1.0 - SUN_GLARE_FADE_START_SHARE),
+        );
     ((core + halo + rays) * fade).clamp(0.0, 1.0)
-}
-
-/// Returns 0.0 below `edge0`, 1.0 above `edge1`, and a smooth S-curve between them.
-fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
-    let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
 }
 
 /// Returns the side, in metres, of a square at `distance_m` that spans `degrees` of view.
@@ -174,14 +172,15 @@ mod tests {
     use super::*;
 
     const EPSILON: f32 = 1e-5;
-    // halfway out, well inside the fade, where rays and gaps are both clear
-    const HALFWAY: f32 = SUN_GLARE_FADE_START / 2.0 + 0.2;
+    // halfway from the core to where the fade starts, so clearly dimmer than the centre yet
+    // untouched by the fade, wherever those two constants move
+    const HALFWAY: f32 = (SUN_GLARE_CORE_RADIUS_SHARE + SUN_GLARE_FADE_START_SHARE) / 2.0;
 
     #[test]
     fn glare_is_brightest_at_its_centre() {
         let centre = glare_brightness(Vec2::ZERO);
         assert!(centre > glare_brightness(Vec2::new(HALFWAY, 0.0)));
-        assert!(centre > glare_brightness(Vec2::new(0.0, SUN_GLARE_CORE_RADIUS)));
+        assert!(centre > glare_brightness(Vec2::new(0.0, SUN_GLARE_CORE_RADIUS_SHARE)));
     }
 
     #[test]
@@ -194,7 +193,7 @@ mod tests {
     #[test]
     fn glare_is_brighter_along_a_ray_than_between_two() {
         // past the core, where a ray still has a good share of its strength
-        let radius = SUN_GLARE_CORE_RADIUS + SUN_GLARE_RAY_LENGTH;
+        let radius = SUN_GLARE_CORE_RADIUS_SHARE + SUN_GLARE_RAY_LENGTH_SHARE;
         let between = TAU / SUN_GLARE_RAY_COUNT as f32 / 2.0;
         let on_ray = glare_brightness(Vec2::new(radius, 0.0));
         let off_ray = glare_brightness(Vec2::from_angle(between) * radius);
