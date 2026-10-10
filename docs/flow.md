@@ -281,7 +281,9 @@ under it instead of competing with it.
   in the saves folder, then Close. The field is an `EditableText` marked `SaveName`, capped at
   `SAVE_NAME_MAX_CHARS`; the widget is headless, so the field's own fill, border and a
   `TextCursorStyle` are what make it visible, and without the latter no cursor is drawn.
-  `paint_save_name_field` outlines it in the accent while `InputFocus` is on it. Each save is a
+  `EditableText` only holds the text: `TextInput` is what types into it, and `TabIndex` is what
+  lets a click give it the keyboard, since Bevy hands focus on a click only to an entity with
+  one. `paint_save_name_field` outlines it in the accent while `InputFocus` is on it. Each save is a
   `row_button` holding `save_row`: `save_name` over `save_details` in small muted text.
 
   The folder is read once, on `OnEnter(Overlay::SaveGame)`. The rows are spawned in a `for`
