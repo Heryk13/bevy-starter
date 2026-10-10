@@ -1,7 +1,8 @@
 use bevy::input_focus::InputFocus;
+use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::prelude::*;
 use bevy::text::{EditableText, TextCursorStyle};
-use bevy::ui_widgets::{Activate, ScrollArea};
+use bevy::ui_widgets::{Activate, ScrollArea, TextInput};
 use fluent_bundle::FluentArgs;
 use std::path::{Path, PathBuf};
 
@@ -121,6 +122,10 @@ fn spawn_save_game_overlay(
                                 max_characters: Some(SAVE_NAME_MAX_CHARS),
                                 ..default()
                             },
+                            // `EditableText` only holds the text, this is what types into it
+                            TextInput,
+                            // a click only hands the keyboard to an entity with a `TabIndex`
+                            TabIndex::default(),
                             SaveName,
                             TextCursorStyle {
                                 color: ACCENT,
