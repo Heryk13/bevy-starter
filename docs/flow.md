@@ -100,9 +100,9 @@ Each carries `.run_if(in_state(...))` for its screen, so only the one whose scre
 | --- | --- | --- | --- |
 | `Splash` | `spawn_splash_screen` | the last logo is done, or skipped | `advance_splash_logos` |
 | `Menu` | `spawn_menu_screen`, `play_menu_music` | the closing veil finishes | `animate_veils` |
-| `Loading` | `spawn_loading_screen`, `load_intro_assets` (new games only) | the intro's assets are in, or at once for a loaded save | `leave_loading_screen` |
+| `Loading` | `spawn_loading_screen`, `load_gameplay_assets`, `load_intro_assets` (new games only) | the playroom is in, and the intro's assets for a new game | `leave_loading_screen` |
 | `Intro` | `spawn_intro_screen`, `play_intro_music` | the last frame is done, or skipped | `leave_intro_screen`, `skip_intro_screen` |
-| `Gameplay` | `spawn_gameplay_screen` | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
+| `Gameplay` | `spawn_playroom`, `match_ui_cameras_to_still_camera`, `spawn_sun_glare` (`playroom.rs`, `playroom/sun_glare.rs`) | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
 
 ### Splash
 
@@ -165,9 +165,10 @@ so the settings slider would otherwise do nothing to a track that is already pla
 A slideshow over black with a progress bar along the bottom. Where it goes next is the
 `LoadingDestination` resource the caller left, `Intro` for a new game and `Gameplay` for a loaded
 save, and `screen_after_loading` turns it into a screen, a pure function with a test per
-destination. A loaded save has nothing to load yet, so `load_intro_assets` and
-`update_loading_bar` are skipped and `leave_loading_screen` leaves on the next frame; this is
-where the gameplay's own assets will be loaded later.
+destination. Both destinations load the playroom: `load_gameplay_assets` starts
+`assets/gameplay/playroom.glb` into the `GameplayAssets` resource, which outlives the screen so
+gameplay never shows a frame without the level. A loaded save skips `load_intro_assets`, so
+the bar counts the playroom alone and `leave_loading_screen` waits for it only.
 
 For a new game, `load_intro_assets` starts loading
 `assets/intro/frames/` and `assets/intro/music.ogg` into the `IntroAssets` resource — a resource
@@ -178,7 +179,8 @@ exactly when the intro needs them.
 `advance_slideshow` wraps around at the end, so the screen can run as long as the load does. A
 `ponytail:` comment notes that the shuffle happens once, so a second lap repeats the same order.
 `update_loading_bar` counts the frame handles that are loaded with their dependencies, plus the
-music as one more item.
+music and the playroom as one more item each. Until the intro's folder lists its frames it
+leaves the bar alone, since a bar filled against a smaller total would run backwards.
 
 `leave_loading_screen` counts a failed asset as done. Bevy already logs the failure, and a missing
 frame is cosmetic where a screen that never ends is not.
@@ -199,7 +201,14 @@ frames' memory back.
 
 ### Gameplay
 
-A full-window background colour and nothing else yet. The `Session` arrives with `StartGame`,
+On `3d/base` the playroom: `spawn_playroom` (`gameplay/playroom.rs`) spawns the level the
+loading screen loaded, a still `Camera3d`, the sun and the sky, and `spawn_sun_glare`
+(`playroom/sun_glare.rs`) the glare drawn over the sun. The still camera draws first
+(`STILL_CAMERA_ORDER`, below the screen camera's 0), so the UI lands on top of the level. For
+the blur to see the level the cameras must share one image, which takes the same format and
+MSAA: `match_ui_cameras_to_still_camera` gives both UI cameras `Hdr` and `Msaa::Off` on
+entering gameplay and stops the screen camera clearing, since each camera clears the shared
+image on its own, and `reset_ui_cameras` undoes it on leaving. The `Session` arrives with `StartGame`,
 fresh or loaded, and `count_play_time` adds each frame's virtual time to it, so the pause menu
 never counts as play. The resource is also created at startup: a default `Session` is a valid
 new game, so gameplay can be entered without the menu while building the game. Esc lives in `src/overlays.rs` with the rest of the
@@ -381,6 +390,9 @@ the menu, loading, the intro, gameplay.
 `ClearColorConfig::None`, so it draws over the screen camera's image instead of wiping it. An
 observer on `Add<Floating>` gives each new `Floating` root a `UiTargetCamera` pointing at it.
 Clicks need nothing: Bevy's UI picking tests both cameras and puts the later one's hits first.
+
+On `3d/base` a third camera sits under both: the playroom's still `Camera3d`, at order -1, which
+draws the level before the screen camera draws the UI over it (see [Gameplay](#gameplay)).
 
 `update_blur` moves `BlurStrength` toward 1 while any `Floating` exists and toward 0 when none
 does, over `BLUR_RAMP_SECS`, on `Time<Real>` because the pause menu freezes virtual time. While

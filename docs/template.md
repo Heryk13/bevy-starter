@@ -24,6 +24,12 @@ For setup and the day-to-day commands, see the [README](../README.md).
    bevy = { version = "0.20.0", default-features = false, features = ["2d", "ui", "audio", "jpeg", "wav"] }
    ```
    Every screen, overlay and the blur build with exactly these on 0.20.0, and ran with them on 0.19.1.
+   For a 3D game, from `3d/base` or a branch below it, `3d` takes the place of `2d`: it brings the
+   glTF loader, the lit materials, the atmosphere, SSAO, SMAA and `Bloom` the playroom uses.
+   ```toml
+   bevy = { version = "0.20.0", default-features = false, features = ["3d", "ui", "audio", "jpeg", "wav"] }
+   ```
+   The playroom builds with exactly these on 0.20.0.
 3. Keep the Bevy logo on the splash screen: it lets players know the game is made with Bevy
    and helps the engine grow. Use it unmodified (see [Assets](#assets)).
 4. Replace the [placeholder assets](#placeholders) with the game's own.
@@ -35,6 +41,7 @@ For setup and the day-to-day commands, see the [README](../README.md).
 ```
 assets/             game assets, loaded at runtime
   fonts/            Noto Sans JP, the font of every text, and its license
+  gameplay/         playroom.glb, the test level every 3D game starts from
   intro/            the intro's soundtrack
     frames/         the intro's frames, played in file name order
   loading/          the loading screen's slideshow pictures
@@ -75,6 +82,7 @@ src/
     button.rs       buttons, their paint and their sounds
     panel.rs        floating roots, cards, their entrance and dialogs
     blur.rs         the floating camera and the blur behind every panel
+art/                playroom.blend, the Blender source of playroom.glb
 docs/
   template.md       this file: turning the template into a game
   flow.md           how the screens, overlays and fades fit together

@@ -1,7 +1,8 @@
+use bevy::anti_alias::smaa::Smaa;
 use bevy::camera::{Exposure, Hdr};
 use bevy::light::atmosphere::ScatteringMedium;
 use bevy::light::{Atmosphere, AtmosphereEnvironmentMapLight, SunDisk};
-use bevy::pbr::AtmosphereSettings;
+use bevy::pbr::{AtmosphereSettings, ScreenSpaceAmbientOcclusion};
 use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 
@@ -26,9 +27,13 @@ const STILL_CAMERA_ORDER: isize = -1;
 // this one was settled by eye
 const STILL_CAMERA_EXPOSURE_EV100: f32 = 13.5;
 // how strongly the sky lights what the sun does not reach, as a share of its real strength:
-// inside a shadow the sky is the only light, so this darkens shadows and leaves the sunlit
-// side almost as it is. Below 1.0 is a look, not physics, settled by eye
-const STILL_CAMERA_SKY_LIGHT_INTENSITY: f32 = 0.1;
+// inside a shadow the sky is the only light, so lowering this darkens only the shadows and
+// leaves the sunlit side almost as it is. 1.0 is physical, and SSAO darkens the creases
+const STILL_CAMERA_SKY_LIGHT_INTENSITY: f32 = 1.0;
+// how far from a crease SSAO looks for what blocks the sky: Bevy's 0.73 m shades a strip
+// a few pixels thin from 40 m away, so this is wider, at the cost of some haloing and
+// noise around objects, which Bevy warns of
+const STILL_CAMERA_SSAO_RADIUS_M: f32 = 5.0;
 
 // ---- sun --------------------------------------------------------------------
 // where it shines from, looking at the origin: a directional light ignores its position
@@ -54,9 +59,9 @@ const SKY_PHASE_RESOLUTION: u32 = 256;
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(
         OnEnter(Screen::Gameplay),
-        (spawn_playroom, give_ui_cameras_hdr),
+        (spawn_playroom, match_ui_cameras_to_still_camera),
     );
-    app.add_systems(OnExit(Screen::Gameplay), take_ui_cameras_hdr);
+    app.add_systems(OnExit(Screen::Gameplay), reset_ui_cameras);
     app.add_plugins(sun_glare::plugin);
 }
 
@@ -89,6 +94,15 @@ fn spawn_playroom(
         AtmosphereSettings::default(),
         // a soft halo around the sun and whatever else is brighter than white
         Bloom::NATURAL,
+        // darkens creases and contacts; it brings the depth and normal prepasses it reads,
+        // and works only without MSAA
+        ScreenSpaceAmbientOcclusion {
+            radius: STILL_CAMERA_SSAO_RADIUS_M,
+            ..default()
+        },
+        Msaa::Off,
+        // smooths edges in MSAA's place, from the finished image, so SSAO keeps working
+        Smaa::default(),
         Transform::from_translation(STILL_CAMERA_POSITION).looking_at(STILL_CAMERA_TARGET, Vec3::Y),
         DespawnOnExit(Screen::Gameplay),
     ));
@@ -113,20 +127,37 @@ fn spawn_playroom(
     commands.spawn((Atmosphere::earth(medium), DespawnOnExit(Screen::Gameplay)));
 }
 
-/// Gives the UI cameras, the screen camera and the floating one above it, the still camera's
-/// `Hdr`, which its atmosphere and `Bloom` bring. Cameras on one window share an image only
-/// while their formats match: apart, the screen camera's opaque clear hides the level, its
-/// blur never sees it, and the floating camera, which never clears, keeps showing the last
-/// frame they shared.
-fn give_ui_cameras_hdr(mut commands: Commands, cameras: Query<Entity, With<Camera2d>>) {
+/// Matches the UI cameras, the screen camera and the floating one above it, to the still
+/// camera: its `Hdr`, which its atmosphere and `Bloom` bring, and its `Msaa::Off`, which
+/// its SSAO needs. Cameras on one window share an image only while their format and MSAA
+/// match: apart, the screen camera's opaque clear hides the level, its blur never sees it,
+/// and the floating camera, which never clears, keeps showing the last frame they shared.
+/// Sharing an image is not sharing its clear, though: each camera clears it the first time
+/// it draws. With MSAA on, Bevy copied the cameras below into each one's MSAA image first,
+/// which hid that; without it, the screen camera must not clear at all.
+fn match_ui_cameras_to_still_camera(
+    mut commands: Commands,
+    cameras: Query<Entity, With<Camera2d>>,
+    mut screen_camera: Single<&mut Camera, With<IsDefaultUiCamera>>,
+) {
     for camera in &cameras {
-        commands.entity(camera).insert(Hdr);
+        commands.entity(camera).insert((Hdr, Msaa::Off));
     }
+    screen_camera.clear_color = ClearColorConfig::None;
 }
 
-/// Takes the UI cameras' `Hdr` away again: outside gameplay there is no level under them.
-fn take_ui_cameras_hdr(mut commands: Commands, cameras: Query<Entity, With<Camera2d>>) {
+/// Returns the UI cameras to their defaults: outside gameplay there is no level under them.
+/// `Msaa` is put back rather than removed, since every camera needs one.
+fn reset_ui_cameras(
+    mut commands: Commands,
+    cameras: Query<Entity, With<Camera2d>>,
+    mut screen_camera: Single<&mut Camera, With<IsDefaultUiCamera>>,
+) {
     for camera in &cameras {
-        commands.entity(camera).remove::<Hdr>();
+        commands
+            .entity(camera)
+            .remove::<Hdr>()
+            .insert(Msaa::default());
     }
+    screen_camera.clear_color = ClearColorConfig::Default;
 }

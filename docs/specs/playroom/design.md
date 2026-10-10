@@ -1,6 +1,6 @@
 # The playroom: a 3D level every 3D game starts from
 
-Status: **approved**, not built yet.
+Status: **built**.
 Date: 2026-10-08
 Bevy: 0.19.1
 Branch: `3d/base`
@@ -112,6 +112,24 @@ One commit per step. `just check` passes after each one, and `just run` shows it
   (the Earth preset's Mie term scaled up) was tried and dropped: it widens the bright sky
   around the sun, not the blinding glare and rays a camera shows, which are lens effects. A
   sun glare drawn over the sun's place on screen is left to a design of its own.
+- **Step 2's `Msaa::Off` reached the UI cameras, as foreseen.** The pair that gave them
+  `Hdr` now gives them `Msaa::Off` too and puts `Msaa::default()` back on leaving (every
+  camera needs an `Msaa`, so it is replaced, not removed), and it was renamed for what it
+  does: `match_ui_cameras_to_still_camera` and `reset_ui_cameras`.
+- **The clearing did need settling after all, once MSAA was off.** Step 1 put it down to a
+  shared texture "cleared only by the first camera each frame". That was wrong: the
+  textures are shared, but each camera's `ColorAttachment`, with its clear colour and its
+  "cleared this frame" flag, is its own (`prepare_view_targets`). With MSAA on, Bevy copies
+  the cameras below into each one's MSAA image before it draws (`MsaaWriteback::Auto`),
+  which is what kept the screen camera from wiping the level. With `Msaa::Off` the screen
+  showed grey again, so the pair also sets the screen camera's `clear_color` to
+  `ClearColorConfig::None` in gameplay and back to `Default` on leaving.
+- **SSAO is in, but not yet seen working.** At its default 0.73 m reach it shades a strip a
+  few pixels thin from the still camera's 40 m, so `STILL_CAMERA_SSAO_RADIUS_M` widens it,
+  and still no difference could be told by eye with it on or off. Left in on trust, to be
+  checked on a closer camera or a more detailed level.
+- **The sky lights the shadows at its real strength again.** With SSAO in,
+  `STILL_CAMERA_SKY_LIGHT_INTENSITY` went back to 1.0, undoing the dimmer sky above.
 - **The base draws a sun glare after all.** The user chose to give every 3D game the glare
   and its rays, reversing "a lens effect is a game's look" above. It is designed and built
   in `docs/specs/sun-glare/design.md`, in `playroom/sun_glare.rs`.

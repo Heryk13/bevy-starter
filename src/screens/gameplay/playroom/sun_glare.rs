@@ -1,4 +1,5 @@
 use bevy::asset::RenderAssetUsages;
+use bevy::camera::visibility::VisibilitySystems;
 use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
@@ -45,11 +46,13 @@ const SUN_GLARE_TEXTURE_PX: u32 = 256;
 /// in front of it.
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Screen::Gameplay), spawn_sun_glare);
-    // before propagation, so the glare is on the sun from its very first frame
+    // after propagation, so the camera's place in the world is known even on its first frame
+    // and even as the child of a body, and before culling, which reads the glare's own
     app.add_systems(
         PostUpdate,
         place_sun_glare
-            .before(TransformSystems::Propagate)
+            .after(TransformSystems::Propagate)
+            .before(VisibilitySystems::CheckVisibility)
             .run_if(in_state(Screen::Gameplay)),
     );
 }
@@ -88,15 +91,20 @@ fn spawn_sun_glare(
     ));
 }
 
-/// Keeps the glare on the sun, at its distance from the still camera and facing it.
+/// Keeps the glare on the sun, at its distance from the still camera and facing it. It runs
+/// after propagation, so it sets the glare's `GlobalTransform` too: it has no parent, so the
+/// two are the same.
 fn place_sun_glare(
-    camera: Single<&Transform, (With<Camera3d>, Without<SunGlare>)>,
-    mut glare: Single<&mut Transform, (With<SunGlare>, Without<Camera3d>)>,
+    camera: Single<&GlobalTransform, (With<Camera3d>, Without<SunGlare>)>,
+    glare: Single<(&mut Transform, &mut GlobalTransform), With<SunGlare>>,
 ) {
-    let position = camera.translation + SUN_POSITION.normalize() * SUN_GLARE_DISTANCE_M;
+    let (mut transform, mut global_transform) = glare.into_inner();
+    let camera_position = camera.translation();
+    let position = camera_position + SUN_POSITION.normalize() * SUN_GLARE_DISTANCE_M;
     // the rectangle faces +Z, so its -Z looks away from the camera
-    **glare =
-        Transform::from_translation(position).looking_to(position - camera.translation, Vec3::Y);
+    *transform =
+        Transform::from_translation(position).looking_to(position - camera_position, Vec3::Y);
+    *global_transform = GlobalTransform::from(*transform);
 }
 
 // ==== Helpers ================================================================
