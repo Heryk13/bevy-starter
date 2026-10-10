@@ -170,12 +170,9 @@ fn close_dialog(
     activate: On<Activate>,
     mut commands: Commands,
     close_buttons: Query<(), With<CloseDialog>>,
-    dialogs: Query<Entity, With<Dialog>>,
 ) {
     if close_buttons.contains(activate.entity) {
-        for dialog in &dialogs {
-            commands.entity(dialog).despawn();
-        }
+        commands.despawn_all::<With<Dialog>>();
     }
 }
 
