@@ -8,6 +8,8 @@ use bevy::prelude::*;
 use crate::screens::Screen;
 use crate::screens::loading::GameplayAssets;
 
+mod sun_glare;
+
 // ==== Config =================================================================
 
 // ---- still camera: framed to judge the sky, the sun and the shadows ---------
@@ -35,9 +37,8 @@ const STILL_CAMERA_SKY_LIGHT_INTENSITY: f32 = 0.1;
 // towards the camera, long enough to read
 const SUN_POSITION: Vec3 = Vec3::new(5.0, 3.6, -8.7);
 // how wide the disk drawn in the sky is, times the real sun's: the real one is an 8 px dot
-// at this view, so this one is drawn larger, as games often do. Its halo stays soft however
-// bright the disk is: `Bloom`'s firefly filter caps every pixel at the brightness of white.
-// It changes the disk alone, never the light or the shadows
+// at this view, lost inside the glare's core, so this one is drawn larger, as games often
+// do. It changes the disk alone, never the light or the shadows
 const SUN_DISK_SCALE: f32 = 2.0;
 
 // ---- sky --------------------------------------------------------------------
@@ -56,6 +57,7 @@ pub(super) fn plugin(app: &mut App) {
         (spawn_playroom, give_ui_cameras_hdr),
     );
     app.add_systems(OnExit(Screen::Gameplay), take_ui_cameras_hdr);
+    app.add_plugins(sun_glare::plugin);
 }
 
 // ==== Systems ================================================================
