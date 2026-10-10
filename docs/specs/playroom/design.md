@@ -112,6 +112,9 @@ One commit per step. `just check` passes after each one, and `just run` shows it
   (the Earth preset's Mie term scaled up) was tried and dropped: it widens the bright sky
   around the sun, not the blinding glare and rays a camera shows, which are lens effects. A
   sun glare drawn over the sun's place on screen is left to a design of its own.
+- **The base draws a sun glare after all.** The user chose to give every 3D game the glare
+  and its rays, reversing "a lens effect is a game's look" above. It is designed and built
+  in `docs/specs/sun-glare/design.md`, in `playroom/sun_glare.rs`.
 - **The sky lights the shadows at less than its real strength.** At the physical 1.0 the
   shadows read too light for the exposure the sunlit side needs, so
   `STILL_CAMERA_SKY_LIGHT_INTENSITY` lowers only the sky's share. Step 2's SSAO darkens

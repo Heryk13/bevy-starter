@@ -63,9 +63,12 @@ src/
       veil.rs       black cover that fades the menu in and out
     loading.rs      loading screen: slideshow and progress bar
     intro.rs        intro: frame sequence with its soundtrack
-    gameplay.rs     the game itself, empty so far
+    gameplay.rs     the game itself, the playroom so far
     gameplay/
       pause.rs      pause state and pause menu, freezing game time
+      playroom.rs   the test level, its sun, sky and still camera
+      playroom/
+        sun_glare.rs  the glare drawn over the sun, as a camera sees it
   save.rs           the game in progress and the save files, shared
   ui.rs             the look: palette, type and text, shared
   ui/

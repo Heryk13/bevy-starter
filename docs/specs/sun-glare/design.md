@@ -1,6 +1,6 @@
 # Sun glare: the sun as a camera sees it
 
-Status: **approved**, step 1 built.
+Status: **built**.
 Date: 2026-10-10
 Bevy: 0.20.0
 Branch: `3d/base`
