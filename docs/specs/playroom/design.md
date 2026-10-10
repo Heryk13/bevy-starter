@@ -73,4 +73,11 @@ One commit per step. `just check` passes after each one, and `just run` shows it
 
 ## What changed while building it
 
-Nothing yet.
+- **Step 1 is two commits.** The level and the still camera went in first, the sky, the sun and
+  the camera's exposure after, so the camera order was settled before `Hdr` could hide why.
+- **The camera order needed settling, the clearing did not.** Both cameras at the default
+  order of 0 made Bevy warn of an ambiguity and the level flicker, so the still camera has
+  `STILL_CAMERA_ORDER` (-1). The screen camera never wipes the level: Bevy 0.19 gives cameras
+  with the same window, format and MSAA one shared texture, cleared only by the first camera
+  each frame. That changes once the still camera has `Hdr` and `Msaa::Off`, so both steps
+  check it again.

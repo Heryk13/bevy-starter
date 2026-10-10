@@ -38,16 +38,14 @@ pub(super) fn plugin(app: &mut App) {
         (
             spawn_loading_screen,
             load_intro_assets.run_if(resource_equals(LoadingDestination::Intro)),
+            load_gameplay_assets,
         ),
     );
     app.add_systems(
         Update,
         (
             (fill_slideshow, advance_slideshow, fade_slideshow).chain(),
-            (
-                update_loading_bar.run_if(resource_exists::<IntroAssets>),
-                leave_loading_screen,
-            ),
+            (update_loading_bar, leave_loading_screen),
         )
             .run_if(in_state(Screen::Loading)),
     );
@@ -77,6 +75,13 @@ struct LoadingBarFill;
 pub(super) struct IntroAssets {
     pub(super) frames: Handle<LoadedFolder>,
     pub(super) music: Handle<AudioSource>,
+}
+
+/// The playroom's scene, loaded here for both destinations and kept for
+/// gameplay, so entering it never shows a frame without the level.
+#[derive(Resource)]
+pub(super) struct GameplayAssets {
+    pub(super) playroom: Handle<WorldAsset>,
 }
 
 // ==== Systems ================================================================
@@ -130,6 +135,13 @@ fn load_intro_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
+/// Starts loading the playroom, whichever screen comes after this one.
+fn load_gameplay_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
+    commands.insert_resource(GameplayAssets {
+        playroom: asset_server.load(GltfAssetLabel::Scene(0).from_asset("gameplay/playroom.glb")),
+    });
+}
+
 /// Fills the slideshow once its folder has loaded: every image in it, shuffled,
 /// starting on the first.
 fn fill_slideshow(
@@ -179,36 +191,48 @@ fn fade_slideshow(slideshow: Single<(&mut ImageNode, &Slideshow)>) {
     image_node.color.set_alpha(alpha);
 }
 
-/// Fills the loading bar with the share of the intro's frames and music that have
-/// finished loading, the music counting as one more item.
+/// Fills the loading bar with the share of the intro's frames, its music and the
+/// playroom that have finished loading, the music and the playroom one item each.
 fn update_loading_bar(
-    intro_assets: Res<IntroAssets>,
+    intro_assets: Option<Res<IntroAssets>>,
+    gameplay_assets: Res<GameplayAssets>,
     folders: Res<Assets<LoadedFolder>>,
     asset_server: Res<AssetServer>,
     mut loading_bar_fill: Single<&mut Node, With<LoadingBarFill>>,
 ) {
-    let Some(folder) = folders.get(&intro_assets.frames) else {
-        return;
-    };
     let mut loaded = 0;
-    for handle in &folder.handles {
-        if asset_server.is_loaded_with_dependencies(handle.id()) {
+    let mut total = 1;
+    if asset_server.is_loaded_with_dependencies(&gameplay_assets.playroom) {
+        loaded += 1;
+    }
+
+    if let Some(intro_assets) = intro_assets {
+        // until the folder lists its frames the total is unknown, and a bar filled
+        // against a smaller total would run backwards once they arrive
+        let Some(folder) = folders.get(&intro_assets.frames) else {
+            return;
+        };
+        total += folder.handles.len();
+        for handle in &folder.handles {
+            if asset_server.is_loaded_with_dependencies(handle.id()) {
+                loaded += 1;
+            }
+        }
+        total += 1;
+        if asset_server.is_loaded_with_dependencies(&intro_assets.music) {
             loaded += 1;
         }
     }
-    if asset_server.is_loaded_with_dependencies(&intro_assets.music) {
-        loaded += 1;
-    }
-    let progress = loading_progress(loaded, folder.handles.len() + 1);
+    let progress = loading_progress(loaded, total);
     loading_bar_fill.width = percent(progress * 100.0);
 }
 
-/// Leaves once the intro's frames and music are in, counting failures as done: Bevy
-/// already logs them, and a missing file is cosmetic where a screen that never ends
-/// is not. Without intro assets, a game headed straight for gameplay, there is nothing
-/// to wait for.
+/// Leaves once the playroom is in, and the intro's frames and music when the intro
+/// comes next, counting failures as done: Bevy already logs them, and a missing file
+/// is cosmetic where a screen that never ends is not.
 fn leave_loading_screen(
     intro_assets: Option<Res<IntroAssets>>,
+    gameplay_assets: Res<GameplayAssets>,
     asset_server: Res<AssetServer>,
     mut next_screen: ResMut<NextState<Screen>>,
     destination: Res<LoadingDestination>,
@@ -221,6 +245,12 @@ fn leave_loading_screen(
         if !(frames_done && music_done) {
             return;
         }
+    }
+    let playroom_load_state =
+        asset_server.recursive_dependency_load_state(&gameplay_assets.playroom);
+    let playroom_done = playroom_load_state.is_loaded() || playroom_load_state.is_failed();
+    if !playroom_done {
+        return;
     }
     next_screen.set(screen_after_loading(*destination));
 }
