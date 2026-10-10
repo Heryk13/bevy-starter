@@ -58,5 +58,5 @@ it says nothing about how the game looks or sounds. Ask the user to run `just ru
 
 ## Bevy version
 
-This project uses Bevy 0.19, and its APIs change between versions.
-Check signatures in the local source (`~/.cargo/registry/src/*/bevy_*-0.19.*`) instead of relying on memory.
+This project uses Bevy 0.20, and its APIs change between versions.
+Check signatures in the local source (`~/.cargo/registry/src/*/bevy_*-0.20.*`) instead of relying on memory.

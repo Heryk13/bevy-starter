@@ -1,6 +1,6 @@
 # bevy-starter
 
-A starter template for building games with [Rust](https://www.rust-lang.org/) and [Bevy](https://bevy.org/) 0.19.
+A starter template for building games with [Rust](https://www.rust-lang.org/) and [Bevy](https://bevy.org/) 0.20.
 
 ## Features
 

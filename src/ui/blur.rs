@@ -6,6 +6,7 @@ use bevy::core_pipeline::upscaling::upscaling;
 use bevy::ecs::schedule::{ScheduleConfigs, ScheduleLabel};
 use bevy::ecs::system::BoxedSystem;
 use bevy::prelude::*;
+use bevy::render::RenderApp;
 use bevy::render::extract_component::ExtractComponent;
 use bevy::render::render_resource::ShaderType;
 use bevy::shader::ShaderRef;
@@ -17,7 +18,7 @@ use crate::fade::approach;
 
 // above the screen camera's default order of 0, so it draws last
 const FLOATING_CAMERA_ORDER: isize = 1;
-const BLUR_SHADER_PATH: &str = "shaders/blur.wgsl";
+const BLUR_SHADER_PATH: &str = "shaders/blur.wesl";
 // the Gaussian's standard deviation at full strength: wide enough that text behind a panel
 // cannot be read, so it never competes with the panel's own
 const BLUR_SIGMA_PX: f32 = 9.0;
@@ -55,6 +56,7 @@ pub(crate) struct BlurStrength(f32);
 
 /// The blur's pass across the screen.
 #[derive(Component, ExtractComponent, Clone, Copy, ShaderType, Default)]
+#[extract_app(RenderApp)]
 struct BlurHorizontal {
     direction: Vec2,
     sigma_px: f32,
@@ -62,6 +64,7 @@ struct BlurHorizontal {
 
 /// The blur's pass down the screen, run on what the horizontal pass wrote.
 #[derive(Component, ExtractComponent, Clone, Copy, ShaderType, Default)]
+#[extract_app(RenderApp)]
 struct BlurVertical {
     direction: Vec2,
     sigma_px: f32,
@@ -118,7 +121,7 @@ fn spawn_floating_camera(mut commands: Commands) {
 /// Sends a new `Floating` root to the floating camera. Every other root goes to the screen
 /// camera, the default UI camera.
 fn target_floating_camera(
-    add: On<Add, Floating>,
+    add: On<Add<Floating>>,
     mut commands: Commands,
     camera: Single<Entity, With<FloatingCamera>>,
 ) {
