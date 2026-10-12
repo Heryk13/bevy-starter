@@ -1,6 +1,6 @@
 # `create-bevy-starter`: a CLI that builds a game from the template
 
-Status: **in progress** — written and approved 2026-10-12. Steps 1 to 4 built.
+Status: **in progress** — written and approved 2026-10-12. Steps 1 to 5 built.
 
 ## Goal
 
@@ -194,7 +194,7 @@ naming, tests, commits. Its `just check` runs the same lints.
 | Need                             | Choice                                             | Why                                                                                                                              |
 | -------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `[name] [folder]`                | `std::env::args`                                   | two optional positional arguments need no crate                                                                                  |
-| arrow-key menus and multi-select | `dialoguer` or `inquire`                           | the standard library cannot read arrow keys; pick, when building step 5, the one that shows an option that cannot be picked best |
+| arrow-key menus and multi-select | `inquire`                                          | the standard library cannot read arrow keys; why this one, in "What changed while building it"                                   |
 | clone, init, commit              | the `git` command, through `std::process::Command` | anyone making a game from a template has git; `git2` is heavy for three commands                                                 |
 
 ## Errors
@@ -268,3 +268,10 @@ In the new repository, `create-bevy-starter`:
    takes the `## Branches` section out of the README. Which file, prefix and heading each edit
    uses is left to `scaffold.rs`. Both return `None` when the line or heading is missing, so a
    template that moved one of them stops the CLI instead of making a game half renamed.
+2. **`inquire`, and the menus ask again.** The plan left `dialoguer` or `inquire` to step 5, to
+   pick the one that shows an option that cannot be picked best. `inquire` has no such option,
+   so 2D and multiplayer's Yes are plain lines marked "(coming soon)": picking one says so and
+   asks the same question again. Its validator asks again in place for an invalid name, and the
+   rule it shows is the same text the CLI prints for an invalid name given as an argument.
+3. **Esc leaves like Ctrl+C.** The plan named only Ctrl+C. `inquire` reports Esc apart, and both
+   mean the user wants out before anything was written, so both end in "Nothing was created."
