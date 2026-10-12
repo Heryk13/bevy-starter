@@ -68,7 +68,9 @@ it (`cargo install`, crates.io). Nothing in phase A should have to be undone for
 
 ## Out of scope
 
-- Phase B: publishing, `cargo install`, checking the name is free on crates.io.
+- Phase B: publishing, `cargo install`, checking the name is free on crates.io. It also needs
+  `bevy-starter` public on GitHub: the CLI clones it, and in phase A it only can because the
+  author's own credentials reach the private repository.
 - Questions for 2D: the `2d` branch does not exist yet. The kind is shown, marked "coming
   soon", and cannot be picked. Its questions come when it splits into variants, as 3D did.
 - Multiplayer: shown as the last question, its "Yes" marked "coming soon" and impossible to
