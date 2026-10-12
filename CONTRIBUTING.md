@@ -168,12 +168,11 @@ The character tells the kind of boundary:
 
 - The branches are a tree. `main` is the template for any game, a genre's base branch
   (`3d/base`) is cut from `main`, and every other branch is cut from the one it builds on:
-  `3d/first-person` from `3d/base`, `3d/third-person` from `3d/first-person`. The README
-  lists them.
+  `3d/player` from `3d/base`. The README lists them.
 - A change goes into the highest branch that every user of it lives under, and nowhere else:
   something every game needs into `main`, something every 3D game needs into `3d/base`.
   Written once there, it reaches the branches below by merging down, one level at a time:
-  `main` into `3d/base`, `3d/base` into `3d/first-person`, and so on down.
+  `main` into `3d/base`, `3d/base` into `3d/player`, and so on down.
 - A genre's base stays as small as the genre allows: `3d/base` is the level on screen
   and nothing that moves, so no branch below it has to take apart a body or a camera it
   does not want.
@@ -181,6 +180,15 @@ The character tells the kind of boundary:
   change its parent is missing, so it goes to the parent first and arrives by the merge.
 - A branch's specs are about that branch: `3d/base` designs only what every 3D game shares,
   so a branch cut from it never inherits plans that are not its own.
+- Options a game combines freely, like the cameras, are not branches: git cannot add up two
+  sibling branches, since both change the same files. They live side by side in one branch,
+  and `create-bevy-starter` deletes the ones a game does not keep
+  (see `docs/specs/create-bevy-starter/design.md`). For it to find them, each option is one
+  file, and every line outside that file naming it ends with its marker
+  (`mod first_person; // camera: first-person`).
+- `create-bevy-starter` renames the game where `docs/template.md` says to: `name` in
+  `Cargo.toml`, `game` in `justfile`, `GAME_TITLE` in `src/main.rs`. Moving one of them, or an
+  option's file, means changing the CLI in the same change.
 - Git cannot hold a branch `3d` next to `3d/base`, since a branch name is a file and a
   `/` makes it a folder: a genre's base is always `<genre>/base`.
 - Models stay plain binary files in `.gitattributes`, not Git LFS: this repository has LFS
