@@ -1,6 +1,6 @@
 # `create-bevy-starter`: a CLI that builds a game from the template
 
-Status: **draft** — written 2026-10-12, waiting for review. Nothing built.
+Status: **in progress** — written and approved 2026-10-12. Steps 1 to 4 built.
 
 ## Goal
 
@@ -260,4 +260,11 @@ In the new repository, `create-bevy-starter`:
 
 ## What changed while building it
 
-Nothing yet.
+1. **Two generic edits, not one function per file.** The plan had `set_package_name(text, name)`
+   for `Cargo.toml` and, by the same pattern, one for each name and for the README. Every one
+   of them is the same work on a different line, so `choices.rs` has two instead:
+   `replace_line(text, prefix, new_line)`, which sets `name` in `Cargo.toml`, `game` in the
+   `justfile` and `GAME_TITLE` in `src/main.rs`, and `remove_section(text, heading)`, which
+   takes the `## Branches` section out of the README. Which file, prefix and heading each edit
+   uses is left to `scaffold.rs`. Both return `None` when the line or heading is missing, so a
+   template that moved one of them stops the CLI instead of making a game half renamed.
