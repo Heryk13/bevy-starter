@@ -46,7 +46,7 @@ Solid arrows are branches that exist, dashed ones are planned.
 | Branch      | What it is for                                                              |
 | ----------- | --------------------------------------------------------------------------- |
 | `main`      | The template for any game                                                   |
-| `3d/base`   | A test level (`playroom.glb`) on screen, lit, before a still camera         |
+| `3d/base`   | A test level (`playroom.glb`) under a sky and a glaring sun                 |
 | `3d/player` | Physics, and a player walking the level, seen through cameras (in progress) |
 
 Each branch's `docs/specs/` holds the designs built on it and what is still to come.
