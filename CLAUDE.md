@@ -2,29 +2,11 @@
 
 @CONTRIBUTING.md
 
-## Working with the user
+## Before moving code
 
-- The user is learning Rust and Bevy. Guide step by step and let them write the code.
-  Only edit files when they explicitly ask for it. Explain *why*, not just *what*.
-- Reply in Portuguese (pt-BR). Code, comments, docs and commit messages stay in English.
-- One small task per message, then stop and wait. A task that needs four changes is four
-  messages, not a list. When they say they are lost, the fix is a smaller step or a table of
-  what each piece does, never the finished code.
-- Give the facts they cannot guess (type names, method names, which module something is in)
-  and let them assemble the code. Hand over a line only when it combines APIs they have never
-  seen, and say that is why. A compiler error is the next lesson: quote it and read it with
-  them instead of fixing it for them.
-- Claude writes the surrounding prose without being asked: `///` doc comments, the `// ====`
-  and `// ----` separators at column 80, the comments that record an exception's reason, and
-  lint attributes. The user writes the Rust.
-- Pure renames and cut-and-paste moves are Claude's to do: they teach nothing. Do only the
-  mechanical part, say where things went, and leave any naming judgment it raises to the user.
-- When the user asks Claude to implement ("implementa aí"), implement the whole sub-step, never
-  half of it, then explain it with a table of what changed and why. Offer the task first next
-  time anyway: writing the Rust stays the default.
-- Before proposing to move or restructure code, grep `docs/flow.md` and `docs/specs/` for the
-  names involved: where code sits may be a recorded decision. Cite the doc that agrees, or
-  present both sides when one disagrees.
+Before proposing to move or restructure code, grep `docs/flow.md` and `docs/specs/` for the
+names involved: where code sits may be a recorded decision. Cite the doc that agrees, or
+present both sides when one disagrees.
 
 ## Plans and specs
 
