@@ -23,6 +23,9 @@ create-bevy-starter [name] [folder]
   ◯ First-person
   ◯ Third-person
   ◯ Isometric
+? Multiplayer:
+  › No
+    Yes (coming soon)
 ? Create bevy-template in ./bevy-template? (Y/n)
 ```
 
@@ -68,6 +71,10 @@ it (`cargo install`, crates.io). Nothing in phase A should have to be undone for
 - Phase B: publishing, `cargo install`, checking the name is free on crates.io.
 - Questions for 2D: the `2d` branch does not exist yet. The kind is shown, marked "coming
   soon", and cannot be picked. Its questions come when it splits into variants, as 3D did.
+- Multiplayer: shown as the last question, its "Yes" marked "coming soon" and impossible to
+  pick, like 2D. It combines with every kind and camera, so it cannot be a branch of its own,
+  and it reaches into the player's spawn, the input, the save and the pause, so whether a
+  marker can remove it is not known yet. Its own spec decides how it combines.
 - Anything else to choose (keeping the save system, the languages): no one has asked for it.
 - Building the cameras. Each has its own spec on `3d/player`; this spec only sets the rule they
   follow so the CLI can remove them.
