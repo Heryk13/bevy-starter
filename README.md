@@ -35,15 +35,26 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 from it as a tree of branches: a genre's base branch starts from `main`, and every other
 branch starts from the one it builds on. Clone the branch closest to the game you are making.
 
-| Branch            | Starts from | What it is for                                                           |
-| ----------------- | ----------- | ------------------------------------------------------------------------ |
-| `main`            |             | The template for any game                                                |
-| `3d/base`         | `main`      | A test level (`playroom.glb`) under a sky and a glaring sun              |
-| `3d/first-person` | `3d/base`   | Physics, and a player walking the level, seen through their own eyes     |
+```mermaid
+flowchart LR
+    main["main"] --> base["3d/base"] --> player["3d/player"]
+    main -.-> twod["2d"]
+```
+
+Solid arrows are branches that exist, dashed ones are planned.
+
+| Branch      | What it is for                                                              |
+| ----------- | --------------------------------------------------------------------------- |
+| `main`      | The template for any game                                                   |
+| `3d/base`   | A test level (`playroom.glb`) under a sky and a glaring sun                 |
+| `3d/player` | Physics, and a player walking the level, seen through cameras (in progress) |
 
 Each branch's `docs/specs/` holds the designs built on it and what is still to come.
-More are planned: `3d/third-person` (from `3d/first-person`, with the camera behind the
-player), `3d/combined` (both cameras, switched with F5), `2d` and `multiplayer`.
+The cameras of `3d/player` (first-person, third-person and isometric) are not branches of
+their own: a game keeps any of them, and switches between them with F5 when it keeps more
+than one. Multiplayer is planned too, as an option across the kinds rather than a branch.
+`create-bevy-starter`, a CLI that builds a game from these choices, is designed in
+[its spec](docs/specs/create-bevy-starter/design.md).
 
 ## Requirements
 
