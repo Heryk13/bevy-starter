@@ -6,7 +6,7 @@ For setup and the day-to-day commands, see the [README](../README.md).
 ## Starting a new game
 
 0. Start from the branch closest to the game: `main` for the bare template, or a variant
-   such as `3d/first-person` (see [Branches](../README.md#branches)). Every variant is `main`
+   such as `3d/player` (see [Branches](../README.md#branches)). Every variant is `main`
    plus its own pieces, so every step below applies to it as well.
 1. Rename the game in three places, keeping them in sync:
    - `name` in `Cargo.toml`, which also names the game's data folder (`%APPDATA%\<name>\` on
