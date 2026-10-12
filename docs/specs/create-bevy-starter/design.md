@@ -142,11 +142,10 @@ Markers were picked over the two other ways:
 
 ### What only the template needs
 
-| Removed                                              | Why                                                         |
-| ---------------------------------------------------- | ----------------------------------------------------------- |
-| what is inside `docs/specs/`                         | the template's history; the game writes its own specs there |
-| the `## Branches` section of `README.md`             | a game has no branch tree                                   |
-| the line of `CLAUDE.md` naming the 1.0 refactor plan | it points at a spec that was just removed                   |
+| Removed                                  | Why                                                         |
+| ---------------------------------------- | ----------------------------------------------------------- |
+| what is inside `docs/specs/`             | the template's history; the game writes its own specs there |
+| the `## Branches` section of `README.md` | a game has no branch tree                                   |
 
 `docs/template.md` stays: besides the steps the CLI now does, it holds the project structure,
 the assets and their licenses, and `README.md` and `docs/flow.md` link to it.
@@ -218,13 +217,13 @@ starting with a digit.
 
 ## Tests
 
-| What                                                                                              | Where               | How                                                                                                 |
-| ------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
-| the branch for every answer                                                                       | `choices.rs`        | pure functions                                                                                      |
-| the title from the name, whether a name is valid                                                  | `choices.rs`        | pure functions                                                                                      |
-| what is deleted, including the switch below two cameras                                           | `choices.rs`        | pure functions                                                                                      |
-| each edit: `name`, `game`, `GAME_TITLE`, marked lines, the Branches section, the `CLAUDE.md` line | `choices.rs`        | sample text in, expected text out, the rest unchanged                                               |
-| **every combination compiles**                                                                    | `just check-combos` | builds all nine (Empty, 3D with no camera, and the seven of cameras) and runs `cargo check` in each |
+| What                                                                        | Where               | How                                                                                                 |
+| --------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
+| the branch for every answer                                                 | `choices.rs`        | pure functions                                                                                      |
+| the title from the name, whether a name is valid                            | `choices.rs`        | pure functions                                                                                      |
+| what is deleted, including the switch below two cameras                     | `choices.rs`        | pure functions                                                                                      |
+| each edit: `name`, `game`, `GAME_TITLE`, marked lines, the Branches section | `choices.rs`        | sample text in, expected text out, the rest unchanged                                               |
+| **every combination compiles**                                              | `just check-combos` | builds all nine (Empty, 3D with no camera, and the seven of cameras) and runs `cargo check` in each |
 
 `just check-combos` stays out of `just check`: it takes minutes and needs the network.
 

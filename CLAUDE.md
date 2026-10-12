@@ -15,8 +15,6 @@ present both sides when one disagrees.
   "What changed while building it" section filled in as the build departs from the plan.
 - Once built, a spec is history: leave its text as written, and update only its status line.
   The living docs are `README.md`, `docs/flow.md` and `docs/template.md`.
-- `docs/specs/refactor/design.md` is the refactor plan for the 1.0 template, worked through
-  one step per commit, in its order.
 
 ## Every implementation
 
