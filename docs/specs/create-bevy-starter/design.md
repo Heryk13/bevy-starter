@@ -297,7 +297,7 @@ In the new repository, `create-bevy-starter`:
    the template had moved past, and nothing tested that the set it wrote still built. In
    `3d/base` itself, its own `just check` proves the set builds on every commit, and a clone by
    hand gets it too. The cost is one conflicting line when `main` moves to a new Bevy, merged
-   into `3d/base`. Until `3d/base` gets that line, its games build all of Bevy.
+   into `3d/base`. `3d/base` got it in `build: build only the bevy features 3d uses`.
 6. **What `scaffold.rs` settled.** Its failures are one enum, `ScaffoldError`, whose `Display`
    is the message the user reads; each variant came with the sub-step that could fail that way.
    The pure edits reach the disk through one `edit_file(file, edit)`, which reads, calls one
