@@ -66,7 +66,7 @@ fn main() {
     app.add_plugins(screens::plugin);
     app.add_plugins(ui::plugin);
     app.add_plugins(overlays::plugin);
-    app.add_systems(Startup, spawn_camera);
+    app.add_systems(Startup, spawn_screen_camera);
 
     app.run();
 }
@@ -75,7 +75,7 @@ fn main() {
 
 /// Spawns the camera that renders the screens: the game and every UI root that does not
 /// float. Its image is what gets blurred behind a floating panel.
-fn spawn_camera(mut commands: Commands) {
+fn spawn_screen_camera(mut commands: Commands) {
     commands.spawn((Camera2d, IsDefaultUiCamera, BlurStrength::default()));
 }
 

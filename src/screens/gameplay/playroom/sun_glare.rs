@@ -4,14 +4,14 @@ use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-use super::SUN_POSITION;
+use super::SUN_DIRECTION;
 use crate::screens::Screen;
 
 // ==== Config =================================================================
 
 // ---- look -------------------------------------------------------------------
 // how wide the glare is on screen, edge to edge, in degrees of the still camera's view
-const SUN_GLARE_DEGREES: f32 = 30.0;
+const SUN_GLARE_WIDTH_DEG: f32 = 30.0;
 // the glare is three layers added together; every size below is a share of its half-width.
 // The blinding core: a white ball, wide enough to hide the sun's shape
 const SUN_GLARE_CORE_RADIUS_SHARE: f32 = 0.14;
@@ -72,7 +72,7 @@ fn spawn_sun_glare(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let size_m = glare_size_m(SUN_GLARE_DISTANCE_M, SUN_GLARE_DEGREES);
+    let size_m = glare_size_m(SUN_GLARE_DISTANCE_M, SUN_GLARE_WIDTH_DEG);
     commands.spawn((
         SunGlare,
         Mesh3d(meshes.add(Rectangle::new(size_m, size_m))),
@@ -101,7 +101,7 @@ fn place_sun_glare(
 ) {
     let (mut transform, mut global_transform) = glare.into_inner();
     let camera_position = camera.translation();
-    let position = camera_position + SUN_POSITION.normalize() * SUN_GLARE_DISTANCE_M;
+    let position = camera_position + SUN_DIRECTION.normalize() * SUN_GLARE_DISTANCE_M;
     // the rectangle faces +Z, so its -Z looks away from the camera
     *transform =
         Transform::from_translation(position).looking_to(position - camera_position, Vec3::Y);
@@ -109,6 +109,11 @@ fn place_sun_glare(
 }
 
 // ==== Helpers ================================================================
+
+/// Returns the side, in metres, of a square at `distance_m` that spans `width_deg` of view.
+fn glare_size_m(distance_m: f32, width_deg: f32) -> f32 {
+    2.0 * distance_m * (width_deg.to_radians() / 2.0).tan()
+}
 
 /// Builds the glare's texture: `glare_brightness` sampled across a square, as grey.
 fn glare_image() -> Image {
@@ -158,11 +163,6 @@ fn glare_brightness(offset: Vec2) -> f32 {
     ((core + halo + rays) * fade).clamp(0.0, 1.0)
 }
 
-/// Returns the side, in metres, of a square at `distance_m` that spans `degrees` of view.
-fn glare_size_m(distance_m: f32, degrees: f32) -> f32 {
-    2.0 * distance_m * (degrees.to_radians() / 2.0).tan()
-}
-
 // ==== Tests ==================================================================
 
 #[cfg(test)]
@@ -175,6 +175,12 @@ mod tests {
     // halfway from the core to where the fade starts, so clearly dimmer than the centre yet
     // untouched by the fade, wherever those two constants move
     const HALFWAY: f32 = (SUN_GLARE_CORE_RADIUS_SHARE + SUN_GLARE_FADE_START_SHARE) / 2.0;
+
+    #[test]
+    fn glare_spans_the_angle_it_is_given() {
+        let size_m = glare_size_m(SUN_GLARE_DISTANCE_M, 90.0);
+        assert!((size_m - 2.0 * SUN_GLARE_DISTANCE_M).abs() < 1e-2);
+    }
 
     #[test]
     fn glare_is_brightest_at_its_centre() {
@@ -198,11 +204,5 @@ mod tests {
         let on_ray = glare_brightness(Vec2::new(radius, 0.0));
         let off_ray = glare_brightness(Vec2::from_angle(between) * radius);
         assert!(on_ray > off_ray + 0.01);
-    }
-
-    #[test]
-    fn glare_spans_the_angle_it_is_given() {
-        let size_m = glare_size_m(SUN_GLARE_DISTANCE_M, 90.0);
-        assert!((size_m - 2.0 * SUN_GLARE_DISTANCE_M).abs() < 1e-2);
     }
 }

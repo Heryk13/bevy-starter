@@ -1,15 +1,16 @@
 # `create-bevy-starter`: a CLI that builds a game from the template
 
-Status: **in progress** — written and approved 2026-10-12. Steps 1 to 9 built. Publishing
+Status: **in progress** — written and approved 2026-10-12. Steps 1 to 10 built. Publishing
 brought into scope and the cameras moved out of it on 2026-10-13 (see "What changed while
 building it").
 
 ## Goal
 
 Starting a game from this template means cloning the right branch and then renaming the game by
-hand in three files, trimming Bevy's features and clearing out what only the template needs
-(`docs/template.md`, "Starting a new game"). `create-bevy-starter` does all of it from a few
-questions, the way `create-next-app` does for Next.js:
+hand in three files and clearing out what only the template needs (`docs/template.md`,
+"Starting a new game"). `3d/base` already has Bevy's features trimmed, and
+`create-bevy-starter` does the rest from a few questions, the way `create-next-app` does for
+Next.js:
 
 ```
 create-bevy-starter [name] [folder]
@@ -51,12 +52,13 @@ it (`cargo install`, crates.io). Nothing in phase A should have to be undone for
   branch it would start from nothing, against the branch tree's rule that a branch only adds to
   the one it starts from. The name follows `create-next-app` and `create-vite`, and names the
   template it builds from. It stays clear of `bevy new`, the community `bevy_cli`'s command.
-- **In English**: the questions, the summary and every error. Phase B is for anyone, and
+- **In English**: the questions, the confirmation and every error. Phase B is for anyone, and
   translating later would rewrite every message and every test that checks one.
 - **The cameras are plugins in one branch, not branches.** Git cannot add up sibling branches:
   merging them at creation time conflicts in the files they all touch (the player's spawn, the
-  camera, the input), and a branch per combination is seven branches to keep in step. So the
-  three cameras live side by side in `3d/player`, and the CLI deletes the ones not chosen.
+  camera, the input), and a branch per combination is seven branches to keep in step. So when
+  the cameras come, the three will live side by side in `3d/player`, and the CLI will delete
+  the ones not chosen.
 - **What is not chosen does not come.** Empty is `main`, 3D with no camera is `3d/base`, and
   the F5 switch comes only with two cameras or more: a switch with one camera is noise.
 - **Nothing is written before the confirmation.** Every answer becomes one `Choices` value
@@ -87,16 +89,16 @@ it (`cargo install`, crates.io). Nothing in phase A should have to be undone for
 main ──► 3d/base ──► 3d/player
 ```
 
-- `3d/first-person` is renamed `3d/player`: physics, the player's body, and the three
-  cameras. Its first-person spec becomes the spec of the first camera.
+- `3d/first-person` is renamed `3d/player`, where physics, the player's body and the three
+  cameras will go. Its first-person spec becomes the spec of the first camera.
 - `3d/third-person` and `3d/combined` are no longer planned as branches: they are the CLI's
   combinations.
 
-| Answers                | Branch cloned |
-| ---------------------- | ------------- |
-| Empty                  | `main`        |
-| 3D, no camera          | `3d/base`     |
-| 3D, one camera or more | `3d/player`   |
+| Answers                                        | Branch cloned |
+| ---------------------------------------------- | ------------- |
+| Empty                                          | `main`        |
+| 3D                                             | `3d/base`     |
+| 3D, one camera or more (with the first camera) | `3d/player`   |
 
 ## What the template promises the CLI
 
@@ -116,6 +118,8 @@ Bevy's features are not the CLI's: each branch keeps its own. `3d/base` builds o
 Bevy's defaults.
 
 ### Camera markers
+
+These are the rules for when the cameras come; the CLI does not do this yet.
 
 Deleting `first_person.rs` is not enough: `mod first_person;` and the line that adds its plugin
 still name it, and the game no longer compiles. So every line outside a camera's file that
@@ -148,82 +152,84 @@ Markers were picked over the two other ways:
 | what is inside `docs/specs/`             | the template's history; the game writes its own specs there |
 | the `## Branches` section of `README.md` | a game has no branch tree                                   |
 
+The emptied `docs/specs/` keeps an empty `.gitkeep`, since git does not track an empty folder.
+
 `docs/template.md` stays: besides the steps the CLI now does, it holds the project structure,
 the assets and their licenses, and `README.md` and `docs/flow.md` link to it.
 
 ## How the CLI works
 
 ```
-arguments ─► questions ─► Choices ─► summary + confirm ─► build on disk
+arguments ─► questions ─► Choices ─► confirm ("Create {name} in {path}?") ─► build on disk
 ```
 
-| File          | What it does                                                                                                                       | Writes to disk       |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| `main.rs`     | reads the arguments, asks, shows the summary, builds                                                                               | no                   |
-| `prompts.rs`  | the questions, skipping those the arguments answered                                                                               | no                   |
-| `choices.rs`  | `Choices`, and the pure functions: which branch, what to delete, the title from the name, whether a name is valid, every file edit | no                   |
-| `scaffold.rs` | clones, deletes, edits, `git init` and the first commit                                                                            | **yes**, and only it |
+| File          | What it does                                                                                                                            | Writes to disk       |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `main.rs`     | reads the arguments, asks, builds                                                                                                       | no                   |
+| `prompts.rs`  | the questions, skipping those the arguments answered, and the confirmation naming the game and its folder                               | no                   |
+| `choices.rs`  | `Choices`, and the pure functions: which branch, where the game goes, the title from the name, whether a name is valid, every file edit | no                   |
+| `scaffold.rs` | clones, deletes, edits, `git init` and the first commit                                                                                 | **yes**, and only it |
 
-The file edits are pure too: `set_package_name(text, name)` takes the `Cargo.toml` text and
-gives it back, so a test checks the name changed and nothing else did, without a folder.
+The file edits are pure too: `replace_line(text, prefix, new_line)` takes the `Cargo.toml` text
+and gives it back, so a test checks the name changed and nothing else did, without a folder.
 `scaffold.rs` only reads, calls and writes.
 
 The repository follows this project's `CONTRIBUTING.md`: file layout, separators, comments,
-naming, tests, commits. Its `just check` runs the same lints.
+naming, tests, commits. Its `just check` runs the same lints, less the ones only a Bevy game
+needs.
 
 ### Defaults
 
-| Question | Enter gives                                                          |
-| -------- | -------------------------------------------------------------------- |
-| Name     | `bevy-template`                                                      |
-| Folder   | `.`, where the command runs; the project goes into `<folder>/<name>` |
-| Title    | from the name: `bevy-template` becomes `Bevy Template`               |
-| Kind     | Empty                                                                |
+| Question    | Enter gives                                                          |
+| ----------- | -------------------------------------------------------------------- |
+| Name        | `bevy-template`                                                      |
+| Folder      | `.`, where the command runs; the project goes into `<folder>/<name>` |
+| Title       | from the name: `bevy-template` becomes `Bevy Template`               |
+| Kind        | Empty                                                                |
+| Multiplayer | No                                                                   |
 
 ### Steps on disk
 
 1. `git clone --depth 1 --branch <branch>` from GitHub into `<folder>/<name>`.
 2. Delete its `.git`: the game starts its own history, not the template's.
-3. Delete the cameras not chosen and their marked lines, and the switch with fewer than two.
-4. Set the three names.
-5. Remove what only the template needs.
-6. `git init`, and a first commit.
+3. Set the three names.
+4. Remove what only the template needs.
+5. `git init`, and a first commit.
 
 ### Libraries
 
-| Need                             | Choice                                             | Why                                                                                                                              |
-| -------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `[name] [folder]`                | `std::env::args`                                   | two optional positional arguments need no crate                                                                                  |
-| arrow-key menus and multi-select | `inquire`                                          | the standard library cannot read arrow keys; why this one, in "What changed while building it"                                   |
-| clone, init, commit              | the `git` command, through `std::process::Command` | anyone making a game from a template has git; `git2` is heavy for three commands                                                 |
+| Need                | Choice                                             | Why                                                                                            |
+| ------------------- | -------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `[name] [folder]`   | `std::env::args`                                   | two optional positional arguments need no crate                                                |
+| arrow-key menus     | `inquire`                                          | the standard library cannot read arrow keys; why this one, in "What changed while building it" |
+| clone, init, commit | the `git` command, through `std::process::Command` | anyone making a game from a template has git; `git2` is heavy for three commands               |
 
 ## Errors
 
 Every message is in English and says what to do next.
 
-| Situation                                       | What happens                                                                                                 |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `git` is not installed                          | said first, before any question is asked                                                                     |
-| the folder exists and is not empty              | stop before writing anything; never overwrite                                                                |
-| invalid name, in a question                     | explain, ask again                                                                                           |
-| invalid name, as an argument                    | explain, exit                                                                                                |
-| Ctrl+C during the questions                     | exit; nothing was written                                                                                    |
-| the clone fails (no network, no such branch)    | show git's error, delete the folder it created                                                               |
-| any later step fails                            | delete the folder it created                                                                                 |
-| a camera's file or marker is not where expected | "the template changed and the CLI did not follow", delete the folder: a broken game made in silence is worse |
+| Situation                                                                                           | What happens                                                                                                 |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `git` is not installed                                                                              | said first, before any question is asked                                                                     |
+| the folder exists and is not empty                                                                  | stop before writing anything; never overwrite                                                                |
+| invalid name, in a question                                                                         | explain, ask again                                                                                           |
+| invalid name, as an argument                                                                        | explain, exit                                                                                                |
+| Ctrl+C or Esc during the questions                                                                  | exit; nothing was written                                                                                    |
+| the clone fails (no network, no such branch)                                                        | show git's error, delete the folder it created                                                               |
+| any later step fails                                                                                | delete the folder it created                                                                                 |
+| a line or heading the CLI edits is not where expected (`name`, `game`, `GAME_TITLE`, `## Branches`) | "the template changed and the CLI did not follow", delete the folder: a broken game made in silence is worse |
 
 A valid name is what Cargo accepts as a package name: ASCII letters, digits, `-` and `_`, not
 starting with a digit.
 
 ## Tests
 
-| What                                                                        | Where               | How                                                                                                 |
-| --------------------------------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
-| the branch for every answer                                                 | `choices.rs`        | pure functions                                                                                      |
-| the title from the name, whether a name is valid                            | `choices.rs`        | pure functions                                                                                      |
-| what is deleted, including the switch below two cameras                     | `choices.rs`        | pure functions                                                                                      |
-| each edit: `name`, `game`, `GAME_TITLE`, marked lines, the Branches section | `choices.rs`        | sample text in, expected text out, the rest unchanged                                               |
-| **every combination compiles**                                              | `just check-combos` | builds all nine (Empty, 3D with no camera, and the seven of cameras) and runs `cargo check` in each |
+| What                                               | Where               | How                                                                                                 |
+| -------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------------------- |
+| the branch for every answer                        | `choices.rs`        | pure functions                                                                                      |
+| the title from the name, whether a name is valid   | `choices.rs`        | pure functions                                                                                      |
+| the two edits, `replace_line` and `remove_section` | `choices.rs`        | sample text in, expected text out                                                                   |
+| **every combination compiles** (with the cameras)  | `just check-combos` | builds all nine (Empty, 3D with no camera, and the seven of cameras) and runs `cargo check` in each |
 
 `just check-combos` stays out of `just check`: it takes minutes and needs the network.
 
@@ -324,3 +330,11 @@ In the new repository, `create-bevy-starter`:
     chains the CLI uses, so an older Rust says so instead of failing on the syntax. `repository`
     points at `create-bevy-starter`, which is private as well: step 10 has to cover it too, or
     the link on crates.io leads nowhere.
+11. **Both repositories went public, under a work address.** The plan named `bevy-starter` only;
+    `create-bevy-starter` went too, for entry 10's reason. Before that, every commit's author
+    and committer address was rewritten to the author's work one, so no personal address went
+    public with the history: new hashes on every branch and on `v1.0.0`, pushed with force while
+    both were still private. A clone with no credentials now gets the template.
+12. **The emptied `docs/specs/` keeps a `.gitkeep`.** Git does not track empty folders, so the
+    first commit left it out and a clone of the game had no `docs/specs/`. The CLI now writes an
+    empty `.gitkeep` there.

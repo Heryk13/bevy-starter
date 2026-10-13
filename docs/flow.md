@@ -212,10 +212,10 @@ image on its own, and `reset_ui_cameras` undoes it on leaving. The `Session` arr
 fresh or loaded, and `count_play_time` adds each frame's virtual time to it, so the pause menu
 never counts as play. The resource is also created at startup: a default `Session` is a valid
 new game, so gameplay can be entered without the menu while building the game. On `3d/base`
-that shortcut goes through `Screen::Loading`, not straight to `Screen::Gameplay`: the playroom
-needs the `GameplayAssets` only the loading screen inserts, and `unload_gameplay_assets` removes
-them again when gameplay ends. Esc lives in `src/overlays.rs` with the rest of the
-"go back" rule.
+that shortcut goes through `Screen::Loading` with `LoadingDestination::Gameplay` inserted, not
+straight to `Screen::Gameplay`: the playroom needs the `GameplayAssets` only the loading screen
+inserts, and `unload_gameplay_assets` removes them again when gameplay ends. Esc lives in
+`src/overlays.rs` with the rest of the Esc rule.
 
 **Where the game's own state goes.** `Session::game` is a `GameData`, the struct in `save.rs` that
 holds what the game keeps in a save: the world, the player, their progress. It is empty so far,
@@ -232,7 +232,8 @@ pause menu's Load Game list: it keeps the session and the destination as resourc
 
 `autosave_game` runs `.after(count_play_time)` and only in `Pause::Off`. Once
 `autosave_is_due`, after `AUTOSAVE_INTERVAL_SECS` of unsaved play, it writes a new
-`autosave_<millis>.ron` named `Autosave`; every autosave is kept. It first sets
+`autosave_<millis>.ron` with an empty name, which the save lists show as Autosave from the
+file name's prefix (`is_autosave`); every autosave is kept. It first sets
 `autosave_tried_secs`, and the interval counts from that or the last save, whichever is later,
 so a failed autosave is logged once and tried again a full interval later instead of every
 frame. An autosave counts as a save, so quitting right after one asks nothing.
@@ -276,7 +277,7 @@ under it instead of competing with it.
   its own beside its control: a fullscreen checkbox and a 0–100 volume slider, both from
   `bevy_ui_widgets`, and the language radios. The slider is as tall as its thumb, with a thin
   track through it and a `VolumeFill` up to the thumb, in the accent. Its
-  `update_fullscreen_checkbox`, `update_volume_thumb` and `update_language_radios` are gated
+  `update_fullscreen_checkbox`, `update_volume_slider` and `update_language_radios` are gated
   with `.run_if(in_state(Overlay::Settings))`; the widgets are headless, so those systems are
   what actually draw the state. All three choices are remembered in `settings.ron` in the
   game's data folder: `load_settings` applies it at `Startup`, and `save_settings` writes it on
@@ -311,7 +312,7 @@ under it instead of competing with it.
 
   | Press | Observer | What it does |
   | --- | --- | --- |
-  | New Save | `save_new_game` | writes the session to a new `save_<millis>.ron`, named by the field, trimmed |
+  | New Save | `write_new_save` | writes the session to a new `save_<millis>.ron`, named by the field, trimmed |
   | a save's row | `ask_to_overwrite_save` | spawns "Overwrite this save?", its Yes carrying `ConfirmOverwrite(path, name)` |
   | that Yes | `overwrite_save` | writes the session over that file, keeping the save's own name |
 
@@ -344,8 +345,9 @@ under it instead of competing with it.
 **Closing.** No panel owns its Close button's behaviour. Each ends its card with
 `close_footer()`, which holds `(button("overlay-close", ButtonKind::Quiet), CloseOverlay)`, and
 the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None` when the activated
-entity carries the marker. `go_back_on_esc` is the second way out, run only on the frame Esc is
-pressed (`input_just_pressed`). The whole "go back" rule lives in one pure function beside it,
+entity carries the marker. `apply_esc_action` is the second way out, run only on the frame Esc is
+pressed (`input_just_pressed`); with nothing open during running gameplay, the same press pauses
+instead. The whole Esc rule lives in one pure function beside it,
 `esc_action`, which returns an `EscAction` and has a test per line, first match wins:
 
 1. a dialog is open → close it
@@ -387,7 +389,8 @@ whatever its `GlobalZIndex`.
 
 `main.rs` spawns the **screen camera**: `Camera2d`, `IsDefaultUiCamera`, and the `BlurStrength`
 that `src/ui/blur.rs` drives. Every UI root without a `UiTargetCamera` is drawn by it: the splash,
-the menu, loading, the intro, gameplay.
+the menu, loading, the intro (on `3d/base` gameplay has no UI root of its own; its pause menu
+floats).
 
 `src/ui/blur.rs` spawns the **floating camera** at `Startup`: order 1, so it draws after, and
 `ClearColorConfig::None`, so it draws over the screen camera's image instead of wiping it. An

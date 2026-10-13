@@ -18,11 +18,12 @@ const PAUSE_Z_INDEX: GlobalZIndex = GlobalZIndex(50);
 // narrower than an overlay's card: it only holds a column of buttons
 const PAUSE_WIDTH_PX: f32 = 340.0;
 
-// translation keys
+// ---- translation keys -------------------------------------------------------
 const QUIT_QUESTION: &str = "dialog-quit-without-saving";
 const SAVED_TEXT: &str = "status-saved";
 const SAVE_FAILED_TEXT: &str = "status-save-failed";
 
+// ---- save status line -------------------------------------------------------
 // no delay and no fade in, so the player learns how the save went at once; only the
 // leaving is gentle
 const SAVE_STATUS_FADE: Fade = Fade {
@@ -61,7 +62,7 @@ pub(crate) enum Pause {
 #[derive(Component)]
 enum PauseAction {
     Resume,
-    Save,
+    SaveGame,
     LoadGame,
     Settings,
     Quit(QuitTo),
@@ -103,7 +104,7 @@ fn spawn_pause_menu(mut commands: Commands) {
                     },
                     children![
                         (menu_button("pause-resume"), PauseAction::Resume),
-                        (menu_button("pause-save"), PauseAction::Save),
+                        (menu_button("pause-save"), PauseAction::SaveGame),
                         (menu_button("pause-load-game"), PauseAction::LoadGame),
                         (menu_button("pause-settings"), PauseAction::Settings),
                         (
@@ -148,7 +149,7 @@ fn activate_pause_button(
             PauseAction::Resume => {
                 next_pause.set(Pause::Off);
             }
-            PauseAction::Save => {
+            PauseAction::SaveGame => {
                 next_overlay.set(Overlay::SaveGame);
             }
             PauseAction::LoadGame => {

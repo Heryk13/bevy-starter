@@ -45,6 +45,13 @@ pub(crate) struct Session {
 #[serde(default)]
 pub(crate) struct GameData {}
 
+/// Says whether a save the player asked for was written, so whoever shows it decides how,
+/// and whoever writes it never learns about that screen's widgets.
+#[derive(Event)]
+pub(crate) struct SaveFinished {
+    pub(crate) saved: bool,
+}
+
 /// Returns whether quitting now would lose play time that is in no save.
 pub(crate) fn has_unsaved_progress(session: &Session) -> bool {
     session.play_secs - session.saved_play_secs > UNSAVED_GRACE_SECS
@@ -65,13 +72,6 @@ pub(crate) fn loaded_session(data: &SaveData) -> Session {
         saved_play_secs: data.play_secs,
         ..default()
     }
-}
-
-/// Says whether a save the player asked for was written, so whoever shows it decides how,
-/// and whoever writes it never learns about that screen's widgets.
-#[derive(Event)]
-pub(crate) struct SaveFinished {
-    pub(crate) saved: bool,
 }
 
 // ==== Save Data ==============================================================
@@ -114,15 +114,6 @@ enum ParsedSave {
     Unreadable,
 }
 
-/// Returns what a save file's text holds: a save, one from an unknown version, or neither.
-fn parse_save(text: &str) -> ParsedSave {
-    match ron::from_str::<SaveData>(text) {
-        Ok(save) if save.version == SAVE_VERSION => ParsedSave::Ready(save),
-        Ok(_) => ParsedSave::Incompatible,
-        Err(_) => ParsedSave::Unreadable,
-    }
-}
-
 /// Returns the most recently saved game that can be loaded, by its own date rather than
 /// its place in the list, since the folder hands files back in no promised order.
 pub(crate) fn newest_ready(entries: &[SaveEntry]) -> Option<&SaveData> {
@@ -133,18 +124,6 @@ pub(crate) fn newest_ready(entries: &[SaveEntry]) -> Option<&SaveData> {
             _ => None,
         })
         .max_by_key(|data| data.saved_at_secs)
-}
-
-/// Puts the newest save first, and the files the game cannot load, which have no date,
-/// last. The folder hands files back in no promised order.
-fn sort_newest_first(entries: &mut [SaveEntry]) {
-    // `None < Some`, so reversed, the dated saves come first and the undated last
-    entries.sort_by_key(|entry| {
-        std::cmp::Reverse(match entry {
-            SaveEntry::Ready(_, data) => Some(data.saved_at_secs),
-            SaveEntry::Incompatible(_) | SaveEntry::Unreadable(_) => None,
-        })
-    });
 }
 
 // ==== Save Files =============================================================
@@ -247,6 +226,29 @@ pub(crate) fn write_save(path: &Path, session: &mut Session, name: &str) -> std:
     write_atomic(path, &text)?;
     session.saved_play_secs = session.play_secs;
     Ok(())
+}
+
+// ==== Helpers ================================================================
+
+/// Returns what a save file's text holds: a save, one from an unknown version, or neither.
+fn parse_save(text: &str) -> ParsedSave {
+    match ron::from_str::<SaveData>(text) {
+        Ok(save) if save.version == SAVE_VERSION => ParsedSave::Ready(save),
+        Ok(_) => ParsedSave::Incompatible,
+        Err(_) => ParsedSave::Unreadable,
+    }
+}
+
+/// Puts the newest save first, and the files the game cannot load, which have no date,
+/// last. The folder hands files back in no promised order.
+fn sort_newest_first(entries: &mut [SaveEntry]) {
+    // `None < Some`, so reversed, the dated saves come first and the undated last
+    entries.sort_by_key(|entry| {
+        std::cmp::Reverse(match entry {
+            SaveEntry::Ready(_, data) => Some(data.saved_at_secs),
+            SaveEntry::Incompatible(_) | SaveEntry::Unreadable(_) => None,
+        })
+    });
 }
 
 // ==== Tests ==================================================================

@@ -5,9 +5,13 @@ For setup and the day-to-day commands, see the [README](../README.md).
 
 ## Starting a new game
 
+[`create-bevy-starter`](https://github.com/Heryk13/create-bevy-starter) does step 0 and the
+three renames of step 1, empties `docs/specs/`, drops the README's Branches section and makes
+the first commit. The steps below are the manual path, and what is left after it.
+
 0. Start from the branch closest to the game: `main` for the bare template, or a variant
-   such as `3d/player` (see [Branches](../README.md#branches)). Every variant is `main`
-   plus its own pieces, so every step below applies to it as well.
+   such as `3d/base` (see [Branches](https://github.com/Heryk13/bevy-starter#branches)).
+   Every variant is `main` plus its own pieces, so every step below applies to it as well.
 1. Rename the game in three places, keeping them in sync:
    - `name` in `Cargo.toml`, which also names the game's data folder (`%APPDATA%\<name>\` on
      Windows, `~/.local/share/<name>/` on Linux, `~/Library/Application Support/<name>/` on
@@ -24,12 +28,14 @@ For setup and the day-to-day commands, see the [README](../README.md).
    bevy = { version = "0.20.0", default-features = false, features = ["2d", "ui", "audio", "jpeg", "wav"] }
    ```
    Every screen, overlay and the blur build with exactly these on 0.20.0, and ran with them on 0.19.1.
-   For a 3D game, from `3d/base` or a branch below it, `3d` takes the place of `2d`: it brings the
-   glTF loader, the lit materials, the atmosphere, SSAO, SMAA and `Bloom` the playroom uses.
+   For a 3D game `3d` takes the place of `2d`: it brings the glTF loader, the lit materials, the
+   atmosphere, SSAO, SMAA and `Bloom` the playroom uses.
    ```toml
    bevy = { version = "0.20.0", default-features = false, features = ["3d", "ui", "audio", "jpeg", "wav"] }
    ```
-   The playroom builds with exactly these on 0.20.0.
+   `3d/base` and every branch below it already build with exactly this line, so a game started
+   from them skips this step; only a 3D game started from `main` trims by hand. The playroom
+   builds with exactly these on 0.20.0.
 3. Keep the Bevy logo on the splash screen: it lets players know the game is made with Bevy
    and helps the engine grow. Use it unmodified (see [Assets](#assets)).
 4. Replace the [placeholder assets](#placeholders) with the game's own.
@@ -91,6 +97,8 @@ docs/
 about.toml          accepted dependency licenses
 about.hbs           template for the license notices
 justfile            project commands
+LICENSE-MIT         the code's license: MIT or Apache-2.0, at your option
+LICENSE-APACHE      the Apache-2.0 half of that license
 README.md           what this is, requirements and commands
 CONTRIBUTING.md     development loop and code conventions
 CLAUDE.md           instructions for Claude Code
