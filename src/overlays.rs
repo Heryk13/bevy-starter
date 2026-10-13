@@ -29,7 +29,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(close_overlay);
     app.add_systems(
         Update,
-        go_back_on_esc.run_if(input_just_pressed(KeyCode::Escape)),
+        apply_esc_action.run_if(input_just_pressed(KeyCode::Escape)),
     );
 }
 
@@ -89,8 +89,9 @@ fn close_overlay(
     }
 }
 
-/// Closes the topmost thing on Esc, one layer per press, as `esc_action` decides.
-fn go_back_on_esc(
+/// Closes the topmost layer on Esc, one per press, or pauses running gameplay when nothing
+/// is open, as `esc_action` decides.
+fn apply_esc_action(
     mut commands: Commands,
     dialogs: Query<(), With<Dialog>>,
     overlay: Res<State<Overlay>>,

@@ -49,7 +49,7 @@ pub(super) fn plugin(app: &mut App) {
         Update,
         paint_save_name_field.run_if(in_state(Overlay::SaveGame)),
     );
-    app.add_observer(save_new_game.run_if(in_state(Overlay::SaveGame)));
+    app.add_observer(write_new_save.run_if(in_state(Overlay::SaveGame)));
     app.add_observer(ask_to_overwrite_save.run_if(in_state(Overlay::SaveGame)));
     app.add_observer(overwrite_save.run_if(in_state(Overlay::SaveGame)));
     app.add_systems(OnEnter(Overlay::LoadGame), spawn_load_game_overlay);
@@ -193,7 +193,7 @@ fn paint_save_name_field(
 /// Writes the session to a new save file when the "New Save" button is pressed, named by the
 /// text field without its outer spaces, then closes the overlay either way, so the pause
 /// menu's status line says how it went.
-fn save_new_game(
+fn write_new_save(
     activate: On<Activate>,
     mut commands: Commands,
     new_save_buttons: Query<(), With<NewSave>>,
@@ -566,7 +566,7 @@ mod tests {
     }
 
     #[test]
-    fn autosave_is_named_by_its_file_in_the_chosen_language() {
+    fn autosave_shows_the_translated_label_not_its_stored_name() {
         let translations = Translations::default();
         let name = save_name(
             &save("Autosave", 0.0, 0),

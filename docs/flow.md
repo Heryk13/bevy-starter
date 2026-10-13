@@ -203,7 +203,7 @@ A full-window background colour and nothing else yet. The `Session` arrives with
 fresh or loaded, and `count_play_time` adds each frame's virtual time to it, so the pause menu
 never counts as play. The resource is also created at startup: a default `Session` is a valid
 new game, so gameplay can be entered without the menu while building the game. Esc lives in `src/overlays.rs` with the rest of the
-"go back" rule.
+Esc rule.
 
 **Where the game's own state goes.** `Session::game` is a `GameData`, the struct in `save.rs` that
 holds what the game keeps in a save: the world, the player, their progress. It is empty so far,
@@ -265,7 +265,7 @@ under it instead of competing with it.
   its own beside its control: a fullscreen checkbox and a 0–100 volume slider, both from
   `bevy_ui_widgets`, and the language radios. The slider is as tall as its thumb, with a thin
   track through it and a `VolumeFill` up to the thumb, in the accent. Its
-  `update_fullscreen_checkbox`, `update_volume_thumb` and `update_language_radios` are gated
+  `update_fullscreen_checkbox`, `update_volume_slider` and `update_language_radios` are gated
   with `.run_if(in_state(Overlay::Settings))`; the widgets are headless, so those systems are
   what actually draw the state. All three choices are remembered in `settings.ron` in the
   game's data folder: `load_settings` applies it at `Startup`, and `save_settings` writes it on
@@ -300,7 +300,7 @@ under it instead of competing with it.
 
   | Press | Observer | What it does |
   | --- | --- | --- |
-  | New Save | `save_new_game` | writes the session to a new `save_<millis>.ron`, named by the field, trimmed |
+  | New Save | `write_new_save` | writes the session to a new `save_<millis>.ron`, named by the field, trimmed |
   | a save's row | `ask_to_overwrite_save` | spawns "Overwrite this save?", its Yes carrying `ConfirmOverwrite(path, name)` |
   | that Yes | `overwrite_save` | writes the session over that file, keeping the save's own name |
 
@@ -333,8 +333,9 @@ under it instead of competing with it.
 **Closing.** No panel owns its Close button's behaviour. Each ends its card with
 `close_footer()`, which holds `(button("overlay-close", ButtonKind::Quiet), CloseOverlay)`, and
 the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None` when the activated
-entity carries the marker. `go_back_on_esc` is the second way out, run only on the frame Esc is
-pressed (`input_just_pressed`). The whole "go back" rule lives in one pure function beside it,
+entity carries the marker. `apply_esc_action` is the second way out, run only on the frame Esc is
+pressed (`input_just_pressed`); with nothing open during running gameplay, the same press pauses
+instead. The whole Esc rule lives in one pure function beside it,
 `esc_action`, which returns an `EscAction` and has a test per line, first match wins:
 
 1. a dialog is open → close it
