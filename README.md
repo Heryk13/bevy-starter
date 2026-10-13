@@ -43,18 +43,19 @@ flowchart LR
 
 Solid arrows are branches that exist, dashed ones are planned.
 
-| Branch      | What it is for                                                              |
-| ----------- | --------------------------------------------------------------------------- |
-| `main`      | The template for any game                                                   |
-| `3d/base`   | A test level (`playroom.glb`) under a sky and a glaring sun                 |
-| `3d/player` | Physics, and a player walking the level, seen through cameras (in progress) |
+| Branch      | What it is for                                                                                            |
+| ----------- | --------------------------------------------------------------------------------------------------------- |
+| `main`      | The template for any game                                                                                 |
+| `3d/base`   | A test level (`playroom.glb`) under a sky and a glaring sun                                               |
+| `3d/player` | Physics, and a player walking the level, seen through cameras (planned, waiting on avian3d for Bevy 0.20) |
 
 Each branch's `docs/specs/` holds the designs built on it and what is still to come.
-The cameras of `3d/player` (first-person, third-person and isometric) are not branches of
-their own: a game keeps any of them, and switches between them with F5 when it keeps more
-than one. Multiplayer is planned too, as an option across the kinds rather than a branch.
-`create-bevy-starter`, a CLI that builds a game from these choices, is designed in
-[its spec](docs/specs/create-bevy-starter/design.md).
+The cameras planned for `3d/player` (first-person, third-person and isometric) will not be
+branches of their own: a game will keep any of them, and switch between them with F5 when it
+keeps more than one. Multiplayer is planned too, as an option across the kinds rather than a
+branch. [`create-bevy-starter`](https://github.com/Heryk13/create-bevy-starter) builds a game
+from `main` or `3d/base`: it clones the branch, renames the game and starts a fresh git
+history. Its design is in [its spec](docs/specs/create-bevy-starter/design.md).
 
 ## Requirements
 

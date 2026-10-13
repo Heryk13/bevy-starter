@@ -34,8 +34,8 @@ fn count_play_time(mut session: ResMut<Session>, time: Res<Time>) {
     session.play_secs += time.delta_secs();
 }
 
-/// Writes the session to the autosave once enough play has gone unsaved. A failure is only
-/// logged: the player did not ask for this save and is in the middle of playing.
+/// Writes the session to a new autosave file once enough play has gone unsaved. A failure is
+/// only logged: the player did not ask for this save and is in the middle of playing.
 fn autosave_game(mut session: ResMut<Session>) {
     if !autosave_is_due(&session) {
         return;

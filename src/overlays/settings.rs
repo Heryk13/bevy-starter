@@ -59,7 +59,7 @@ pub(super) fn plugin(app: &mut App) {
         Update,
         (
             update_fullscreen_checkbox,
-            update_volume_thumb,
+            update_volume_slider,
             update_language_radios,
         )
             .run_if(in_state(Overlay::Settings)),
@@ -257,7 +257,7 @@ fn update_volume(
 
 /// Moves the volume slider's thumb to match its value, and fills the track up to it, since
 /// the widget draws nothing.
-fn update_volume_thumb(
+fn update_volume_slider(
     slider: Single<(&SliderValue, &SliderRange), With<VolumeSlider>>,
     mut thumb: Single<&mut Node, (With<SliderThumb>, Without<VolumeFill>)>,
     mut fill: Single<&mut Node, (With<VolumeFill>, Without<SliderThumb>)>,

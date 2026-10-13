@@ -49,7 +49,7 @@ pub(super) fn plugin(app: &mut App) {
         Update,
         paint_save_name_field.run_if(in_state(Overlay::SaveGame)),
     );
-    app.add_observer(save_new_game.run_if(in_state(Overlay::SaveGame)));
+    app.add_observer(write_new_save.run_if(in_state(Overlay::SaveGame)));
     app.add_observer(ask_to_overwrite_save.run_if(in_state(Overlay::SaveGame)));
     app.add_observer(overwrite_save.run_if(in_state(Overlay::SaveGame)));
     app.add_systems(OnEnter(Overlay::LoadGame), spawn_load_game_overlay);
@@ -193,7 +193,7 @@ fn paint_save_name_field(
 /// Writes the session to a new save file when the "New Save" button is pressed, named by the
 /// text field without its outer spaces, then closes the overlay either way, so the pause
 /// menu's status line says how it went.
-fn save_new_game(
+fn write_new_save(
     activate: On<Activate>,
     mut commands: Commands,
     new_save_buttons: Query<(), With<NewSave>>,
@@ -252,6 +252,14 @@ fn overwrite_save(
         commands.trigger(SaveFinished { saved });
         next_overlay.set(Overlay::None);
     }
+}
+
+/// Writes the session to `path` and returns whether it worked, logging the reason when it
+/// did not.
+fn try_write_save(path: &Path, session: &mut Session, name: &str) -> bool {
+    write_save(path, session, name)
+        .inspect_err(|err| error!("could not write the save: {err}"))
+        .is_ok()
 }
 
 // ---- load game --------------------------------------------------------------
@@ -376,7 +384,7 @@ fn delete_save(
         if let Err(err) = std::fs::remove_file(path) {
             error!("could not delete the save at {}: {err}", path.display());
         }
-        // `set`, not `set_if_neq`: the same state runs `OnExit` and `OnEnter` again
+        // `set`, not `set_if_different`: the same state runs `OnExit` and `OnEnter` again
         next_overlay.set(Overlay::LoadGame);
     }
 }
@@ -492,14 +500,6 @@ fn age_label(age_secs: u64, translations: &Translations, language: Language) -> 
     translations.text_with(language, key, &args)
 }
 
-/// Writes the session to `path` and returns whether it worked, logging the reason when it
-/// did not.
-fn try_write_save(path: &Path, session: &mut Session, name: &str) -> bool {
-    write_save(path, session, name)
-        .inspect_err(|err| error!("could not write the save: {err}"))
-        .is_ok()
-}
-
 // ==== Tests ==================================================================
 
 #[cfg(test)]
@@ -566,7 +566,7 @@ mod tests {
     }
 
     #[test]
-    fn autosave_is_named_by_its_file_in_the_chosen_language() {
+    fn autosave_shows_the_translated_label_not_its_stored_name() {
         let translations = Translations::default();
         let name = save_name(
             &save("Autosave", 0.0, 0),
