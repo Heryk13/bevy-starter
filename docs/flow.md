@@ -220,7 +220,8 @@ pause menu's Load Game list: it keeps the session and the destination as resourc
 
 `autosave_game` runs `.after(count_play_time)` and only in `Pause::Off`. Once
 `autosave_is_due`, after `AUTOSAVE_INTERVAL_SECS` of unsaved play, it writes a new
-`autosave_<millis>.ron` named `Autosave`; every autosave is kept. It first sets
+`autosave_<millis>.ron` with an empty name, which the save lists show as Autosave from the
+file name's prefix (`is_autosave`); every autosave is kept. It first sets
 `autosave_tried_secs`, and the interval counts from that or the last save, whichever is later,
 so a failed autosave is logged once and tried again a full interval later instead of every
 frame. An autosave counts as a save, so quitting right after one asks nothing.

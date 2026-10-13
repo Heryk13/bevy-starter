@@ -376,7 +376,7 @@ fn delete_save(
         if let Err(err) = std::fs::remove_file(path) {
             error!("could not delete the save at {}: {err}", path.display());
         }
-        // `set`, not `set_if_neq`: the same state runs `OnExit` and `OnEnter` again
+        // `set`, not `set_if_different`: the same state runs `OnExit` and `OnEnter` again
         next_overlay.set(Overlay::LoadGame);
     }
 }
