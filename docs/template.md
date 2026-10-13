@@ -103,6 +103,8 @@ so keep it unmodified.
 Everything else shipped in `assets/` is a placeholder, there to make the screens run. Replace it:
 
 - `assets/menu/background.jpg` and `assets/menu/music.ogg`: the menu's artwork and looping track
+  (the track is nine of Signature Sounds' [Space Tension Beds](https://signaturesounds.org),
+  CC0, crossfaded into one seamless loop)
 - `assets/ui/click.wav` and `assets/ui/hover.wav`: the sounds every button plays
 - `assets/loading/*.jpg`: the loading screen's slideshow
 - `assets/intro/frames/*.png` and `assets/intro/music.ogg`: the intro and its soundtrack
