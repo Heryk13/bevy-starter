@@ -1,6 +1,6 @@
 # `create-bevy-starter`: a CLI that builds a game from the template
 
-Status: **in progress** — written and approved 2026-10-12. Steps 1 to 6 built. Publishing
+Status: **in progress** — written and approved 2026-10-12. Steps 1 to 7 built. Publishing
 brought into scope and the cameras moved out of it on 2026-10-13 (see "What changed while
 building it").
 
@@ -21,18 +21,14 @@ create-bevy-starter [name] [folder]
   › Empty
     3D
     2D (coming soon)
-? Cameras:
-  › None (the level only)
-    First-person (coming soon)
-    Third-person (coming soon)
-    Isometric (coming soon)
 ? Multiplayer:
   › No
     Yes (coming soon)
 ? Create bevy-template in ./bevy-template? (Y/n)
 ```
 
-The cameras are shown as coming soon until `3d/player` has them. Then they can be combined: any
+The cameras are not asked yet: 3D is the level alone until `3d/player` has them. Then a question
+for them comes after 3D, and they can be combined: any
 one, any two, or all three, switched with F5 when more than one is chosen.
 
 It is built in two phases, both in this spec. **Phase A**, steps 1 to 6: a tool for the
@@ -72,7 +68,7 @@ it (`cargo install`, crates.io). Nothing in phase A should have to be undone for
 ## Out of scope
 
 - Choosing cameras, and removing them by marker. Until the first camera lands in `3d/player`,
-  the question shows them as coming soon, like 2D, and 3D is always `3d/base`. The removal,
+  the CLI does not ask for them, and 3D is always `3d/base`. The question, the removal,
   tested on sample text, and `just check-combos` come with that camera, in a spec of their own
   that follows the rules in "Camera markers".
 - Questions for 2D: the `2d` branch does not exist yet. The kind is shown, marked "coming
@@ -183,7 +179,6 @@ naming, tests, commits. Its `just check` runs the same lints.
 | Folder   | `.`, where the command runs; the project goes into `<folder>/<name>` |
 | Title    | from the name: `bevy-template` becomes `Bevy Template`               |
 | Kind     | Empty                                                                |
-| Cameras  | none, which means `3d/base`                                          |
 
 ### Steps on disk
 
@@ -249,10 +244,8 @@ In the new repository, `create-bevy-starter`:
 5. `prompts.rs`: the questions.
 6. `scaffold.rs`: clone, edit, remove what only the template needs, `git init`. From here it
    already makes games from `main` and `3d/base`.
-7. **The cameras as coming soon.** The camera question becomes a menu like the kind's: "None"
-   and the three cameras marked "(coming soon)"; picking one says so and asks again. `Camera`
-   and the cameras in `Kind::ThreeD` go, since a choice the CLI cannot build has no variant,
-   and 3D is always `3d/base`.
+7. **No camera question yet.** 3D goes straight to `3d/base`. `Camera`, the cameras in
+   `Kind::ThreeD` and the question go, since a choice the CLI cannot build has no variant.
 8. **Licenses**: `MIT OR Apache-2.0`, Rust's usual pair and Bevy's own, with `LICENSE-MIT` and
    `LICENSE-APACHE` in both repositories. In `bevy-starter` they cover the code; the assets keep
    the licenses `docs/template.md` lists.
@@ -315,3 +308,7 @@ In the new repository, `create-bevy-starter`:
 7. **`just run` passes its arguments untouched.** Pasted into the shell's text, `C:\temp`
    reached the CLI as `C:temp`, a path relative to the current folder, and the game was cloned
    inside this repository. The recipe now takes positional arguments and passes `"$@"`.
+8. **No camera question at all, not one marked coming soon.** Entry 4 had the cameras shown
+   as coming soon, like 2D. They are left out instead: it takes the question, `Camera` and the
+   cameras in `Kind::ThreeD` out of the code until there is a camera to pick, and they come
+   back together, with the first camera.
