@@ -1,6 +1,6 @@
 # `create-bevy-starter`: a CLI that builds a game from the template
 
-Status: **in progress** — written and approved 2026-10-12. Steps 1 to 8 built. Publishing
+Status: **in progress** — written and approved 2026-10-12. Steps 1 to 9 built. Publishing
 brought into scope and the cameras moved out of it on 2026-10-13 (see "What changed while
 building it").
 
@@ -317,3 +317,10 @@ In the new repository, `create-bevy-starter`:
    the CLI makes keeps them: MIT asks that its notice stay with the code it covers. A game adds
    its own license for what it writes on top. The notice names `Heryk13`, the author's GitHub
    name.
+10. **What the package holds, and the Rust it needs.** The plan listed the metadata only. The
+    package also takes an `include` list, the sources, the README and the licenses, so the files
+    for working on the CLI (`CLAUDE.md`, `CONTRIBUTING.md`, the `justfile`) stay out of what
+    `cargo install` downloads. And `rust-version = "1.88"`, the first stable Rust with the let
+    chains the CLI uses, so an older Rust says so instead of failing on the syntax. `repository`
+    points at `create-bevy-starter`, which is private as well: step 10 has to cover it too, or
+    the link on crates.io leads nowhere.
