@@ -20,7 +20,7 @@ const SLIDE_FADE: Fade = Fade {
     fade_out_secs: SLIDE_FADE_SECS,
 };
 
-// ---- loading bar: a track along the bottom, filled as the intro loads -------
+// ---- loading bar: a track along the bottom, filled as the assets load -------
 const LOADING_BAR_BOTTOM_PX: f32 = 48.0;
 const LOADING_BAR_WIDTH_PERCENT: f32 = 80.0;
 const LOADING_BAR_HEIGHT_PX: f32 = 8.0;
@@ -63,7 +63,7 @@ struct Slideshow {
     timer: Timer,
 }
 
-/// Marks the part of the loading bar that grows as the intro loads.
+/// Marks the part of the loading bar that grows as the screen's assets load.
 #[derive(Component)]
 struct LoadingBarFill;
 
@@ -127,7 +127,7 @@ fn spawn_loading_screen(mut commands: Commands, asset_server: Res<AssetServer>) 
     ));
 }
 
-/// Starts loading the intro's frames and music, the work this screen waits on.
+/// Starts loading the intro's frames and music, for a game headed to the intro.
 fn load_intro_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(IntroAssets {
         frames: asset_server.load_folder("intro/frames"),

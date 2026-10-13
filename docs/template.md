@@ -28,12 +28,14 @@ the first commit. The steps below are the manual path, and what is left after it
    bevy = { version = "0.20.0", default-features = false, features = ["2d", "ui", "audio", "jpeg", "wav"] }
    ```
    Every screen, overlay and the blur build with exactly these on 0.20.0, and ran with them on 0.19.1.
-   For a 3D game, from `3d/base` or a branch below it, `3d` takes the place of `2d`: it brings the
-   glTF loader, the lit materials, the atmosphere, SSAO, SMAA and `Bloom` the playroom uses.
+   For a 3D game `3d` takes the place of `2d`: it brings the glTF loader, the lit materials, the
+   atmosphere, SSAO, SMAA and `Bloom` the playroom uses.
    ```toml
    bevy = { version = "0.20.0", default-features = false, features = ["3d", "ui", "audio", "jpeg", "wav"] }
    ```
-   The playroom builds with exactly these on 0.20.0.
+   `3d/base` and every branch below it already build with exactly this line, so a game started
+   from them skips this step; only a 3D game started from `main` trims by hand. The playroom
+   builds with exactly these on 0.20.0.
 3. Keep the Bevy logo on the splash screen: it lets players know the game is made with Bevy
    and helps the engine grow. Use it unmodified (see [Assets](#assets)).
 4. Replace the [placeholder assets](#placeholders) with the game's own.

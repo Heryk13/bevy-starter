@@ -10,8 +10,10 @@ mod playroom;
 
 pub(super) fn plugin(app: &mut App) {
     // from startup, not only from the first game: a default session is a valid new
-    // game, so gameplay can be entered without the menu (a shortcut while building it)
-    // and count_play_time still finds one
+    // game, so count_play_time always finds one, and a shortcut past the menu while
+    // building it needs no save. that shortcut goes through Screen::Loading with
+    // LoadingDestination::Gameplay, never straight to gameplay: only the loading screen
+    // inserts the GameplayAssets the playroom needs
     app.init_resource::<Session>();
     app.add_observer(start_game_from_gameplay.run_if(in_state(Screen::Gameplay)));
     app.add_plugins(pause::plugin);

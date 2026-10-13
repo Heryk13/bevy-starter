@@ -389,7 +389,8 @@ whatever its `GlobalZIndex`.
 
 `main.rs` spawns the **screen camera**: `Camera2d`, `IsDefaultUiCamera`, and the `BlurStrength`
 that `src/ui/blur.rs` drives. Every UI root without a `UiTargetCamera` is drawn by it: the splash,
-the menu, loading, the intro, gameplay.
+the menu, loading, the intro (on `3d/base` gameplay has no UI root of its own; its pause menu
+floats).
 
 `src/ui/blur.rs` spawns the **floating camera** at `Startup`: order 1, so it draws after, and
 `ClearColorConfig::None`, so it draws over the screen camera's image instead of wiping it. An
