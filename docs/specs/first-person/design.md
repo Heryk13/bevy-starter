@@ -18,9 +18,9 @@ stands and where they look. Save, quit, load, and the player is back on the same
 facing the same way.
 
 The third-person and isometric cameras join this branch, each in its own spec, and share
-everything here but the camera. A game keeps any of them: `create-bevy-starter` deletes the
-cameras it does not keep (see `docs/specs/create-bevy-starter/design.md`), so the first-person
-camera lives in a file of its own, and nothing else depends on it.
+everything here but the camera. A game keeps any of them: `create-bevy-starter` will delete the
+cameras it does not keep once they exist (see `docs/specs/create-bevy-starter/design.md`), so
+the first-person camera lives in a file of its own, and nothing else depends on it.
 
 ## Decided
 
