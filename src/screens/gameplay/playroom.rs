@@ -36,11 +36,11 @@ const STILL_CAMERA_SKY_LIGHT_INTENSITY: f32 = 1.0;
 const STILL_CAMERA_SSAO_RADIUS_M: f32 = 5.0;
 
 // ---- sun --------------------------------------------------------------------
-// where it shines from, looking at the origin: a directional light ignores its position
-// and keeps only the direction, so this sets the angle alone. Low, about 20° up, and 15°
-// right of where the still camera looks, so the sun is in view and every shadow falls
-// towards the camera, long enough to read
-const SUN_POSITION: Vec3 = Vec3::new(5.0, 3.6, -8.7);
+// the direction it shines from, given as a point looking at the origin: a directional
+// light ignores its position and keeps only the direction, so the length is free and this
+// sets the angle alone. Low, about 20° up, and 15° right of where the still camera looks,
+// so the sun is in view and every shadow falls towards the camera, long enough to read
+const SUN_DIRECTION: Vec3 = Vec3::new(5.0, 3.6, -8.7);
 // how wide the disk drawn in the sky is, times the real sun's: the real one is an 8 px dot
 // at this view, lost inside the glare's core, so this one is drawn larger, as games often
 // do. It changes the disk alone, never the light or the shadows
@@ -121,7 +121,7 @@ fn spawn_playroom(
             angular_size: SunDisk::EARTH.angular_size * SUN_DISK_SCALE,
             ..SunDisk::EARTH
         },
-        Transform::from_translation(SUN_POSITION).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_translation(SUN_DIRECTION).looking_at(Vec3::ZERO, Vec3::Y),
         DespawnOnExit(Screen::Gameplay),
     ));
 

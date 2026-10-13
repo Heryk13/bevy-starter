@@ -35,10 +35,10 @@ So the glare is something drawn, not a setting.
 | Its shadow | `NotShadowCaster` | A square standing in the sun's path would shade the level |
 | Its texture | Generated at startup from a pure function, one value per pixel: brightness from the centre out | No file and no licence to check, tuned by constants, and the function is tested |
 | The function's shape | A glow falling off with the distance from the centre, plus `SUN_GLARE_RAY_COUNT` narrow rays, all reaching exactly zero at the edge | A texture that is not zero at its edge draws the square's outline in the sky |
-| Its size | An angle on screen in `Config` (`SUN_GLARE_DEGREES`), turned into metres from its distance | The glare looks the same size wherever the square stands, and the distance can change freely |
+| Its size | An angle on screen in `Config` (`SUN_GLARE_WIDTH_DEG`), turned into metres from its distance | The glare looks the same size wherever the square stands, and the distance can change freely |
 | Its distance | A `Config` constant, short of the camera's far plane (1000 m by default) and past the level | Past the level so nothing behind it is hidden, inside the far plane so it is drawn at all |
 | Where it follows the camera | One system in `Update` sets its position and rotation from the still camera's transform each frame | The still camera never moves on `3d/base`, but the branches below move theirs |
-| Where the code sits | `src/screens/gameplay/playroom/sun_glare.rs`, a plugin added by `playroom.rs`, reading `SUN_POSITION` from it | A part that makes sense on its own, with its own systems, helper and tests. Split the `screens.rs` way, `playroom.rs` next to `playroom/` |
+| Where the code sits | `src/screens/gameplay/playroom/sun_glare.rs`, a plugin added by `playroom.rs`, reading `SUN_DIRECTION` from it | A part that makes sense on its own, with its own systems, helper and tests. Split the `screens.rs` way, `playroom.rs` next to `playroom/` |
 
 ## Risks
 
