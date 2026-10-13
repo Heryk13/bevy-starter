@@ -1,6 +1,6 @@
 # `create-bevy-starter`: a CLI that builds a game from the template
 
-Status: **in progress** — written and approved 2026-10-12. Steps 1 to 9 built. Publishing
+Status: **in progress** — written and approved 2026-10-12. Steps 1 to 10 built. Publishing
 brought into scope and the cameras moved out of it on 2026-10-13 (see "What changed while
 building it").
 
@@ -324,3 +324,8 @@ In the new repository, `create-bevy-starter`:
     chains the CLI uses, so an older Rust says so instead of failing on the syntax. `repository`
     points at `create-bevy-starter`, which is private as well: step 10 has to cover it too, or
     the link on crates.io leads nowhere.
+11. **Both repositories went public, under a work address.** The plan named `bevy-starter` only;
+    `create-bevy-starter` went too, for entry 10's reason. Before that, every commit's author
+    and committer address was rewritten to the author's work one, so no personal address went
+    public with the history: new hashes on every branch and on `v1.0.0`, pushed with force while
+    both were still private. A clone with no credentials now gets the template.
