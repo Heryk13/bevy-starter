@@ -254,6 +254,14 @@ fn overwrite_save(
     }
 }
 
+/// Writes the session to `path` and returns whether it worked, logging the reason when it
+/// did not.
+fn try_write_save(path: &Path, session: &mut Session, name: &str) -> bool {
+    write_save(path, session, name)
+        .inspect_err(|err| error!("could not write the save: {err}"))
+        .is_ok()
+}
+
 // ---- load game --------------------------------------------------------------
 
 /// Spawns the load game panel over the current screen, listing every save, autosaves
@@ -490,14 +498,6 @@ fn age_label(age_secs: u64, translations: &Translations, language: Language) -> 
     let mut args = FluentArgs::new();
     args.set("count", count);
     translations.text_with(language, key, &args)
-}
-
-/// Writes the session to `path` and returns whether it worked, logging the reason when it
-/// did not.
-fn try_write_save(path: &Path, session: &mut Session, name: &str) -> bool {
-    write_save(path, session, name)
-        .inspect_err(|err| error!("could not write the save: {err}"))
-        .is_ok()
 }
 
 // ==== Tests ==================================================================

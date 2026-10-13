@@ -16,7 +16,8 @@ const OVERLAY_Z_INDEX: GlobalZIndex = GlobalZIndex(100);
 
 // wide enough for the Settings grid and a save's row with its Delete beside it
 const OVERLAY_WIDTH_PX: f32 = 520.0;
-// between the rows of a list or a grid inside a card
+// between the saves in a list, and between controls side by side: the name field and its
+// New Save, a save and its Delete
 const OVERLAY_GAP_PX: f32 = 12.0;
 
 // ==== Plugin =================================================================

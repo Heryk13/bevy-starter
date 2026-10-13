@@ -18,11 +18,12 @@ const PAUSE_Z_INDEX: GlobalZIndex = GlobalZIndex(50);
 // narrower than an overlay's card: it only holds a column of buttons
 const PAUSE_WIDTH_PX: f32 = 340.0;
 
-// translation keys
+// ---- translation keys -------------------------------------------------------
 const QUIT_QUESTION: &str = "dialog-quit-without-saving";
 const SAVED_TEXT: &str = "status-saved";
 const SAVE_FAILED_TEXT: &str = "status-save-failed";
 
+// ---- save status line -------------------------------------------------------
 // no delay and no fade in, so the player learns how the save went at once; only the
 // leaving is gentle
 const SAVE_STATUS_FADE: Fade = Fade {
