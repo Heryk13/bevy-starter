@@ -1,8 +1,8 @@
 # `create-bevy-starter`: a CLI that builds a game from the template
 
-Status: **in progress** — written and approved 2026-10-12. Steps 1 to 10 built. Publishing
-brought into scope and the cameras moved out of it on 2026-10-13 (see "What changed while
-building it").
+Status: **built** — written and approved 2026-10-12. All 11 steps built, and 0.1.0 published
+on crates.io on 2026-10-13. Publishing was brought into scope and the cameras moved out of it on
+2026-10-13 (see "What changed while building it").
 
 ## Goal
 
@@ -338,3 +338,7 @@ In the new repository, `create-bevy-starter`:
 12. **The emptied `docs/specs/` keeps a `.gitkeep`.** Git does not track empty folders, so the
     first commit left it out and a clone of the game had no `docs/specs/`. The CLI now writes an
     empty `.gitkeep` there.
+13. **Published.** `create-bevy-starter` 0.1.0 went to crates.io on 2026-10-13, under the name
+    checked free in "Answered questions". Its first attempt was refused until the crates.io
+    account had a verified email. `cargo install create-bevy-starter` into an empty root then
+    built it and ran it.
