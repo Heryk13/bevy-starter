@@ -1,6 +1,8 @@
 # `create-bevy-starter`: a CLI that builds a game from the template
 
-Status: **in progress** — written and approved 2026-10-12. Steps 1 to 5 built.
+Status: **in progress** — written and approved 2026-10-12. Steps 1 to 6 built. Publishing
+brought into scope and the cameras moved out of it on 2026-10-13 (see "What changed while
+building it").
 
 ## Goal
 
@@ -19,21 +21,22 @@ create-bevy-starter [name] [folder]
   › Empty
     3D
     2D (coming soon)
-? Cameras (space to mark, enter to confirm; none = the level only, no player):
-  ◯ First-person
-  ◯ Third-person
-  ◯ Isometric
+? Cameras:
+  › None (the level only)
+    First-person (coming soon)
+    Third-person (coming soon)
+    Isometric (coming soon)
 ? Multiplayer:
   › No
     Yes (coming soon)
 ? Create bevy-template in ./bevy-template? (Y/n)
 ```
 
-The cameras can be combined: any one, any two, or all three, switched with F5 when more than
-one is chosen.
+The cameras are shown as coming soon until `3d/player` has them. Then they can be combined: any
+one, any two, or all three, switched with F5 when more than one is chosen.
 
-It is built in two phases. **Phase A**, this spec: a tool for the template's author, run from
-its own repository, never published. **Phase B**, later and in its own spec: anyone can install
+It is built in two phases, both in this spec. **Phase A**, steps 1 to 6: a tool for the
+template's author, run from its own repository. **Phase B**, steps 7 to 11: anyone can install
 it (`cargo install`, crates.io). Nothing in phase A should have to be undone for phase B.
 
 ## Decided
@@ -68,9 +71,10 @@ it (`cargo install`, crates.io). Nothing in phase A should have to be undone for
 
 ## Out of scope
 
-- Phase B: publishing, `cargo install`, checking the name is free on crates.io. It also needs
-  `bevy-starter` public on GitHub: the CLI clones it, and in phase A it only can because the
-  author's own credentials reach the private repository.
+- Choosing cameras, and removing them by marker. Until the first camera lands in `3d/player`,
+  the question shows them as coming soon, like 2D, and 3D is always `3d/base`. The removal,
+  tested on sample text, and `just check-combos` come with that camera, in a spec of their own
+  that follows the rules in "Camera markers".
 - Questions for 2D: the `2d` branch does not exist yet. The kind is shown, marked "coming
   soon", and cannot be picked. Its questions come when it splits into variants, as 3D did.
 - Multiplayer: shown as the last question, its "Yes" marked "coming soon" and impossible to
@@ -107,12 +111,13 @@ means changing the CLI in the same change; `CONTRIBUTING.md` says so.
 
 | File          | What the CLI sets                               |
 | ------------- | ----------------------------------------------- |
-| `Cargo.toml`  | `name`, and Bevy's features for the kind chosen |
+| `Cargo.toml`  | `name`                                          |
 | `justfile`    | `game`                                          |
 | `src/main.rs` | `GAME_TITLE`                                    |
 
-The features for 3D are the set `docs/template.md` already checked to build:
-`["3d", "ui", "audio", "jpeg", "wav"]`. Empty keeps the template's own line.
+Bevy's features are not the CLI's: each branch keeps its own. `3d/base` builds only the set
+`docs/template.md` already checked, `["3d", "ui", "audio", "jpeg", "wav"]`, and `main` keeps
+Bevy's defaults.
 
 ### Camera markers
 
@@ -185,7 +190,7 @@ naming, tests, commits. Its `just check` runs the same lints.
 1. `git clone --depth 1 --branch <branch>` from GitHub into `<folder>/<name>`.
 2. Delete its `.git`: the game starts its own history, not the template's.
 3. Delete the cameras not chosen and their marked lines, and the switch with fewer than two.
-4. Set the three names, and the features.
+4. Set the three names.
 5. Remove what only the template needs.
 6. `git init`, and a first commit.
 
@@ -244,8 +249,20 @@ In the new repository, `create-bevy-starter`:
 5. `prompts.rs`: the questions.
 6. `scaffold.rs`: clone, edit, remove what only the template needs, `git init`. From here it
    already makes games from `main` and `3d/base`.
-7. Removing cameras by marker, tested on sample text. It is used for real once the first camera
-   lands in `3d/player`; `just check-combos` follows once there are two.
+7. **The cameras as coming soon.** The camera question becomes a menu like the kind's: "None"
+   and the three cameras marked "(coming soon)"; picking one says so and asks again. `Camera`
+   and the cameras in `Kind::ThreeD` go, since a choice the CLI cannot build has no variant,
+   and 3D is always `3d/base`.
+8. **Licenses**: `MIT OR Apache-2.0`, Rust's usual pair and Bevy's own, with `LICENSE-MIT` and
+   `LICENSE-APACHE` in both repositories. In `bevy-starter` they cover the code; the assets keep
+   the licenses `docs/template.md` lists.
+9. **Ready for crates.io**: `Cargo.toml` gets `description`, `license`, `repository`, `readme`,
+   `keywords` and `categories`, and loses `publish = false`; the README says how to install it.
+   `cargo publish --dry-run` passes.
+10. **`bevy-starter` public on GitHub**, so the CLI clones it without the author's credentials.
+    A setting, not a commit, done only once confirmed.
+11. **Publish**: `cargo publish`, done only once confirmed, then `cargo install
+    create-bevy-starter` on a clean folder makes a game from `main` and one from `3d/base`.
 
 ## Answered questions
 
@@ -257,6 +274,8 @@ In the new repository, `create-bevy-starter`:
 - _Should 3D require a camera?_ No: none gives `3d/base`, the level with a still camera, for a
   game whose player is none of the three (a car, a ship).
 - _Is 2D shown before it exists?_ Yes, marked "coming soon", and it cannot be picked.
+- _Is the name free on crates.io?_ Yes: `cargo search create-bevy-starter` found nothing on
+  2026-10-13. Checked again right before step 11.
 
 ## What changed while building it
 
@@ -275,3 +294,24 @@ In the new repository, `create-bevy-starter`:
    rule it shows is the same text the CLI prints for an invalid name given as an argument.
 3. **Esc leaves like Ctrl+C.** The plan named only Ctrl+C. `inquire` reports Esc apart, and both
    mean the user wants out before anything was written, so both end in "Nothing was created."
+4. **Publishing comes in, the cameras go out.** The plan left phase B to a later spec and made
+   step 7 the cameras' removal by marker. That step cannot run until the first camera exists in
+   `3d/player`, and it would have held back everything after it. So phase B is now steps 7 to
+   11 of this spec, the cameras are shown as coming soon until they exist, and their removal
+   moves to "Out of scope", to come with the first camera.
+5. **Bevy's features live in `3d/base`, not in the CLI.** The plan had the CLI rewrite the
+   `bevy` line for 3D. That line carries Bevy's version, so the CLI would have pinned a version
+   the template had moved past, and nothing tested that the set it wrote still built. In
+   `3d/base` itself, its own `just check` proves the set builds on every commit, and a clone by
+   hand gets it too. The cost is one conflicting line when `main` moves to a new Bevy, merged
+   into `3d/base`. Until `3d/base` gets that line, its games build all of Bevy.
+6. **What `scaffold.rs` settled.** Its failures are one enum, `ScaffoldError`, whose `Display`
+   is the message the user reads; each variant came with the sub-step that could fail that way.
+   The pure edits reach the disk through one `edit_file(file, edit)`, which reads, calls one
+   edit from `choices.rs` and writes, and turns its `None` into "the template changed". The
+   clone, the edits and the first commit run in `build_game`, and `create_game` deletes the
+   folder when it fails. The first commit is `build: start from bevy-starter`, in the
+   template's style.
+7. **`just run` passes its arguments untouched.** Pasted into the shell's text, `C:\temp`
+   reached the CLI as `C:temp`, a path relative to the current folder, and the game was cloned
+   inside this repository. The recipe now takes positional arguments and passes `"$@"`.
