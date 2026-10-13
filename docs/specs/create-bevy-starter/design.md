@@ -1,6 +1,6 @@
 # `create-bevy-starter`: a CLI that builds a game from the template
 
-Status: **in progress** — written and approved 2026-10-12. Steps 1 to 7 built. Publishing
+Status: **in progress** — written and approved 2026-10-12. Steps 1 to 8 built. Publishing
 brought into scope and the cameras moved out of it on 2026-10-13 (see "What changed while
 building it").
 
@@ -312,3 +312,8 @@ In the new repository, `create-bevy-starter`:
    as coming soon, like 2D. They are left out instead: it takes the question, `Camera` and the
    cameras in `Kind::ThreeD` out of the code until there is a camera to pick, and they come
    back together, with the first camera.
+9. **The licenses travel into every game.** The plan named the files, not where they end up.
+   They sit in `main`, so `3d/base` and `3d/player` get them on the next merge, and every game
+   the CLI makes keeps them: MIT asks that its notice stay with the code it covers. A game adds
+   its own license for what it writes on top. The notice names `Heryk13`, the author's GitHub
+   name.

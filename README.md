@@ -101,3 +101,9 @@ The release fails if a dependency uses a license not listed in `about.toml`.
 Review that license before adding it to the list.
 
 Builds target the current OS only: build on each platform (Windows, Linux, macOS) to ship for it.
+
+## License
+
+The code is licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at
+your option, like Bevy itself. The assets keep their own licenses, listed in
+[`docs/template.md`](docs/template.md#assets).
