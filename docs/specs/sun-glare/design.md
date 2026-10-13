@@ -83,3 +83,7 @@ One commit per step. `just check` passes after each one, and `just run` shows it
   (`fwidth`) and nothing softens it, so at the real size it sat hidden inside the core's
   white ball. That was tried and looked worse than a disk showing through, kept at twice
   the real size by `SUN_DISK_SCALE`.
+- **The glare is placed after transform propagation, from the camera's `GlobalTransform`,**
+  and before visibility checks, writing its own `GlobalTransform`, so it is right on the
+  first frame and also when the camera is the child of a body. This replaces placing it
+  before propagation from the camera's `Transform`, above.

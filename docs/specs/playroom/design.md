@@ -14,7 +14,7 @@ stands still.
 
 That is all `3d/base` does. Nothing moves and nothing can be controlled: no player, no input,
 no physics. Whoever walks the level, and how, is the business of the branches cut from here
-(`3d/first-person`, and the variants cut from it in turn), so they start from a level on
+(`3d/player`, and the variants cut from it in turn), so they start from a level on
 screen without inheriting a body or a camera they would have to take apart.
 
 ## Decided
@@ -112,6 +112,10 @@ One commit per step. `just check` passes after each one, and `just run` shows it
   (the Earth preset's Mie term scaled up) was tried and dropped: it widens the bright sky
   around the sun, not the blinding glare and rays a camera shows, which are lens effects. A
   sun glare drawn over the sun's place on screen is left to a design of its own.
+- **The sky lights the shadows at less than its real strength.** At the physical 1.0 the
+  shadows read too light for the exposure the sunlit side needs, so
+  `STILL_CAMERA_SKY_LIGHT_INTENSITY` lowers only the sky's share. Step 2's SSAO darkens
+  creases and contacts, so the value is worth revisiting once it is in.
 - **Step 2's `Msaa::Off` reached the UI cameras, as foreseen.** The pair that gave them
   `Hdr` now gives them `Msaa::Off` too and puts `Msaa::default()` back on leaving (every
   camera needs an `Msaa`, so it is replaced, not removed), and it was renamed for what it
@@ -133,7 +137,3 @@ One commit per step. `just check` passes after each one, and `just run` shows it
 - **The base draws a sun glare after all.** The user chose to give every 3D game the glare
   and its rays, reversing "a lens effect is a game's look" above. It is designed and built
   in `docs/specs/sun-glare/design.md`, in `playroom/sun_glare.rs`.
-- **The sky lights the shadows at less than its real strength.** At the physical 1.0 the
-  shadows read too light for the exposure the sunlit side needs, so
-  `STILL_CAMERA_SKY_LIGHT_INTENSITY` lowers only the sky's share. Step 2's SSAO darkens
-  creases and contacts, so the value is worth revisiting once it is in.
