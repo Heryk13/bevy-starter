@@ -1,3 +1,4 @@
+use bevy::camera::visibility::RenderLayers;
 use bevy::core_pipeline::Core2d;
 use bevy::core_pipeline::fullscreen_material::{
     FullscreenMaterial, FullscreenMaterialPlugin, fullscreen_material_system,
@@ -114,6 +115,10 @@ fn spawn_floating_camera(mut commands: Commands) {
             clear_color: ClearColorConfig::None,
             ..default()
         },
+        // a Camera2d draws every sprite and tilemap in the world, and this one would draw
+        // them again, sharp, over the blurred image. UI ignores render layers, so the
+        // floating panels still reach it through UiTargetCamera
+        RenderLayers::none(),
         FloatingCamera,
     ));
 }
