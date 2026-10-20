@@ -10,7 +10,7 @@ three renames of step 1, empties `docs/specs/`, drops the README's Branches sect
 the first commit. The steps below are the manual path, and what is left after it.
 
 0. Start from the branch closest to the game: `main` for the bare template, or a variant
-   such as `3d/base` (see [Branches](https://github.com/Heryk13/bevy-starter#branches)).
+   such as `3d/base` or `2d/base` (see [Branches](https://github.com/Heryk13/bevy-starter#branches)).
    Every variant is `main` plus its own pieces, so every step below applies to it as well.
 1. Rename the game in three places, keeping them in sync:
    - `name` in `Cargo.toml`, which also names the game's data folder (`%APPDATA%\<name>\` on
