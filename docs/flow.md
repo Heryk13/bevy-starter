@@ -393,7 +393,9 @@ the menu, loading, the intro (on `3d/base` gameplay has no UI root of its own; i
 floats).
 
 `src/ui/blur.rs` spawns the **floating camera** at `Startup`: order 1, so it draws after, and
-`ClearColorConfig::None`, so it draws over the screen camera's image instead of wiping it. An
+`ClearColorConfig::None`, so it draws over the screen camera's image instead of wiping it, and
+`RenderLayers::none()`, so it draws no sprite or tilemap of a 2D game a second time, sharp, over
+the blurred one; UI ignores render layers, so the panels still reach it. An
 observer on `Add<Floating>` gives each new `Floating` root a `UiTargetCamera` pointing at it.
 Clicks need nothing: Bevy's UI picking tests both cameras and puts the later one's hits first.
 
