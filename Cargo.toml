@@ -7,7 +7,8 @@ publish = false
 [dependencies]
 # jpeg for photographic backgrounds, wav for short UI sounds.
 # bevy's defaults only cover png and ogg vorbis.
-bevy = { version = "0.20.0", features = ["jpeg", "wav"] }
+# only the 2d, ui, audio, jpeg and wav features: the defaults would also build 3d
+bevy = { version = "0.20.0", default-features = false, features = ["2d", "ui", "audio", "jpeg", "wav"] }
 # the translations: fluent turns a key and its arguments into a sentence in the
 # player's language, unic-langid names the language for its plural rules
 fluent-bundle = "0.16"
