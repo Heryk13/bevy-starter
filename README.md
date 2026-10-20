@@ -53,8 +53,8 @@ The cameras planned for `3d/player` (first-person, third-person and isometric) w
 branches of their own: a game will keep any of them, and switch between them with F5 when it
 keeps more than one. Multiplayer is planned too, as an option across the kinds rather than a
 branch. [`create-bevy-starter`](https://github.com/Heryk13/create-bevy-starter) builds a game
-from `main` or `3d/base`: it clones the branch, renames the game and starts a fresh git
-history. Its design is in [its spec](docs/specs/create-bevy-starter/design.md).
+from `main`, `3d/base` or `2d/base`: it clones the branch, renames the game and starts a fresh
+git history. Its design is in [its spec](docs/specs/create-bevy-starter/design.md).
 
 ## Requirements
 
