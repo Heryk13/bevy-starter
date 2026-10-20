@@ -4,6 +4,8 @@
 #[cfg(feature = "dev")]
 use bevy::dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 #[cfg(feature = "dev")]
+use bevy::dev_tools::render_debug::RenderDebugOverlayPlugin;
+#[cfg(feature = "dev")]
 use bevy::input::common_conditions::input_just_pressed;
 use bevy::log::{DEFAULT_FILTER, LogPlugin};
 use bevy::prelude::*;
@@ -33,24 +35,28 @@ fn main() {
     let mut app = App::new();
 
     // ---- engine -------------------------------------------------------------
-    app.add_plugins(
-        DefaultPlugins
-            .set(WindowPlugin {
-                primary_window: Some(Window {
-                    title: GAME_TITLE.into(),
-                    ..default()
-                }),
-                ..default()
-            })
-            .set(LogPlugin {
-                // parley leaves out ICU4X's Chinese/Japanese word dictionary on purpose, so
-                // every Japanese text it lays out warns that the model is missing. Harmless:
-                // line breaks come from separate rules, only word boundaries are lost. It reaches
-                // `log` only through icu_provider's `logging` feature, set in Cargo.toml
-                filter: format!("{DEFAULT_FILTER}icu_provider=error"),
+    let default_plugins = DefaultPlugins
+        .set(WindowPlugin {
+            primary_window: Some(Window {
+                title: GAME_TITLE.into(),
                 ..default()
             }),
-    );
+            ..default()
+        })
+        .set(LogPlugin {
+            // parley leaves out ICU4X's Chinese/Japanese word dictionary on purpose, so
+            // every Japanese text it lays out warns that the model is missing. Harmless:
+            // line breaks come from separate rules, only word boundaries are lost. It reaches
+            // `log` only through icu_provider's `logging` feature, set in Cargo.toml
+            filter: format!("{DEFAULT_FILTER}icu_provider=error"),
+            ..default()
+        });
+    // bevy/dev brings this render debug overlay, which needs the 3d renderer and panics on
+    // its first frame in a game trimmed to 2d. Its keys are off by default, so nothing here
+    // used it, and the FPS overlay keeps bevy/dev in the build
+    #[cfg(feature = "dev")]
+    let default_plugins = default_plugins.disable::<RenderDebugOverlayPlugin>();
+    app.add_plugins(default_plugins);
 
     // ---- dev tools, left out of release builds ------------------------------
     #[cfg(feature = "dev")]
