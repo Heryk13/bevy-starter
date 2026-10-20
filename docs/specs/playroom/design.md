@@ -1,6 +1,6 @@
 # The playroom: a 2D level every 2D game starts from
 
-Status: **approved, not built**.
+Status: **built**.
 Date: 2026-10-20
 Bevy: 0.20.0
 Branch: `2d/base`
@@ -84,3 +84,15 @@ merges down, and `create-bevy-starter` stops marking 2D "coming soon" and clones
   playroom derives its size on screen from it.
 - **`README.md` is left alone here.** It lists no feature of gameplay, only the branches, and
   the branch table is `main`'s: `2d/base` reaches it by the merge down, after this spec.
+- **Step 3's docs landed inside step 1's commit.** They were staged when step 1 was committed,
+  and the branch was pushed before it was split; published history is not rewritten, so they
+  stay there. Step 2 brought its own line in `docs/template.md`.
+- **The pause blurred around the room, not the room.** The floating camera, a `Camera2d` of
+  its own, drew the tiles a second time, sharp, over the blurred image. `main` fixed it with
+  `RenderLayers::none()` on that camera (`fix: keep the floating camera from drawing the
+  world`), merged down, so "the blur sees it with no extra work" held only after that fix.
+- **Trimming Bevy to `2d` panicked on the first frame in dev builds.** `bevy/dev` brings
+  `RenderDebugOverlayPlugin`, which needs the 3D renderer. Dropping `render_dev_tools` from
+  the `dev` feature would also drop the FPS overlay, so `main` disables that one plugin in
+  `main.rs` instead (`fix: leave out the render debug overlay a 2d build cannot run`), merged
+  down. Any game trimmed to `2d` from `main` would have hit it too.
