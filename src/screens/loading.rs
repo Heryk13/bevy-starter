@@ -1,4 +1,5 @@
-use bevy::asset::LoadedFolder;
+use bevy::asset::{LoadedFolder, RecursiveDependencyLoadState};
+use bevy::image::{ImageArrayLayout, ImageLoaderSettings, ImageSampler};
 use bevy::prelude::*;
 use rand::seq::SliceRandom;
 
@@ -20,7 +21,7 @@ const SLIDE_FADE: Fade = Fade {
     fade_out_secs: SLIDE_FADE_SECS,
 };
 
-// ---- loading bar: a track along the bottom, filled as the intro loads -------
+// ---- loading bar: a track along the bottom, filled as the assets load -------
 const LOADING_BAR_BOTTOM_PX: f32 = 48.0;
 const LOADING_BAR_WIDTH_PERCENT: f32 = 80.0;
 const LOADING_BAR_HEIGHT_PX: f32 = 8.0;
@@ -30,6 +31,9 @@ const LOADING_BAR_FILL_COLOR: Color = Color::WHITE;
 // ---- derived from the width above, so the bar stays centred -----------------
 const LOADING_BAR_LEFT_PERCENT: f32 = (100.0 - LOADING_BAR_WIDTH_PERCENT) / 2.0;
 
+// ---- playroom tiles: `tiles.png` is a column of square tiles, this tall -----
+pub(super) const TILE_ART_PX: u32 = 16;
+
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
@@ -38,16 +42,14 @@ pub(super) fn plugin(app: &mut App) {
         (
             spawn_loading_screen,
             load_intro_assets.run_if(resource_equals(LoadingDestination::Intro)),
+            load_gameplay_assets,
         ),
     );
     app.add_systems(
         Update,
         (
             (fill_slideshow, advance_slideshow, fade_slideshow).chain(),
-            (
-                update_loading_bar.run_if(resource_exists::<IntroAssets>),
-                leave_loading_screen,
-            ),
+            (update_loading_bar, leave_loading_screen),
         )
             .run_if(in_state(Screen::Loading)),
     );
@@ -65,7 +67,7 @@ struct Slideshow {
     timer: Timer,
 }
 
-/// Marks the part of the loading bar that grows as the intro loads.
+/// Marks the part of the loading bar that grows as the screen's assets load.
 #[derive(Component)]
 struct LoadingBarFill;
 
@@ -77,6 +79,13 @@ struct LoadingBarFill;
 pub(super) struct IntroAssets {
     pub(super) frames: Handle<LoadedFolder>,
     pub(super) music: Handle<AudioSource>,
+}
+
+/// The playroom's tiles, loaded here for both destinations and kept for
+/// gameplay, so entering it never shows a frame without the level.
+#[derive(Resource)]
+pub(super) struct GameplayAssets {
+    pub(super) tiles: Handle<Image>,
 }
 
 // ==== Systems ================================================================
@@ -122,12 +131,28 @@ fn spawn_loading_screen(mut commands: Commands, asset_server: Res<AssetServer>) 
     ));
 }
 
-/// Starts loading the intro's frames and music, the work this screen waits on.
+/// Starts loading the intro's frames and music, for a game headed to the intro.
 fn load_intro_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(IntroAssets {
         frames: asset_server.load_folder("intro/frames"),
         music: asset_server.load("intro/music.ogg"),
     });
+}
+
+/// Starts loading the playroom's tiles, whichever screen comes after this one: the
+/// column of tiles becomes an array texture, one tile per layer, as `TilemapChunk` reads
+/// it, sampled nearest so the pixel art stays sharp.
+fn load_gameplay_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let tiles = asset_server
+        .load_builder()
+        .with_settings(|settings: &mut ImageLoaderSettings| {
+            settings.array_layout = Some(ImageArrayLayout::RowHeight {
+                pixels: TILE_ART_PX,
+            });
+            settings.sampler = ImageSampler::nearest();
+        })
+        .load("gameplay/tiles.png");
+    commands.insert_resource(GameplayAssets { tiles });
 }
 
 /// Fills the slideshow once its folder has loaded: every image in it, shuffled,
@@ -179,48 +204,64 @@ fn fade_slideshow(slideshow: Single<(&mut ImageNode, &Slideshow)>) {
     image_node.color.set_alpha(alpha);
 }
 
-/// Fills the loading bar with the share of the intro's frames and music that have
-/// finished loading, the music counting as one more item.
+/// Fills the loading bar with the share of the intro's frames, its music and the
+/// playroom that have finished loading, the music and the playroom one item each.
 fn update_loading_bar(
-    intro_assets: Res<IntroAssets>,
+    intro_assets: Option<Res<IntroAssets>>,
+    gameplay_assets: Res<GameplayAssets>,
     folders: Res<Assets<LoadedFolder>>,
     asset_server: Res<AssetServer>,
     mut loading_bar_fill: Single<&mut Node, With<LoadingBarFill>>,
 ) {
-    let Some(folder) = folders.get(&intro_assets.frames) else {
-        return;
-    };
     let mut loaded = 0;
-    for handle in &folder.handles {
-        if asset_server.is_loaded_with_dependencies(handle.id()) {
+    let mut total = 1;
+    // the same test `leave_loading_screen` leaves on, so failed tiles still fill the bar
+    if finished(asset_server.recursive_dependency_load_state(&gameplay_assets.tiles)) {
+        loaded += 1;
+    }
+
+    if let Some(intro_assets) = intro_assets {
+        // until the folder lists its frames the total is unknown, and a bar filled
+        // against a smaller total would run backwards once they arrive
+        let Some(folder) = folders.get(&intro_assets.frames) else {
+            return;
+        };
+        total += folder.handles.len();
+        for handle in &folder.handles {
+            if asset_server.is_loaded_with_dependencies(handle.id()) {
+                loaded += 1;
+            }
+        }
+        total += 1;
+        if asset_server.is_loaded_with_dependencies(&intro_assets.music) {
             loaded += 1;
         }
     }
-    if asset_server.is_loaded_with_dependencies(&intro_assets.music) {
-        loaded += 1;
-    }
-    let progress = loading_progress(loaded, folder.handles.len() + 1);
+    let progress = loading_progress(loaded, total);
     loading_bar_fill.width = percent(progress * 100.0);
 }
 
-/// Leaves once the intro's frames and music are in, counting failures as done: Bevy
-/// already logs them, and a missing file is cosmetic where a screen that never ends
-/// is not. Without intro assets, a game headed straight for gameplay, there is nothing
-/// to wait for.
+/// Leaves once the playroom is in, and the intro's frames and music when the intro
+/// comes next, counting failures as done: Bevy already logs them, and a missing file
+/// is cosmetic where a screen that never ends is not.
 fn leave_loading_screen(
     intro_assets: Option<Res<IntroAssets>>,
+    gameplay_assets: Res<GameplayAssets>,
     asset_server: Res<AssetServer>,
     mut next_screen: ResMut<NextState<Screen>>,
     destination: Res<LoadingDestination>,
 ) {
     if let Some(intro_assets) = intro_assets {
-        let frames_load_state = asset_server.recursive_dependency_load_state(&intro_assets.frames);
+        let frames_done =
+            finished(asset_server.recursive_dependency_load_state(&intro_assets.frames));
         let music_load_state = asset_server.load_state(&intro_assets.music);
-        let frames_done = frames_load_state.is_loaded() || frames_load_state.is_failed();
         let music_done = music_load_state.is_loaded() || music_load_state.is_failed();
         if !(frames_done && music_done) {
             return;
         }
+    }
+    if !finished(asset_server.recursive_dependency_load_state(&gameplay_assets.tiles)) {
+        return;
     }
     next_screen.set(screen_after_loading(*destination));
 }
@@ -230,6 +271,12 @@ fn leave_loading_screen(
 /// Returns the slide after `index`, wrapping back to the first after the last.
 fn next_slide(index: usize, count: usize) -> usize {
     (index + 1) % count
+}
+
+/// Returns whether an asset and everything it depends on are done loading, failures
+/// included: a missing file is cosmetic, a screen that never ends is not.
+fn finished(state: RecursiveDependencyLoadState) -> bool {
+    state.is_loaded() || state.is_failed()
 }
 
 /// Returns how far along the load is, from 0.0 to 1.0. Nothing to load counts as

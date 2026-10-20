@@ -4,23 +4,20 @@ use super::{Screen, StartGame};
 use crate::save::{Session, autosave_is_due, new_autosave_path, saves_dir, write_save};
 
 pub(crate) mod pause;
-
-// ==== Config =================================================================
-
-// distinct from the camera's clear colour, so an empty window cannot be mistaken
-// for this screen having spawned
-const BACKGROUND_COLOR: Color = Color::srgb(0.10, 0.20, 0.25);
+mod playroom;
 
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
     // from startup, not only from the first game: a default session is a valid new
-    // game, so gameplay can be entered without the menu (a shortcut while building it)
-    // and count_play_time still finds one
+    // game, so count_play_time always finds one, and a shortcut past the menu while
+    // building it needs no save. that shortcut goes through Screen::Loading with
+    // LoadingDestination::Gameplay, never straight to gameplay: only the loading screen
+    // inserts the GameplayAssets the playroom needs
     app.init_resource::<Session>();
-    app.add_systems(OnEnter(Screen::Gameplay), spawn_gameplay_screen);
     app.add_observer(start_game_from_gameplay.run_if(in_state(Screen::Gameplay)));
     app.add_plugins(pause::plugin);
+    app.add_plugins(playroom::plugin);
     app.add_systems(
         Update,
         (
@@ -33,19 +30,6 @@ pub(super) fn plugin(app: &mut App) {
 }
 
 // ==== Systems ================================================================
-
-/// Spawns the gameplay screen, a full-window background with nothing on it yet.
-fn spawn_gameplay_screen(mut commands: Commands) {
-    commands.spawn((
-        Node {
-            width: percent(100),
-            height: percent(100),
-            ..default()
-        },
-        BackgroundColor(BACKGROUND_COLOR),
-        DespawnOnExit(Screen::Gameplay),
-    ));
-}
 
 /// Adds the frame's virtual time to the session, so the pause menu never counts as play.
 fn count_play_time(mut session: ResMut<Session>, time: Res<Time>) {

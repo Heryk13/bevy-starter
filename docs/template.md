@@ -39,6 +39,7 @@ the first commit. The steps below are the manual path, and what is left after it
 ```
 assets/             game assets, loaded at runtime
   fonts/            Noto Sans JP, the font of every text, and its license
+  gameplay/         tiles.png, the playroom's tiles, 16 px each, stacked in one column
   intro/            the intro's soundtrack
     frames/         the intro's frames, played in file name order
   loading/          the loading screen's slideshow pictures
@@ -67,9 +68,10 @@ src/
       veil.rs       black cover that fades the menu in and out
     loading.rs      loading screen: slideshow and progress bar
     intro.rs        intro: frame sequence with its soundtrack
-    gameplay.rs     the game itself, empty so far
+    gameplay.rs     the game itself, the playroom so far
     gameplay/
       pause.rs      pause state and pause menu, freezing game time
+      playroom.rs   the test room: an ASCII map drawn in tiles
   save.rs           the game in progress and the save files, shared
   ui.rs             the look: palette, type and text, shared
   ui/
@@ -108,6 +110,12 @@ Everything else shipped in `assets/` is a placeholder, there to make the screens
 - `assets/ui/click.wav` and `assets/ui/hover.wav`: the sounds every button plays
 - `assets/loading/*.jpg`: the loading screen's slideshow
 - `assets/intro/frames/*.png` and `assets/intro/music.ogg`: the intro and its soundtrack
+- `assets/gameplay/tiles.png` and `ROOM_MAP` in `src/screens/gameplay/playroom.rs`: the
+  playroom's tiles and the room drawn with them. The image is one column of square tiles,
+  `TILE_ART_PX` tall each, with no gap between them; a tile's place in the column is its index,
+  and `tile_index` says which map character stands for it. Keep at least two tiles: a column one
+  tile tall may load as a plain image rather than an array texture. Every row of `ROOM_MAP` is
+  as wide as the first, which `room_has_one_tile_per_cell` checks
 
 Three folders are read whole, so what to drop in them matters more than the file names:
 

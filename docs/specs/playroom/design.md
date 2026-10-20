@@ -71,4 +71,16 @@ merges down, and `create-bevy-starter` stops marking 2D "coming soon" and clones
 
 ## What changed while building it
 
-Nothing yet.
+- **`load_with_settings` is gone in Bevy 0.20.** The settings go through
+  `asset_server.load_builder().with_settings(...).load(...)` instead; what they set is as
+  decided.
+- **The chunk is centred on its `Transform`.** Its mesh is a `Rectangle::from_size`, so the
+  room spawns at the origin with no offset, under the screen camera's centre.
+- **The loading screen's changes are `3d/base`'s, with an image for the glb.**
+  `GameplayAssets`, the bar and the wait came over as they were there, with `tiles` in place
+  of `playroom`, and so did `unload_gameplay_assets` and `gameplay.rs`'s change. Two
+  sibling branches now carry the same code; it moves to `main` if a third genre needs it.
+- **`TILE_ART_PX` lives in `loading.rs`**, the file that cuts the image into tiles, and the
+  playroom derives its size on screen from it.
+- **`README.md` is left alone here.** It lists no feature of gameplay, only the branches, and
+  the branch table is `main`'s: `2d/base` reaches it by the merge down, after this spec.

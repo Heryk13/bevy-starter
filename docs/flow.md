@@ -100,9 +100,9 @@ Each carries `.run_if(in_state(...))` for its screen, so only the one whose scre
 | --- | --- | --- | --- |
 | `Splash` | `spawn_splash_screen` | the last logo is done, or skipped | `advance_splash_logos` |
 | `Menu` | `spawn_menu_screen`, `play_menu_music` | the closing veil finishes | `animate_veils` |
-| `Loading` | `spawn_loading_screen`, `load_intro_assets` (new games only) | the intro's assets are in, or at once for a loaded save | `leave_loading_screen` |
+| `Loading` | `spawn_loading_screen`, `load_gameplay_assets`, `load_intro_assets` (new games only) | the playroom's tiles are in, and the intro's assets for a new game | `leave_loading_screen` |
 | `Intro` | `spawn_intro_screen`, `play_intro_music` | the last frame is done, or skipped | `leave_intro_screen`, `skip_intro_screen` |
-| `Gameplay` | `spawn_gameplay_screen` | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
+| `Gameplay` | `spawn_playroom` (`playroom.rs`) | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
 
 ### Splash
 
@@ -165,9 +165,13 @@ so the settings slider would otherwise do nothing to a track that is already pla
 A slideshow over black with a progress bar along the bottom. Where it goes next is the
 `LoadingDestination` resource the caller left, `Intro` for a new game and `Gameplay` for a loaded
 save, and `screen_after_loading` turns it into a screen, a pure function with a test per
-destination. A loaded save has nothing to load yet, so `load_intro_assets` and
-`update_loading_bar` are skipped and `leave_loading_screen` leaves on the next frame; this is
-where the gameplay's own assets will be loaded later.
+destination. Both destinations load the playroom: `load_gameplay_assets` starts
+`assets/gameplay/tiles.png` into the `GameplayAssets` resource, which outlives the screen so
+gameplay never shows a frame without the room. Its settings make the column of tiles an array
+texture, one tile per layer, `TILE_ART_PX` tall, sampled nearest so the pixel art stays sharp;
+the sampler is on this image alone, so the slideshow and the intro stay smooth. A loaded save
+skips `load_intro_assets`, so the bar counts the tiles alone and `leave_loading_screen` waits
+for them only.
 
 For a new game, `load_intro_assets` starts loading
 `assets/intro/frames/` and `assets/intro/music.ogg` into the `IntroAssets` resource — a resource
@@ -178,7 +182,8 @@ exactly when the intro needs them.
 `advance_slideshow` wraps around at the end, so the screen can run as long as the load does. A
 `ponytail:` comment notes that the shuffle happens once, so a second lap repeats the same order.
 `update_loading_bar` counts the frame handles that are loaded with their dependencies, plus the
-music as one more item.
+music and the tiles as one more item each. Until the intro's folder lists its frames it
+leaves the bar alone, since a bar filled against a smaller total would run backwards.
 
 `leave_loading_screen` counts a failed asset as done. Bevy already logs the failure, and a missing
 frame is cosmetic where a screen that never ends is not.
@@ -199,11 +204,23 @@ frames' memory back.
 
 ### Gameplay
 
-A full-window background colour and nothing else yet. The `Session` arrives with `StartGame`,
-fresh or loaded, and `count_play_time` adds each frame's virtual time to it, so the pause menu
-never counts as play. The resource is also created at startup: a default `Session` is a valid
-new game, so gameplay can be entered without the menu while building the game. Esc lives in `src/overlays.rs` with the rest of the
-Esc rule.
+On `2d/base` the playroom: `spawn_playroom` (`gameplay/playroom.rs`) spawns one
+`TilemapChunk`, a room of tiles centred under the screen camera, from the tiles the loading
+screen loaded. The room is `ROOM_MAP`, an ASCII map with one character per tile, read by pure
+functions: `tile_index` turns a character into a layer of the tileset (an unknown one leaves a
+hole), `room_tiles` lists the tiles top row first, and `room_size` counts them, skipping blank
+lines. `TilemapChunkTileData::from_y_down_tiles` flips the rows into the bottom-up order Bevy
+draws. Each tile is `TILE_ART_PX` times `TILE_SCALE` wide on screen. No camera of its own: the
+screen camera draws the room, so the blur under the pause menu sees it with no extra work.
+
+The `Session` arrives with `StartGame`, fresh or loaded, and `count_play_time` adds each
+frame's virtual time to it, so the pause menu never counts as play. The resource is also
+created at startup: a default `Session` is a valid new game, so gameplay can be entered without
+the menu while building the game. On `2d/base` that shortcut goes through `Screen::Loading`
+with `LoadingDestination::Gameplay` inserted, not straight to `Screen::Gameplay`: the playroom
+needs the `GameplayAssets` only the loading screen inserts, and `unload_gameplay_assets`
+removes them again when gameplay ends. Esc lives in `src/overlays.rs` with the rest of the Esc
+rule.
 
 **Where the game's own state goes.** `Session::game` is a `GameData`, the struct in `save.rs` that
 holds what the game keeps in a save: the world, the player, their progress. It is empty so far,
@@ -377,7 +394,8 @@ whatever its `GlobalZIndex`.
 
 `main.rs` spawns the **screen camera**: `Camera2d`, `IsDefaultUiCamera`, and the `BlurStrength`
 that `src/ui/blur.rs` drives. Every UI root without a `UiTargetCamera` is drawn by it: the splash,
-the menu, loading, the intro, gameplay.
+the menu, loading, the intro. On `2d/base` it also draws the playroom's tiles, under the UI
+(gameplay has no UI root of its own; its pause menu floats).
 
 `src/ui/blur.rs` spawns the **floating camera** at `Startup`: order 1, so it draws after, and
 `ClearColorConfig::None`, so it draws over the screen camera's image instead of wiping it. An
