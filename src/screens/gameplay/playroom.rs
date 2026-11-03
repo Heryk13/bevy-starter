@@ -1,3 +1,4 @@
+use avian3d::prelude::{ColliderConstructor, ColliderConstructorHierarchy, RigidBody};
 use bevy::anti_alias::smaa::Smaa;
 use bevy::camera::{Exposure, Hdr};
 use bevy::light::atmosphere::ScatteringMedium;
@@ -53,9 +54,16 @@ const SUN_DISK_SCALE: f32 = 2.0;
 const SKY_FALLOFF_RESOLUTION: u32 = 256;
 const SKY_PHASE_RESOLUTION: u32 = 256;
 
+// ---- colliders --------------------------------------------------------------
+// the water's surface gets none, so the player sinks to the pool's floor instead of walking
+// on it. Bevy names a glTF mesh's entity `{mesh}.{material}`, a child of the Blender
+// object's own entity, so renaming the mesh or its material in Blender means renaming
+// it here
+const POOL_WATER_MESH_NAME: &str = "Pool_Water.M_Water";
+
 // ==== Plugin =================================================================
 
-/// Shows the playroom: the level, its light and a still camera.
+/// Shows the playroom: the level and its colliders, its light and a still camera.
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(
         OnEnter(Screen::Gameplay),
@@ -70,7 +78,8 @@ pub(super) fn plugin(app: &mut App) {
 
 // ==== Systems ================================================================
 
-/// Spawns the playroom's level, already loaded by the loading screen, the still camera
+/// Spawns the playroom's level, already loaded by the loading screen, as one static body
+/// whose every mesh but the water becomes a collider once the scene is in, the still camera
 /// that shows it, the sun that lights it and the sky over it. It needs `GameplayAssets`, so
 /// gameplay is entered through the loading screen, never straight from the menu.
 fn spawn_playroom(
@@ -80,6 +89,9 @@ fn spawn_playroom(
 ) {
     commands.spawn((
         WorldAssetRoot(gameplay_assets.playroom.clone()),
+        RigidBody::Static,
+        ColliderConstructorHierarchy::new(ColliderConstructor::TrimeshFromMesh)
+            .without_constructor_for_name(POOL_WATER_MESH_NAME),
         DespawnOnExit(Screen::Gameplay),
     ));
     commands.spawn((

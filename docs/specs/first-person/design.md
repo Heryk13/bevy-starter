@@ -1,6 +1,6 @@
 # Walking the playroom in first person
 
-Status: **approved**, not built yet.
+Status: **in progress**, building step 1.
 Date: 2026-10-08, updated 2026-10-12 for Bevy 0.20 and the `create-bevy-starter` cameras,
 and 2026-11-03 for avian3d 0.8
 Bevy: 0.20; avian3d: 0.8.0
@@ -102,4 +102,16 @@ One commit per step, after `3d/base` has built its playroom design and been merg
 
 ## What changed while building it
 
-Nothing yet.
+- **The water is left out by its mesh's name, `Pool_Water.M_Water`, not `Pool_Water`.** Bevy
+  spawns a glTF node as an entity named after the node, holding no mesh, and each of its
+  primitives as a child named `{mesh}.{material}` (`primitive_name` in `bevy_gltf` 0.20).
+  avian looks names up exactly and builds colliders only on entities with a mesh, so
+  `"Pool_Water"` matches the node, which never gets a collider anyway, and the water still
+  would. Renaming the mesh or its material `M_Water` in Blender means renaming it here too.
+- **The physics plugins are registered in `main.rs`**, which the design left open:
+  `PhysicsPlugins` next to `DefaultPlugins`, since physics is part of the engine and not one
+  feature's, and `PhysicsDebugPlugin` among the dev tools.
+- **avian3d is built with only the features it uses**: `3d`, `parry-f32`,
+  `collider-from-mesh`, `bevy_scene` and `parallel`. Its defaults would also build picking and
+  joints, and turn on `debug-plugin` in release builds, so that one comes from the `dev`
+  feature instead.

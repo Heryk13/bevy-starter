@@ -2,6 +2,9 @@
 #![cfg_attr(not(feature = "dev"), windows_subsystem = "windows")]
 
 #[cfg(feature = "dev")]
+use avian3d::prelude::PhysicsDebugPlugin;
+use avian3d::prelude::PhysicsPlugins;
+#[cfg(feature = "dev")]
 use bevy::dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 #[cfg(feature = "dev")]
 use bevy::dev_tools::render_debug::RenderDebugOverlayPlugin;
@@ -57,6 +60,7 @@ fn main() {
     #[cfg(feature = "dev")]
     let default_plugins = default_plugins.disable::<RenderDebugOverlayPlugin>();
     app.add_plugins(default_plugins);
+    app.add_plugins(PhysicsPlugins::default());
 
     // ---- dev tools, left out of release builds ------------------------------
     #[cfg(feature = "dev")]
@@ -66,6 +70,9 @@ fn main() {
         Update,
         toggle_fps_overlay.run_if(input_just_pressed(FPS_TOGGLE_KEY)),
     );
+    // draws every collider's outline, to check them against the level
+    #[cfg(feature = "dev")]
+    app.add_plugins(PhysicsDebugPlugin);
 
     // ---- game ---------------------------------------------------------------
     app.add_plugins(i18n::plugin);

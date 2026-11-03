@@ -5,6 +5,10 @@ edition = "2024"
 publish = false
 
 [dependencies]
+# physics: the playroom's colliders and the player's body. only the features it uses:
+# the defaults would also build picking and joints, and turn on debug-plugin, which the
+# dev feature below turns on for dev builds alone
+avian3d = { version = "0.8.0", default-features = false, features = ["3d", "parry-f32", "collider-from-mesh", "bevy_scene", "parallel"] }
 # jpeg for photographic backgrounds, wav for short UI sounds.
 # bevy's defaults only cover png and ogg vorbis.
 # only the 3d, ui, audio, jpeg and wav features: the defaults would also build 2d
@@ -27,7 +31,7 @@ unic-langid = "0.9.6"
 [features]
 default = ["dev"]
 # dev-only helpers, release builds turn them off with --no-default-features
-dev = ["bevy/dynamic_linking", "bevy/dev"]
+dev = ["bevy/dynamic_linking", "bevy/dev", "avian3d/debug-plugin"]
 
 [lints.rust]
 unsafe_code = "deny"
