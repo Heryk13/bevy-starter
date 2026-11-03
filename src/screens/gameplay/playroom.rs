@@ -1,5 +1,9 @@
+use bevy::anti_alias::smaa::Smaa;
+use bevy::camera::{Exposure, Hdr};
 use bevy::light::atmosphere::ScatteringMedium;
-use bevy::light::{Atmosphere, SunDisk};
+use bevy::light::{Atmosphere, AtmosphereEnvironmentMapLight, SunDisk};
+use bevy::pbr::{AtmosphereSettings, ScreenSpaceAmbientOcclusion};
+use bevy::post_process::bloom::Bloom;
 use bevy::prelude::*;
 
 use crate::screens::Screen;
@@ -9,6 +13,23 @@ mod still_camera;
 mod sun_glare;
 
 // ==== Config =================================================================
+
+// ---- the camera kit: what every camera on the level carries -----------------
+// below the screen camera's default order of 0, so the level is drawn first and the UI
+// lands on top of it
+const PLAYROOM_CAMERA_ORDER: isize = -1;
+// outdoor daylight: the sun is RAW_SUNLIGHT, far too bright for the default exposure, made
+// for indoor light. Each step up halves the brightness. Bevy's atmosphere example uses 13,
+// this one was settled by eye
+const PLAYROOM_CAMERA_EXPOSURE_EV100: f32 = 13.5;
+// how strongly the sky lights what the sun does not reach, as a share of its real strength:
+// inside a shadow the sky is the only light, so lowering this darkens only the shadows and
+// leaves the sunlit side almost as it is. 1.0 is physical, and SSAO darkens the creases
+const PLAYROOM_CAMERA_SKY_LIGHT_INTENSITY: f32 = 1.0;
+// how far from a crease SSAO looks for what blocks the sky: Bevy's 0.73 m shades a strip
+// a few pixels thin from the still camera's 40 m, so this is wider, at the cost of some
+// haloing and noise around objects, which Bevy warns of
+const PLAYROOM_CAMERA_SSAO_RADIUS_M: f32 = 5.0;
 
 // ---- sun --------------------------------------------------------------------
 // the direction it shines from, given as a point looking at the origin: a directional
@@ -32,11 +53,51 @@ const SKY_PHASE_RESOLUTION: u32 = 256;
 
 /// Shows the playroom: the level, its light and a still camera.
 pub(super) fn plugin(app: &mut App) {
-    app.add_systems(OnEnter(Screen::Gameplay), spawn_playroom);
-    app.add_systems(OnExit(Screen::Gameplay), unload_gameplay_assets);
+    app.add_systems(
+        OnEnter(Screen::Gameplay),
+        (spawn_playroom, match_ui_cameras_to_playroom_camera),
+    );
+    app.add_systems(
+        OnExit(Screen::Gameplay),
+        (reset_ui_cameras, unload_gameplay_assets),
+    );
     app.add_plugins(still_camera::plugin);
     app.add_plugins(sun_glare::plugin);
 }
+
+// ==== Components =============================================================
+
+/// A camera on the playroom: spawning it brings the camera kit, the exposure, sky light,
+/// bloom and ambient occlusion the level is lit for, so every camera that shows the level,
+/// whatever moves it, looks the same and keeps the UI cameras matched to it.
+#[derive(Component)]
+#[require(
+    Camera3d,
+    Camera {
+        order: PLAYROOM_CAMERA_ORDER,
+        ..default()
+    },
+    Exposure {
+        ev100: PLAYROOM_CAMERA_EXPOSURE_EV100,
+    },
+    AtmosphereEnvironmentMapLight {
+        intensity: PLAYROOM_CAMERA_SKY_LIGHT_INTENSITY,
+        ..default()
+    },
+    AtmosphereSettings,
+    // a soft halo around the sun and whatever else is brighter than white
+    Bloom::NATURAL,
+    // darkens creases and contacts; it brings the depth and normal prepasses it reads,
+    // and works only without MSAA
+    ScreenSpaceAmbientOcclusion {
+        radius: PLAYROOM_CAMERA_SSAO_RADIUS_M,
+        ..default()
+    },
+    Msaa::Off,
+    // smooths edges in MSAA's place, from the finished image, so SSAO keeps working
+    Smaa
+)]
+pub(super) struct PlayroomCamera;
 
 // ==== Systems ================================================================
 
@@ -73,8 +134,65 @@ fn spawn_playroom(
     commands.spawn((Atmosphere::earth(medium), DespawnOnExit(Screen::Gameplay)));
 }
 
+/// Matches the UI cameras, the screen camera and the floating one above it, to the
+/// playroom's camera: its `Hdr`, which its atmosphere and `Bloom` bring, and its
+/// `Msaa::Off`, which its SSAO needs. Cameras on one window share an image only while their
+/// format and MSAA match: apart, the screen camera's opaque clear hides the level, its blur
+/// never sees it, and the floating camera, which never clears, keeps showing the last frame
+/// they shared. Sharing an image is not sharing its clear, though: each camera clears it the
+/// first time it draws. With MSAA on, Bevy copied the cameras below into each one's MSAA
+/// image first, which hid that; without it, the screen camera must not clear at all.
+fn match_ui_cameras_to_playroom_camera(
+    mut commands: Commands,
+    cameras: Query<Entity, With<Camera2d>>,
+    mut screen_camera: Single<&mut Camera, With<IsDefaultUiCamera>>,
+) {
+    for camera in &cameras {
+        commands.entity(camera).insert((Hdr, Msaa::Off));
+    }
+    screen_camera.clear_color = ClearColorConfig::None;
+}
+
+/// Returns the UI cameras to their defaults: outside gameplay there is no level under them.
+/// `Msaa` is put back rather than removed, since every camera needs one.
+fn reset_ui_cameras(
+    mut commands: Commands,
+    cameras: Query<Entity, With<Camera2d>>,
+    mut screen_camera: Single<&mut Camera, With<IsDefaultUiCamera>>,
+) {
+    for camera in &cameras {
+        commands
+            .entity(camera)
+            .remove::<Hdr>()
+            .insert(Msaa::default());
+    }
+    screen_camera.clear_color = ClearColorConfig::Default;
+}
+
 /// Drops the playroom's handles once gameplay ends, so Bevy can free the level's memory
 /// while the player is in the menu. A load from the pause menu loads it again.
 fn unload_gameplay_assets(mut commands: Commands) {
     commands.remove_resource::<GameplayAssets>();
+}
+
+// ==== Tests ==================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_playroom_camera_brings_what_the_ui_cameras_are_matched_to() {
+        let mut world = World::new();
+        let camera = world.spawn(PlayroomCamera).id();
+        let camera = world.entity(camera);
+
+        assert!(camera.contains::<Camera3d>());
+        assert!(camera.contains::<Hdr>());
+        assert_eq!(camera.get::<Msaa>(), Some(&Msaa::Off));
+        assert_eq!(
+            camera.get::<Camera>().map(|camera| camera.order),
+            Some(PLAYROOM_CAMERA_ORDER)
+        );
+    }
 }

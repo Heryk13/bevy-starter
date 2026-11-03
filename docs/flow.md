@@ -102,7 +102,7 @@ Each carries `.run_if(in_state(...))` for its screen, so only the one whose scre
 | `Menu` | `spawn_menu_screen`, `play_menu_music` | the closing veil finishes | `animate_veils` |
 | `Loading` | `spawn_loading_screen`, `load_gameplay_assets`, `load_intro_assets` (new games only) | the playroom is in, and the intro's assets for a new game | `leave_loading_screen` |
 | `Intro` | `spawn_intro_screen`, `play_intro_music` | the last frame is done, or skipped | `leave_intro_screen`, `skip_intro_screen` |
-| `Gameplay` | `spawn_playroom`, `spawn_still_camera`, `match_ui_cameras_to_still_camera`, `spawn_sun_glare` (`playroom.rs`, `playroom/still_camera.rs`, `playroom/sun_glare.rs`) | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
+| `Gameplay` | `spawn_playroom`, `match_ui_cameras_to_playroom_camera`, `spawn_still_camera`, `spawn_sun_glare` (`playroom.rs`, `playroom/still_camera.rs`, `playroom/sun_glare.rs`) | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
 
 ### Splash
 
@@ -203,12 +203,14 @@ frames' memory back.
 
 On `3d/base` the playroom: `spawn_playroom` (`gameplay/playroom.rs`) spawns the level the
 loading screen loaded, the sun and the sky, `spawn_still_camera` (`playroom/still_camera.rs`)
-a still `Camera3d` to see them through, and `spawn_sun_glare` (`playroom/sun_glare.rs`) the
-glare drawn over the sun. The still camera, in a file of its own so a branch with a player can
-drop it whole, draws first (`STILL_CAMERA_ORDER`, below the screen camera's 0), so the UI
-lands on top of the level. For
-the blur to see the level the cameras must share one image, which takes the same format and
-MSAA: `match_ui_cameras_to_still_camera` gives both UI cameras `Hdr` and `Msaa::Off` on
+a still camera to see them through, and `spawn_sun_glare` (`playroom/sun_glare.rs`) the
+glare drawn over the sun. The still camera sits in a file of its own so a branch with a player
+can drop it whole, and what makes it the level's camera is one component, `PlayroomCamera`
+in `playroom.rs`: it requires the `Camera3d` and the camera kit (exposure, sky light, bloom,
+SSAO, SMAA, `Msaa::Off`), so any camera that carries it looks the same. It draws first
+(`PLAYROOM_CAMERA_ORDER`, below the screen camera's 0), so the UI lands on top of the level.
+For the blur to see the level the cameras must share one image, which takes the same format
+and MSAA: `match_ui_cameras_to_playroom_camera` gives both UI cameras `Hdr` and `Msaa::Off` on
 entering gameplay and stops the screen camera clearing, since each camera clears the shared
 image on its own, and `reset_ui_cameras` undoes it on leaving. The `Session` arrives with `StartGame`,
 fresh or loaded, and `count_play_time` adds each frame's virtual time to it, so the pause menu
