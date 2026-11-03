@@ -41,12 +41,12 @@ flowchart LR
     main --> twodbase["2d/base"]
 ```
 
-| Branch      | What it is for                                                                                            |
-| ----------- | --------------------------------------------------------------------------------------------------------- |
-| `main`      | The template for any game                                                                                 |
-| `3d/base`   | A test level (`playroom.glb`) under a sky and a glaring sun                                               |
-| `3d/player` | Physics, and a player walking the level, seen through cameras (planned, waiting on avian3d for Bevy 0.20) |
-| `2d/base`   | A test room seen from above, drawn in tiles from an ASCII map                                             |
+| Branch      | What it is for                                                          |
+| ----------- | ----------------------------------------------------------------------- |
+| `main`      | The template for any game                                               |
+| `3d/base`   | A test level (`playroom.glb`) under a sky and a glaring sun             |
+| `3d/player` | Physics, and a player walking the level, seen through cameras (planned) |
+| `2d/base`   | A test room seen from above, drawn in tiles from an ASCII map           |
 
 Each branch's `docs/specs/` holds the designs built on it and what is still to come.
 The cameras planned for `3d/player` (first-person, third-person and isometric) will not be
