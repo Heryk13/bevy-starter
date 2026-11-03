@@ -1,8 +1,9 @@
 # Walking the playroom in first person
 
-Status: **approved**, not built yet: blocked until `avian3d` has a release for Bevy 0.20.
-Date: 2026-10-08, updated 2026-10-12 for Bevy 0.20 and the `create-bevy-starter` cameras
-Bevy: 0.20; avian3d: none yet for 0.20 (0.7.0, the newest on 2026-10-12, targets 0.19)
+Status: **approved**, not built yet.
+Date: 2026-10-08, updated 2026-10-12 for Bevy 0.20 and the `create-bevy-starter` cameras,
+and 2026-11-03 for avian3d 0.8
+Bevy: 0.20; avian3d: 0.8.0
 Branch: `3d/player`, cut from `3d/base`
 
 ## Goal
@@ -28,7 +29,7 @@ the first-person camera lives in a file of its own, and nothing else depends on 
 
 | Question | Decision | Why |
 | --- | --- | --- |
-| Collisions | `avian3d`, its first release for Bevy 0.20 (0.7 targets 0.19) | The playroom exists to test stairs, ramps and walls, which mean nothing without physics. Hand-written raycasts would grow into a worse physics engine |
+| Collisions | `avian3d` 0.8, its first release for Bevy 0.20 | The playroom exists to test stairs, ramps and walls, which mean nothing without physics. Hand-written raycasts would grow into a worse physics engine |
 | Where physics starts | Here, not in `3d/base` | `3d/base` is the level on screen and nothing that moves, so physics arrives with the first branch that has something to move |
 | The playroom's colliders | `ColliderConstructorHierarchy::new(ColliderConstructor::TrimeshFromMesh)` on the scene root, `RigidBody::Static` | One line covers every mesh in the glb, and it follows the `.blend` when the level changes. A trimesh is exact, and a static body never needs a convex one |
 | `Pool_Water` | No collider, via `without_constructor_for_name` | Water you cannot get into is a floor |
