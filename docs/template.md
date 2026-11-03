@@ -79,8 +79,9 @@ src/
     gameplay.rs     the game itself, the playroom so far
     gameplay/
       pause.rs      pause state and pause menu, freezing game time
-      playroom.rs   the test level, its sun, sky and still camera
+      playroom.rs   the test level, its sun and sky, and the kit its cameras carry
       playroom/
+        still_camera.rs  the fixed camera the level is seen through
         sun_glare.rs  the glare drawn over the sun, as a camera sees it
   save.rs           the game in progress and the save files, shared
   ui.rs             the look: palette, type and text, shared
