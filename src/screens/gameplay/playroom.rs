@@ -10,7 +10,6 @@ use bevy::prelude::*;
 use crate::screens::Screen;
 use crate::screens::loading::GameplayAssets;
 
-mod still_camera;
 mod sun_glare;
 
 // ==== Config =================================================================
@@ -59,7 +58,7 @@ const POOL_WATER_MESH_NAME: &str = "Pool_Water.M_Water";
 
 // ==== Plugin =================================================================
 
-/// Shows the playroom: the level and its colliders, its light and a still camera.
+/// Shows the playroom: the level and its colliders, and its light. The camera is the player's.
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(
         OnEnter(Screen::Gameplay),
@@ -69,7 +68,6 @@ pub(super) fn plugin(app: &mut App) {
         OnExit(Screen::Gameplay),
         (reset_ui_cameras, unload_gameplay_assets),
     );
-    app.add_plugins(still_camera::plugin);
     app.add_plugins(sun_glare::plugin);
 }
 

@@ -115,3 +115,19 @@ One commit per step, after `3d/base` has built its playroom design and been merg
   `collider-from-mesh`, `bevy_scene` and `parallel`. Its defaults would also build picking and
   joints, and turn on `debug-plugin` in release builds, so that one comes from the `dev`
   feature instead.
+- **The still camera went before the player's camera came, not after.** Step 2 was planned
+  as the player's camera first and the still camera removed after it, but for that while
+  both cameras would carry `PlayroomCamera`: two with the same order, which Bevy warns of,
+  and the sun glare's `Single` camera query finding two and skipping its system. Removing
+  `playroom/still_camera.rs` first leaves the level with no camera until the player's
+  arrives, a state no commit holds.
+- **The camera's kit is `PlayroomCamera`**, a marker in `playroom.rs` whose `#[require]`
+  brings everything the "camera's kit" risk lists, built on `3d/base` before this step. The
+  UI cameras are matched by `match_ui_cameras_to_playroom_camera`, the name that risk gives
+  as `match_ui_cameras_to_still_camera`. The player's camera spawns `PlayroomCamera` and
+  carries the kit with it.
+- **A new game starts above the origin, not at it.** A body's position is the capsule's
+  centre, so spawning at the origin would sink half of it into the floor, where avian may push
+  it out sideways or let it through. `PLAYER_SPAWN_POINT` lifts the centre by half the height,
+  which puts the soles on the floor, plus `PLAYER_SPAWN_DROP_M` (0.5 m), so the body is seen to
+  drop and land, the check this step asks for.
