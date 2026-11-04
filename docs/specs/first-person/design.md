@@ -136,3 +136,14 @@ One commit per step, after `3d/base` has built its playroom design and been merg
   it to `next_pitch` and writes the result, while the yaw is a turn of the body's `Transform`,
   which avian copies into the body's `Rotation`. With both angles held by the transforms, step 5
   reads them from there into `PlayerState` and needs no component of its own.
+- **Walking reads the yaw with no order against the look.** `walk_player` in `player.rs` reads
+  the body's rotation that `look_around` in `first_person.rs` writes, and CONTRIBUTING asks for
+  an explicit order there. Naming `look_around` from `player.rs` would tie the body to the one
+  file a game drops with its camera, and a turn read a frame late cannot be felt, so the
+  exception is written beside the system instead.
+- **The walking speed is a real person's pace, 1.4 m/s**, which the design left open. It was
+  tried in play and kept.
+- **Walking the playroom raised none of the risks above.** In play the body walks where it
+  faces, stops when the keys are let go, and is no faster on a diagonal; no problem with the
+  first frame, the water or the stairs was reported. They were not each checked on their own,
+  so they stay listed as risks.
