@@ -131,3 +131,8 @@ One commit per step, after `3d/base` has built its playroom design and been merg
   it out sideways or let it through. `PLAYER_SPAWN_POINT` lifts the centre by half the height,
   which puts the soles on the floor, plus `PLAYER_SPAWN_DROP_M` (0.5 m), so the body is seen to
   drop and land, the check this step asks for.
+- **The pitch is not stored: it is read back from the camera's rotation.** Each frame
+  `look_around` takes the camera's pitch from its `Transform` (`to_euler(EulerRot::YXZ)`), feeds
+  it to `next_pitch` and writes the result, while the yaw is a turn of the body's `Transform`,
+  which avian copies into the body's `Rotation`. With both angles held by the transforms, step 5
+  reads them from there into `PlayerState` and needs no component of its own.
