@@ -143,6 +143,8 @@ One commit per step, after `3d/base` has built its playroom design and been merg
   exception is written beside the system instead.
 - **The walking speed is a real person's pace, 1.4 m/s**, which the design left open. It was
   tried in play and kept.
+- **Then the walking speed went up to 4.4 m/s**, a brisk jog, after more play during step 5:
+  a real walk felt slow on a screen.
 - **Walking the playroom raised none of the risks above.** In play the body walks where it
   faces, stops when the keys are let go, and is no faster on a diagonal; no problem with the
   first frame, the water or the stairs was reported. They were not each checked on their own,

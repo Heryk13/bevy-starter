@@ -16,9 +16,10 @@ const PLAYER_RADIUS_M: f32 = 0.3;
 const PLAYER_HEIGHT_M: f32 = 1.8;
 
 // ---- walk -------------------------------------------------------------------
-// a real person's walking pace, per second rather than per frame, since avian moves the
-// body by its velocity and keeps it the same at any frame rate
-const PLAYER_WALK_SPEED_M_PER_S: f32 = 1.4;
+// a brisk jog rather than a real walk (1.4), picked in play, where a real walk felt slow
+// on a screen; per second rather than per frame, since avian moves the body by its
+// velocity and keeps it the same at any frame rate
+const PLAYER_WALK_SPEED_M_PER_S: f32 = 4.4;
 
 // ---- spawn: where a new game starts -----------------------------------------
 // how far above the floor the soles start, so the body is seen to drop and land, and

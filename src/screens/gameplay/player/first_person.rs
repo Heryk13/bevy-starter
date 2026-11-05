@@ -1,3 +1,5 @@
+#[cfg(feature = "dev")]
+use avian3d::debug_render::DebugRender;
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
@@ -33,6 +35,8 @@ const FIRST_PERSON_PITCH_LIMIT_RAD: f32 = FIRST_PERSON_PITCH_LIMIT_DEG.to_radian
 /// this file and every line marked `// camera: first-person`.
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(spawn_first_person_camera.run_if(in_state(Screen::Gameplay)));
+    #[cfg(feature = "dev")]
+    app.add_observer(hide_body_debug_collider.run_if(in_state(Screen::Gameplay)));
     app.add_systems(OnEnter(Pause::Off), lock_cursor);
     app.add_systems(Update, look_around.run_if(in_state(Pause::Off)));
     app.add_systems(OnExit(Pause::Off), unlock_cursor);
@@ -48,6 +52,13 @@ fn spawn_first_person_camera(add: On<Add<Player>>, mut commands: Commands) {
         Transform::from_xyz(0.0, FIRST_PERSON_EYE_OFFSET_M, 0.0),
         ChildOf(add.entity),
     ));
+}
+
+/// Hides the body's own collider from the physics debug view, since the camera sits inside
+/// it and would see its outline as a line down the middle of the screen.
+#[cfg(feature = "dev")]
+fn hide_body_debug_collider(add: On<Add<Player>>, mut commands: Commands) {
+    commands.entity(add.entity).insert(DebugRender::none());
 }
 
 /// Hides the cursor and holds it in place while the game runs, so a turn never carries it
