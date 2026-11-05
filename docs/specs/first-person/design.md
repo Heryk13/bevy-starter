@@ -149,3 +149,21 @@ One commit per step, after `3d/base` has built its playroom design and been merg
   faces, stops when the keys are let go, and is no faster on a diagonal; no problem with the
   first frame, the water or the stairs was reported. They were not each checked on their own,
   so they stay listed as risks.
+- **The position is saved as a `Vec3`, not `[f32; 3]`.** The design chose plain floats because
+  `Vec3` was thought to serialize only with Bevy's `serialize` feature, but in Bevy 0.20
+  `bevy_reflect` turns on `glam`'s `serde` feature by itself, so the derive builds as it is.
+  Both write the same RON, `(x, y, z)`, so the save format is unchanged, and the code needs no
+  conversion either way. Should Bevy stop turning that feature on, the derive fails to compile:
+  a loud error, never a save read wrong.
+- **The pitch is recorded in `player.rs`, read from the `PlayroomCamera`.** The design put the
+  camera's lines in `first_person.rs`, but one system copies the whole `PlayerState`:
+  `record_player_state` takes the yaw from the body and the pitch from the playroom's camera,
+  whose `Transform` holds only the tilt since it is the body's child. `PlayroomCamera` lives in
+  `playroom.rs`, so deleting `first_person.rs` still compiles; a camera that does not tilt with
+  the view would save a pitch that means something else, and it would replace this line.
+  Reading it back stays with each spawn: `spawn_player` turns the body to the yaw, and
+  `spawn_first_person_camera` tilts the camera to the pitch.
+- **The state is recorded only in `Pause::Off`.** Loading a save from the pause menu replaces
+  the `Session` while the screen is still `Gameplay`, so recording then could write the body
+  about to be despawned over the position just loaded. Nothing moves while paused, so
+  recording only while running loses nothing.

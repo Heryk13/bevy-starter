@@ -5,6 +5,7 @@ use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 use super::{PLAYER_HEIGHT_M, Player};
+use crate::save::Session;
 use crate::screens::gameplay::playroom::PlayroomCamera;
 use crate::screens::{Pause, Screen};
 
@@ -45,11 +46,13 @@ pub(super) fn plugin(app: &mut App) {
 // ==== Systems ================================================================
 
 /// Spawns the playroom's camera as a child of the player at eye height, so it drops, walks
-/// and despawns with the body and needs no code to follow it.
-fn spawn_first_person_camera(add: On<Add<Player>>, mut commands: Commands) {
+/// and despawns with the body and needs no code to follow it. It starts tilted to the
+/// session's pitch, so a loaded game looks where it was saved looking.
+fn spawn_first_person_camera(add: On<Add<Player>>, mut commands: Commands, session: Res<Session>) {
     commands.spawn((
         PlayroomCamera,
-        Transform::from_xyz(0.0, FIRST_PERSON_EYE_OFFSET_M, 0.0),
+        Transform::from_xyz(0.0, FIRST_PERSON_EYE_OFFSET_M, 0.0)
+            .with_rotation(Quat::from_rotation_x(session.game.player.pitch)),
         ChildOf(add.entity),
     ));
 }

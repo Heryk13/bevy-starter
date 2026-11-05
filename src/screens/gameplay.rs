@@ -4,7 +4,7 @@ use super::{Screen, StartGame};
 use crate::save::{Session, autosave_is_due, new_autosave_path, saves_dir, write_save};
 
 pub(crate) mod pause;
-mod player;
+pub(crate) mod player;
 mod playroom;
 
 // ==== Plugin =================================================================
