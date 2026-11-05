@@ -1,5 +1,5 @@
 use bevy::anti_alias::smaa::Smaa;
-use bevy::camera::{Exposure, Hdr};
+use bevy::camera::{Exposure, Hdr, visibility::RenderLayers};
 use bevy::light::atmosphere::ScatteringMedium;
 use bevy::light::{Atmosphere, AtmosphereEnvironmentMapLight, SunDisk};
 use bevy::pbr::{AtmosphereSettings, ScreenSpaceAmbientOcclusion};
@@ -142,23 +142,31 @@ fn spawn_playroom(
 /// they shared. Sharing an image is not sharing its clear, though: each camera clears it the
 /// first time it draws. With MSAA on, Bevy copied the cameras below into each one's MSAA
 /// image first, which hid that; without it, the screen camera must not clear at all.
+/// The screen camera also loses its render layers, as the floating one never had any: a
+/// `Camera2d` draws whatever the world draws on layer 0, and the level's gizmos would show
+/// through it as a tiny map in the middle of the screen, a metre to a pixel. UI ignores
+/// render layers, so the menus still reach it.
 fn match_ui_cameras_to_playroom_camera(
     mut commands: Commands,
     cameras: Query<Entity, With<Camera2d>>,
-    mut screen_camera: Single<&mut Camera, With<IsDefaultUiCamera>>,
+    screen_camera: Single<(Entity, &mut Camera), With<IsDefaultUiCamera>>,
 ) {
     for camera in &cameras {
         commands.entity(camera).insert((Hdr, Msaa::Off));
     }
+    let (screen_entity, mut screen_camera) = screen_camera.into_inner();
+    commands.entity(screen_entity).insert(RenderLayers::none());
     screen_camera.clear_color = ClearColorConfig::None;
 }
 
 /// Returns the UI cameras to their defaults: outside gameplay there is no level under them.
-/// `Msaa` is put back rather than removed, since every camera needs one.
+/// `Msaa` is put back rather than removed, since every camera needs one, while the screen
+/// camera's `RenderLayers` is removed, so it is back on layer 0 as `main.rs` spawned it. The
+/// floating camera is left out of that: its `RenderLayers::none()` is its own, for good.
 fn reset_ui_cameras(
     mut commands: Commands,
     cameras: Query<Entity, With<Camera2d>>,
-    mut screen_camera: Single<&mut Camera, With<IsDefaultUiCamera>>,
+    screen_camera: Single<(Entity, &mut Camera), With<IsDefaultUiCamera>>,
 ) {
     for camera in &cameras {
         commands
@@ -166,6 +174,8 @@ fn reset_ui_cameras(
             .remove::<Hdr>()
             .insert(Msaa::default());
     }
+    let (screen_entity, mut screen_camera) = screen_camera.into_inner();
+    commands.entity(screen_entity).remove::<RenderLayers>();
     screen_camera.clear_color = ClearColorConfig::Default;
 }
 
