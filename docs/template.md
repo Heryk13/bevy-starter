@@ -36,6 +36,11 @@ the first commit. The steps below are the manual path, and what is left after it
    `3d/base` and every branch below it already build with exactly this line, so a game started
    from them skips this step; only a 3D game started from `main` trims by hand. The playroom
    builds with exactly these on 0.20.0.
+   From `3d/player` down, physics is [avian3d](https://github.com/avianphysics/avian), trimmed
+   the same way to what the player uses, with its debug drawing only in dev builds:
+   ```toml
+   avian3d = { version = "0.8.0", default-features = false, features = ["3d", "parry-f32", "collider-from-mesh", "bevy_scene", "parallel"] }
+   ```
 3. Keep the Bevy logo on the splash screen: it lets players know the game is made with Bevy
    and helps the engine grow. Use it unmodified (see [Assets](#assets)).
 4. Replace the [placeholder assets](#placeholders) with the game's own.
@@ -79,9 +84,11 @@ src/
     gameplay.rs     the game itself, the playroom so far
     gameplay/
       pause.rs      pause state and pause menu, freezing game time
-      playroom.rs   the test level, its sun and sky, and the kit its cameras carry
+      player.rs     the player's body, walking, and what a save keeps of them
+      player/
+        first_person.rs  the camera at eye height, the mouse look and the cursor lock
+      playroom.rs   the test level, its colliders, sun and sky, and the kit its cameras carry
       playroom/
-        still_camera.rs  the fixed camera the level is seen through
         sun_glare.rs  the glare drawn over the sun, as a camera sees it
   save.rs           the game in progress and the save files, shared
   ui.rs             the look: palette, type and text, shared

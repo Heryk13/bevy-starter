@@ -102,7 +102,7 @@ Each carries `.run_if(in_state(...))` for its screen, so only the one whose scre
 | `Menu` | `spawn_menu_screen`, `play_menu_music` | the closing veil finishes | `animate_veils` |
 | `Loading` | `spawn_loading_screen`, `load_gameplay_assets`, `load_intro_assets` (new games only) | the playroom is in, and the intro's assets for a new game | `leave_loading_screen` |
 | `Intro` | `spawn_intro_screen`, `play_intro_music` | the last frame is done, or skipped | `leave_intro_screen`, `skip_intro_screen` |
-| `Gameplay` | `spawn_playroom`, `match_ui_cameras_to_playroom_camera`, `spawn_still_camera`, `spawn_sun_glare` (`playroom.rs`, `playroom/still_camera.rs`, `playroom/sun_glare.rs`) | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
+| `Gameplay` | `spawn_playroom`, `match_ui_cameras_to_playroom_camera`, `spawn_sun_glare` (`playroom.rs`, `playroom/sun_glare.rs`); `spawn_player` once the colliders are ready (`player.rs`), and `spawn_first_person_camera` with it (`player/first_person.rs`) | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
 
 ### Splash
 
@@ -201,12 +201,20 @@ frames' memory back.
 
 ### Gameplay
 
-On `3d/base` the playroom: `spawn_playroom` (`gameplay/playroom.rs`) spawns the level the
-loading screen loaded, the sun and the sky, `spawn_still_camera` (`playroom/still_camera.rs`)
-a still camera to see them through, and `spawn_sun_glare` (`playroom/sun_glare.rs`) the
-glare drawn over the sun. The still camera sits in a file of its own so a branch with a player
-can drop it whole, and what makes it the level's camera is one component, `PlayroomCamera`
-in `playroom.rs`: it requires the `Camera3d` and the camera kit (exposure, sky light, bloom,
+On `3d/player` the playroom, walked in first person: `spawn_playroom` (`gameplay/playroom.rs`)
+spawns the level the loading screen loaded, the sun and the sky, with a static trimesh collider
+on every mesh but the pool's water, and `spawn_sun_glare` (`playroom/sun_glare.rs`) the glare
+drawn over the sun. Physics is avian3d, whose `PhysicsPlugins` sit in `main.rs` next to
+`DefaultPlugins`, and in dev builds `PhysicsDebugPlugin` draws every collider. Once the colliders
+are built, `ColliderConstructorHierarchyReady` triggers `spawn_player` (`gameplay/player.rs`):
+a dynamic capsule with its rotation locked, where the `Session` left it, and adding its `Player`
+triggers `spawn_first_person_camera` (`player/first_person.rs`), the level's camera as the
+body's child at eye height. `walk_player` turns WASD into the body's velocity across the ground,
+`look_around` turns the body for the yaw and tilts the camera for the pitch, and both run only in
+`Pause::Off`, whose `OnEnter` and `OnExit` lock and free the cursor. Everything about the camera
+is in `first_person.rs`, and every line outside it that names it ends with
+`// camera: first-person`, so a game that keeps another camera deletes the file and those lines.
+What makes a camera the level's is one component, `PlayroomCamera` in `playroom.rs`: it requires the `Camera3d` and the camera kit (exposure, sky light, bloom,
 SSAO, SMAA, `Msaa::Off`), so any camera that carries it looks the same. It draws first
 (`PLAYROOM_CAMERA_ORDER`, below the screen camera's 0), so the UI lands on top of the level.
 For the blur to see the level the cameras must share one image, which takes the same format
@@ -224,8 +232,11 @@ inserts, and `unload_gameplay_assets` removes them again when gameplay ends. Esc
 `src/overlays.rs` with the rest of the Esc rule.
 
 **Where the game's own state goes.** `Session::game` is a `GameData`, the struct in `save.rs` that
-holds what the game keeps in a save: the world, the player, their progress. It is empty so far,
-and already wired end to end: New Game starts it from `default()`, every save writes it, and
+holds what the game keeps in a save: the world, the player, their progress. So far it holds
+`player`, a `PlayerState` (`gameplay/player.rs`) with where the body stands, its yaw and the
+camera's pitch: `record_player_state` copies them in every frame of `Pause::Off`, and the two
+spawns read them back, the body its place and turn, the camera its tilt. A new game, or a save
+from before the field, gets `PlayerState::default()`, at the spawn point. It is wired end to end: New Game starts it from `default()`, every save writes it, and
 Continue and Load Game hand it back inside the `Session`. So a gameplay feature that must survive
 a save adds a field to `GameData`, builds its entities from `Session::game` on
 `OnEnter(Screen::Gameplay)`, and keeps the field current while playing, so whatever saves next

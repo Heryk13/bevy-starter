@@ -1,6 +1,6 @@
 # Walking the playroom in first person
 
-Status: **in progress**, building step 1.
+Status: **built** (2026-11-06).
 Date: 2026-10-08, updated 2026-10-12 for Bevy 0.20 and the `create-bevy-starter` cameras,
 and 2026-11-03 for avian3d 0.8
 Bevy: 0.20; avian3d: 0.8.0
