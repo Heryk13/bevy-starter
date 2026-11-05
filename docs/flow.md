@@ -212,7 +212,9 @@ SSAO, SMAA, `Msaa::Off`), so any camera that carries it looks the same. It draws
 For the blur to see the level the cameras must share one image, which takes the same format
 and MSAA: `match_ui_cameras_to_playroom_camera` gives both UI cameras `Hdr` and `Msaa::Off` on
 entering gameplay and stops the screen camera clearing, since each camera clears the shared
-image on its own, and `reset_ui_cameras` undoes it on leaving. The `Session` arrives with `StartGame`,
+image on its own. It also takes the screen camera off every render layer, like the floating
+camera, so the level's gizmos are not drawn a second time through a 2D camera as a tiny map.
+`reset_ui_cameras` undoes it on leaving. The `Session` arrives with `StartGame`,
 fresh or loaded, and `count_play_time` adds each frame's virtual time to it, so the pause menu
 never counts as play. The resource is also created at startup: a default `Session` is a valid
 new game, so gameplay can be entered without the menu while building the game. On `3d/base`
