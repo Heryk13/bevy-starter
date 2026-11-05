@@ -27,15 +27,16 @@ const PLAYROOM_CAMERA_EXPOSURE_EV100: f32 = 13.5;
 // leaves the sunlit side almost as it is. 1.0 is physical, and SSAO darkens the creases
 const PLAYROOM_CAMERA_SKY_LIGHT_INTENSITY: f32 = 1.0;
 // how far from a crease SSAO looks for what blocks the sky: Bevy's 0.73 m shades a strip
-// a few pixels thin from the still camera's 40 m, so this is wider, at the cost of some
-// haloing and noise around objects, which Bevy warns of
+// a few pixels thin seen from across the level, 40 m off, so this is wider, at the cost
+// of some haloing and noise around objects, which Bevy warns of
 const PLAYROOM_CAMERA_SSAO_RADIUS_M: f32 = 5.0;
 
 // ---- sun --------------------------------------------------------------------
 // the direction it shines from, given as a point looking at the origin: a directional
 // light ignores its position and keeps only the direction, so the length is free and this
-// sets the angle alone. Low, about 20° up, and 15° right of where the still camera looks,
-// so the sun is in view and every shadow falls towards the camera, long enough to read
+// sets the angle alone. Low, about 20° up, and a little right of -Z, the way the level is
+// first seen, so the sun is in view and every shadow falls towards the camera, long
+// enough to read
 const SUN_DIRECTION: Vec3 = Vec3::new(5.0, 3.6, -8.7);
 // how wide the disk drawn in the sky is, times the real sun's: the real one is an 8 px dot
 // at this view, lost inside the glare's core, so this one is drawn larger, as games often

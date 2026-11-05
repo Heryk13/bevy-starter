@@ -10,7 +10,7 @@ use crate::screens::Screen;
 // ==== Config =================================================================
 
 // ---- look -------------------------------------------------------------------
-// how wide the glare is on screen, edge to edge, in degrees of the still camera's view
+// how wide the glare is on screen, edge to edge, in degrees of the playroom camera's view
 const SUN_GLARE_WIDTH_DEG: f32 = 30.0;
 // the glare is three layers added together; every size below is a share of its half-width.
 // The blinding core: a white ball, wide enough to hide the sun's shape
@@ -91,9 +91,9 @@ fn spawn_sun_glare(
     ));
 }
 
-/// Keeps the glare on the sun, at its distance from the still camera and facing it. It runs
-/// after propagation, so it sets the glare's `GlobalTransform` too: it has no parent, so the
-/// two are the same.
+/// Keeps the glare on the sun, at its distance from the playroom camera and facing it. It
+/// runs after propagation, so it sets the glare's `GlobalTransform` too: it has no parent,
+/// so the two are the same.
 fn place_sun_glare(
     // the one 3D camera: a second one, from a glTF or a branch below, would skip this silently
     camera: Single<&GlobalTransform, (With<Camera3d>, Without<SunGlare>)>,
