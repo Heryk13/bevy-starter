@@ -45,11 +45,11 @@ flowchart LR
 | ----------- | ----------------------------------------------------------------------- |
 | `main`      | The template for any game                                               |
 | `3d/base`   | A test level (`playroom.glb`) under a sky and a glaring sun             |
-| `3d/player` | Physics, and a player walking the level, seen through cameras (planned) |
+| `3d/player` | Physics, and a player walking the level in first person                  |
 | `2d/base`   | A test room seen from above, drawn in tiles from an ASCII map           |
 
 Each branch's `docs/specs/` holds the designs built on it and what is still to come.
-The cameras planned for `3d/player` (first-person, third-person and isometric) will not be
+The cameras of `3d/player` (first-person, built, then third-person and isometric) will not be
 branches of their own: a game will keep any of them, and switch between them with F5 when it
 keeps more than one. Multiplayer is planned too, as an option across the kinds rather than a
 branch. [`create-bevy-starter`](https://github.com/Heryk13/create-bevy-starter) builds a game
