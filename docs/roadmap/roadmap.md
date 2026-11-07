@@ -135,9 +135,9 @@ names its roadmap row.
     glass seen *while playing* is a HUD left open, which is the case to measure.
   - Estimate, not measured: under 0.1 ms per frame on a common GPU, against the 16.6 ms of a
     frame at 60 fps.
-- **Spike before the spec** (throwaway branch `spike/glass-blur`, never merged): build the
-  quarter-resolution Kawase copy with four panels reading it over a moving screen (a blur's
-  cost follows the pixels it touches, not what they show, so `main` is enough), and measure it
+- **Spike before the spec** (on `3d/player`, never committed, thrown away with `git restore`
+  and `git clean`): build the quarter-resolution Kawase copy with four panels reading it over
+  the 3D level, where the frame rate is a real game's, and measure it
   with the FPS overlay against no blur and against today's full-screen Gaussian. Its answer is
   written here.
 - **Icons: Lucide** (ISC), chosen over Phosphor side by side in the browser. Used as its icon
