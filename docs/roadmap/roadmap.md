@@ -116,6 +116,30 @@ names its roadmap row.
   a new piece: a UI material showing a blurred copy of the screen inside each panel's rectangle.
   The specular rim can be a gradient border. Refraction (the glass bending what is behind it)
   is left out: it needs a far more complex shader than the look is worth.
+- **The glass must stay cheap**, since this is a template for games and its own UI should
+  never cost the game frames. Agreed on 2026-11-07, to be measured in the spike below:
+  - **One blurred copy of the screen per frame**, which every panel reads inside its own
+    rectangle: ten panels cost what one does, plus a texture read each.
+  - **Blurred at a quarter of the resolution**, with a dual Kawase blur instead of today's
+    Gaussian: a blur throws the detail away anyway, so the smaller copy looks the same at about
+    a sixteenth of the pixels, and Kawase's cost barely grows with the radius.
+  - **Only while glass is on screen**: with no panel open the passes do not run, as
+    `update_blur` already does today.
+  - **Blurred once while nothing behind moves**: the pause menu and photo mode freeze the
+    world, and the main menu's background is a still image (`menu/background.jpg`), so the copy
+    is made once and reused until the window resizes. Under the pause menu the game's camera
+    can even stop drawing, which makes the paused game lighter than the running one.
+  - **A "Reduce transparency" setting** (macOS has the same), which draws every panel as a
+    solid dark fill with no blur: the way out for a weak PC, and an accessibility option.
+  - The dev tools cost nothing in a released game: they live behind `feature = "dev"`. The only
+    glass seen *while playing* is a HUD left open, which is the case to measure.
+  - Estimate, not measured: under 0.1 ms per frame on a common GPU, against the 16.6 ms of a
+    frame at 60 fps.
+- **Spike before the spec** (throwaway branch `spike/glass-blur`, never merged): build the
+  quarter-resolution Kawase copy with four panels reading it over a moving screen (a blur's
+  cost follows the pixels it touches, not what they show, so `main` is enough), and measure it
+  with the FPS overlay against no blur and against today's full-screen Gaussian. Its answer is
+  written here.
 - **Icons: Lucide** (ISC), chosen over Phosphor side by side in the browser. Used as its icon
   font: the `.ttf` goes in `assets/fonts/` with its license file, next to Noto Sans JP's
   `OFL.txt`, and an icon is a `Text` with that font, sized by `TextFont` and coloured by
