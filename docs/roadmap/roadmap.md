@@ -24,7 +24,7 @@ Agreed on 2026-11-07.
 
 | #  | Item | Branch | Status | Spec / tasks | Notes |
 |----|------|--------|--------|--------------|-------|
-| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | glass designed | `glass/design.md` | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
+| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | glass designed | `glass/design.md`, `glass-tasks.md` | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
 | 1  | **Key bindings**: a Controls page in Settings to change the keys and gamepad buttons | base in `main`, then each branch registers its own actions | | | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
 | 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | designed; to revise for rows 0 and 1 before building | `dev-tools/design.md`, `dev-tools-tasks.md` | waits on rows 0 and 1 |
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | | | agreed so far: below |
