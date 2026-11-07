@@ -24,7 +24,7 @@ Agreed on 2026-11-07.
 
 | #  | Item | Branch | Status | Spec / tasks | Notes |
 |----|------|--------|--------|--------------|-------|
-| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | | | agreed so far: "The look" below; first, so every tool is born with the look; supersedes the `ui-style` look |
+| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | | | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
 | 1  | **Key bindings**: a Controls page in Settings to change the keys and gamepad buttons | base in `main`, then each branch registers its own actions | | | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
 | 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | designed; to revise for rows 0 and 1 before building | `dev-tools/design.md`, `dev-tools-tasks.md` | waits on rows 0 and 1 |
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | | | agreed so far: below |
@@ -117,12 +117,47 @@ names its roadmap row.
   The specular rim can be a gradient border. Refraction (the glass bending what is behind it)
   is left out: it needs a far more complex shader than the look is worth.
 - **The glass must stay cheap**, since this is a template for games and its own UI should
-  never cost the game frames. Agreed on 2026-11-07, to be measured in the spike below:
-  - **One blurred copy of the screen per frame**, which every panel reads inside its own
-    rectangle: ten panels cost what one does, plus a texture read each.
-  - **Blurred at a quarter of the resolution**, with a dual Kawase blur instead of today's
-    Gaussian: a blur throws the detail away anyway, so the smaller copy looks the same at about
-    a sixteenth of the pixels, and Kawase's cost barely grows with the radius.
+  never cost the game frames. Agreed on 2026-11-07, measured in the spike below on 2026-11-08:
+  - **One blurred copy per layer**, which every panel of that layer reads inside its own
+    rectangle: ten panels side by side cost what one does, plus a texture read each. The
+    layers are the named `*_Z_INDEX` roots (overlays, the pause menu, dialogs), and each
+    layer's copy is taken just below it, the layers under it included. Agreed on 2026-11-08,
+    so glass shows what is really behind it, as on macOS: the "Quit without saving?" dialog
+    shows the pause menu blurred under it, not the game as if the menu were not there. One
+    copy of the game for every layer was turned down for that. It costs one more chain per
+    open layer, almost always one, and a stacked layer is mostly over a frozen game, so its
+    copy is taken once too.
+  - **Blurred on a smaller copy, with a dual Kawase blur** instead of today's Gaussian: a blur
+    throws the detail away anyway, so the smaller copy looks the same. The copy is halved until
+    it is about 540 px tall, two halvings at 1080p and three at 4K, so it is always about the
+    same size and the blur costs the same on every screen. Since a Kawase's strength is its
+    number of levels, the same rule also gives the blur the same look at every resolution.
+  - **The glass comes in with its panel's opacity**, not with a growing blur: the Kawase runs at
+    full strength from the first frame, and the panel fades in over `ENTRANCE`, so the GPU's
+    alpha blending mixes the sharp game behind with the blurred glass. `BLUR_RAMP_SECS` goes,
+    and the entrance and the glass can no longer drift apart. Shrinking the Kawase's sample
+    offset instead was turned down: at no offset the copy is still small, stretched and
+    blurred, so the animation would start with a jump.
+  - **Only where glass is**, agreed on 2026-11-08: every pass draws inside a list of regions
+    instead of the whole screen, so a lone window open while playing (a HUD, the prop editor)
+    blurs about its own area, not the screen's. That is the one glass blurred every frame,
+    and at 4K a 400 × 600 window is 3% of the screen: about 0.7 ms on a weak GPU becomes about
+    0.03 ms (worked out, not measured). A full-screen blur is a region the size of the screen.
+    - Each region is its windows' rectangle **plus a margin of the blur's radius**: a blur
+      reads its neighbours, and a crop without them leaves the glass's edges smeared.
+    - **The number of levels comes from the screen, never from the region**, or a small
+      window would get fewer levels and a weaker blur than a large one.
+    - **The textures stay screen-sized**, made once and remade only when the window resizes;
+      a region only limits where a pass draws. Panels keep reading the copy at their screen
+      coordinates.
+    - **Windows that touch or overlap share one region**, so no pixel is blurred twice and
+      no margin is paid twice; windows far apart get one region each, so the space between
+      them is not blurred. Turned down: one chain of textures and passes per window, which
+      blurs overlaps twice, pays a margin per window, and remakes its textures whenever a
+      window changes size, the entrance's growing card included.
+    - Built in two steps: first the list always holds one region, the rectangle around every
+      window, to learn the Kawase without the grouping; then the grouping, a pure function from
+      rectangles to rectangles with its own tests. Nothing of the first step is thrown away.
   - **Only while glass is on screen**: with no panel open the passes do not run, as
     `update_blur` already does today.
   - **Blurred once while nothing behind moves**: the pause menu and photo mode freeze the
@@ -135,11 +170,27 @@ names its roadmap row.
     glass seen *while playing* is a HUD left open, which is the case to measure.
   - Estimate, not measured: under 0.1 ms per frame on a common GPU, against the 16.6 ms of a
     frame at 60 fps.
-- **Spike before the spec** (on `3d/player`, never committed, thrown away with `git restore`
-  and `git clean`): build the quarter-resolution Kawase copy with four panels reading it over
-  the 3D level, where the frame rate is a real game's, and measure it
-  with the FPS overlay against no blur and against today's full-screen Gaussian. Its answer is
-  written here.
+- **Spike before the spec, done on 2026-11-08** (on `3d/player`, never committed, thrown away
+  with `git restore`). It measured today's blur in the 3D level with vsync off
+  (`PresentMode::AutoNoVsync`) and `RenderDiagnosticsPlugin` + `LogDiagnosticsPlugin`, which
+  log each render pass's GPU time:
+  - **The FPS overlay cannot see the blur.** Opening the pause menu did not move the 100 fps:
+    the frame is about 10 ms, of which the GPU works about 2 ms, so the game is held back by
+    the CPU and the blur fits in the GPU's idle time. The pause also stops the physics, which
+    takes CPU time away while the blur adds GPU time. Compare GPU milliseconds per pass, never
+    frames per second.
+  - **Today's full-screen Gaussian costs about 0.16 ms** of GPU (0.08 ms per pass) at about
+    1920 × 1009, against about 2 ms for the whole GPU frame (irradiance 0.40, SSAO 0.29,
+    atmosphere 0.23).
+  - A pass that stops running keeps logging its last value, so a number repeated to the
+    last digit across seconds is a pass that did not run.
+  - Worked out, not measured: at 4K on a GPU ten times weaker, today's Gaussian would need a
+    sigma of 18 to look the same and cost about 14 ms, a frame lost. On the smaller copy it
+    drops below 1 ms, most of it the first halving, which reads the whole 4K image once and
+    which any blur pays. After that, a Gaussian on the small copy would cost about 0.2 ms and
+    the Kawase about 0.1 ms. The Kawase was chosen for that margin and to learn how it works.
+  - Not built: the Kawase itself and the panels reading the copy. Whether a UI material can
+    read the blurred copy inside its own rectangle is the spec's first step.
 - **Icons: Lucide** (ISC), chosen over Phosphor side by side in the browser. Used as its icon
   font: the `.ttf` goes in `assets/fonts/` with its license file, next to Noto Sans JP's
   `OFL.txt`, and an icon is a `Text` with that font, sized by `TextFont` and coloured by
@@ -148,6 +199,23 @@ names its roadmap row.
   Phosphor Bold), with the font's own stroke. Slow motion is `hourglass`, speed `sport-shoe`,
   which needs Lucide 1.70.0 or later (0.460 lacks it; every other icon used is in 1.70.0).
   Not SF Symbols: Apple's licence only allows them in apps for Apple platforms.
+- **Three specs, not one**, agreed on 2026-11-08: the row is too large for one plan of one
+  commit per step. In this order:
+  1. **Glass**: the technique (the per-layer copies, the Kawase, the regions, the material
+     panels read it with), proven on one plain panel.
+  2. **Look**: the colours, the Lucide font, keycaps and capsules, and every existing screen,
+     overlay and dialog redone in it.
+  3. **Pieces**: what only the dev tools use (popover, HUD, bar, list, alert).
+- **Tried on `3d/player`, committed on `main`**, agreed on 2026-11-08: on `main` nothing moves
+  behind a panel (the menu's background is a still image, gameplay is empty), so each step is
+  written and tried uncommitted on `3d/player`, where the level moves behind a window, then
+  carried to `main` (`git stash`, `git switch main`, `git stash pop`) and committed there, and
+  reaches the branches below by the usual merge down. The `src/ui/` files are the same on
+  both branches, so the stash carries cleanly. Before each commit on `main`:
+  - `just check` and `just run` on `main` too, since its cameras have no `Hdr` and keep
+    their MSAA, which `3d/base`'s `match_ui_cameras_to_playroom_camera` changes in gameplay;
+  - nothing of the step may lean on `3d/player`: a change that `playroom.rs` needs belongs
+    to `3d/base` and is committed there, after the merge.
 
 ## Key bindings, as agreed so far (row 1)
 
