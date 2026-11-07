@@ -24,7 +24,7 @@ Agreed on 2026-11-07.
 
 | #  | Item | Branch | Status | Spec / tasks | Notes |
 |----|------|--------|--------|--------------|-------|
-| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | | | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
+| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | glass designed | `glass/design.md` | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
 | 1  | **Key bindings**: a Controls page in Settings to change the keys and gamepad buttons | base in `main`, then each branch registers its own actions | | | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
 | 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | designed; to revise for rows 0 and 1 before building | `dev-tools/design.md`, `dev-tools-tasks.md` | waits on rows 0 and 1 |
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | | | agreed so far: below |
@@ -129,9 +129,11 @@ names its roadmap row.
     copy is taken once too.
   - **Blurred on a smaller copy, with a dual Kawase blur** instead of today's Gaussian: a blur
     throws the detail away anyway, so the smaller copy looks the same. The copy is halved until
-    it is about 540 px tall, two halvings at 1080p and three at 4K, so it is always about the
+    it reaches a fixed height, one halving more at 4K than at 1080p, so it is always about the
     same size and the blur costs the same on every screen. Since a Kawase's strength is its
     number of levels, the same rule also gives the blur the same look at every resolution.
+    The height is tuned in `docs/specs/glass/design.md` to match today's blur; it was first
+    written here as "about 540 px", which is a single halving below 1080p and far too weak.
   - **The glass comes in with its panel's opacity**, not with a growing blur: the Kawase runs at
     full strength from the first frame, and the panel fades in over `ENTRANCE`, so the GPU's
     alpha blending mixes the sharp game behind with the blurred glass. `BLUR_RAMP_SECS` goes,
