@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liquid Glass UI mockup</title>
+<!-- The look agreed for roadmap row 0 on 2026-11-07. A browser mockup, not the game:
+     Bevy draws it with its own UI nodes (see "The look" in roadmap.md). -->
+<style>
+  body { background: #1c1c1f; color: #e8e8ea; font-family: system-ui, sans-serif; margin: 0 auto; padding: 24px; max-width: 1100px; }
+  h2 { margin: 0 0 6px; } .subtitle { color: #a0a0a8; margin: 0 0 8px; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  code { background: rgba(255,255,255,.08); padding: 0 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@1.70.0/font/lucide.css">
+<style>
+  .lic { font-size: 19px; vertical-align: -4px; margin-right: 7px; opacity: .9; }
+  .lic.a { color: var(--accent); opacity: 1; }
+  .lic.big { font-size: 22px; margin: 0; }
+  .lic.ink { color: var(--accent-ink); opacity: 1; }
+  .mac { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+         --accent: #FFFFFF; --accent-ink: #111114; --red: #FF5F57; --text: rgba(255,255,255,.92);
+         --muted: rgba(255,255,255,.74); --hair: rgba(255,255,255,.14); --sel: rgba(255,255,255,.9);
+         -webkit-font-smoothing: antialiased; letter-spacing: -.01em; }
+  .sec { margin: 30px 0 10px; } .sec h3 { margin: 0 0 2px; } .sec p { margin: 0 0 10px; color: #888; font-size: 13px; }
+  .scene { position: relative; width: 100%; height: 420px; border-radius: 10px; overflow: hidden; color: var(--text); font-size: 13px;
+           background:
+             radial-gradient(ellipse at 20% 30%, rgba(255,190,120,.9), transparent 40%),
+             radial-gradient(ellipse at 75% 20%, rgba(120,170,255,.9), transparent 45%),
+             radial-gradient(ellipse at 60% 80%, rgba(90,140,90,.95), transparent 50%),
+             linear-gradient(#5b86c9 0%, #a9c6e8 50%, #6f7f55 51%, #3e4a30 100%); }
+  .scene.tall { height: 540px; } .scene.short { height: 220px; }
+  .glass { position: absolute; background: rgba(30,30,34,.52); -webkit-backdrop-filter: blur(28px) saturate(170%);
+           backdrop-filter: blur(28px) saturate(170%); border-radius: 12px;
+           box-shadow: 0 0 0 .5px rgba(0,0,0,.6), inset 0 0 0 .5px rgba(255,255,255,.18), 0 12px 40px rgba(0,0,0,.35); }
+  .pad { padding: 10px 12px; }
+  .hdr { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: none; margin: 2px 0 6px; }
+  .r { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 24px; }
+  .kc { font: 500 11px/1 -apple-system, system-ui, sans-serif; color: var(--text); padding: 3px 6px; border-radius: 5px; min-width: 18px; text-align: center;
+        background: linear-gradient(rgba(255,255,255,.16), rgba(255,255,255,.08)); box-shadow: inset 0 -1px 0 rgba(0,0,0,.35), 0 0 0 .5px rgba(255,255,255,.12); }
+  .fps { position: absolute; top: 8px; left: 10px; font: 600 12px/1.2 ui-monospace, "SF Mono", Menlo, monospace; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  .fps .graph { width: 120px; height: 20px; margin-top: 4px; border-radius: 3px; background: repeating-linear-gradient(90deg, rgba(120,255,140,.9) 0 2px, transparent 2px 4px); opacity: .75; }
+  /* HUD like macOS volume */
+  .hud { position: absolute; width: 168px; height: 168px; border-radius: 22px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; }
+  .hud .ic { font-size: 56px; line-height: 1; }
+  .hud .v { font-size: 20px; font-weight: 600; }
+  .steps { display: flex; gap: 4px; } .steps i { width: 26px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.2); }
+  .steps i.on { background: rgba(255,255,255,.9); }
+  .hud .k { font-size: 11px; color: var(--muted); }
+  /* toolbar like macOS screenshot bar */
+  .bar { position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; display: flex; align-items: center; gap: 4px; padding: 6px; border-radius: 14px; }
+  .tb { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; color: var(--text); white-space: nowrap; }
+  .tb.on { background: rgba(255,255,255,.16); }
+  .sep { width: .5px; height: 26px; background: var(--hair); margin: 0 4px; }
+  .primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; padding: 6px 14px; border-radius: 8px; }
+  .chev { color: var(--muted); font-size: 10px; }
+  .pop { position: absolute; padding: 5px; border-radius: 10px; min-width: 170px; }
+  .pop .mi { padding: 4px 10px; border-radius: 5px; display: flex; justify-content: space-between; gap: 18px; }
+  .pop .mi.hl { background: var(--sel); color: var(--accent-ink); }
+  .pop .ms { height: .5px; background: var(--hair); margin: 5px 8px; }
+  .pop .mh { font-size: 11px; color: var(--muted); font-weight: 600; padding: 4px 10px 2px; }
+  .check { width: 12px; display: inline-block; }
+  /* finder */
+  .win { position: absolute; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; }
+  .tbar { height: 40px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: .5px solid rgba(0,0,0,.35); }
+  .lights { display: flex; gap: 8px; } .lights i { width: 12px; height: 12px; border-radius: 50%; display: block; }
+  .lights i:nth-child(1) { background: #FF5F57; } .lights i:nth-child(2) { background: #FEBC2E; } .lights i:nth-child(3) { background: #28C840; }
+  .nav { color: var(--muted); font-size: 16px; letter-spacing: 6px; }
+  .ttl { font-weight: 600; font-size: 13px; }
+  .search { margin-left: auto; width: 170px; height: 24px; border-radius: 7px; background: rgba(255,255,255,.09); box-shadow: inset 0 0 0 .5px rgba(255,255,255,.1);
+            display: flex; align-items: center; gap: 6px; padding: 0 8px; color: var(--muted); font-size: 12px; }
+  .body { flex: 1; display: flex; min-height: 0; }
+  .side { width: 150px; padding: 10px 8px; background: rgba(255,255,255,.03); border-right: .5px solid rgba(0,0,0,.3); }
+  .side .si { padding: 4px 8px; border-radius: 6px; display: flex; gap: 8px; align-items: center; }
+  .side .si.on { background: rgba(255,255,255,.12); }
+  .side .ico { width: 16px; text-align: center; color: var(--accent); }
+  .list { flex: 1; overflow: hidden; position: relative; }
+  .lh, .li { display: grid; grid-template-columns: 1fr 120px 70px; gap: 10px; padding: 0 14px; height: 24px; align-items: center; }
+  .lh { font-size: 11px; color: var(--muted); font-weight: 600; border-bottom: .5px solid var(--hair); }
+  .li:nth-child(odd) { background: rgba(255,255,255,.035); }
+  .li.on { background: var(--sel) !important; color: var(--accent-ink); }
+  .li.on .m { color: rgba(17,17,20,.6); }
+  .li.drop { box-shadow: inset 0 0 0 2px var(--accent); border-radius: 6px; }
+  .m { color: var(--muted); }
+  .fi { display: inline-block; width: 16px; margin-right: 6px; text-align: center; }
+  .ql { width: 230px; padding: 12px; border-left: .5px solid rgba(0,0,0,.3); }
+  .shot { border-radius: 6px; aspect-ratio: 16/10; background: linear-gradient(#7fa9db, #c9dcef 55%, #6d7b5c 56%); box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+  .drag { position: absolute; padding: 3px 8px; border-radius: 6px; background: rgba(255,255,255,.85); color: var(--accent-ink); font-size: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+  /* segmented */
+  .seg { display: inline-flex; padding: 2px; border-radius: 8px; background: rgba(255,255,255,.08); }
+  .seg span { padding: 3px 12px; border-radius: 6px; color: var(--muted); }
+  .seg span.on { background: rgba(255,255,255,.2); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+  .icons { display: grid; grid-template-columns: repeat(7, 1fr); gap: 14px; padding: 12px 14px; }
+  .ic2 { text-align: center; position: relative; }
+  .ic2 .t { aspect-ratio: 1; border-radius: 10px; background: radial-gradient(circle at 40% 35%, #d9b28a, #7a5634 68%, transparent 70%); }
+  .ic2:nth-child(2n) .t { background: radial-gradient(circle at 50% 40%, #9fd09a, #3f6a3a 64%, transparent 66%); }
+  .ic2:nth-child(3n) .t { background: linear-gradient(135deg, #a8a8a8 0 50%, #666 50%); border-radius: 8px; transform: scale(.8); }
+  .ic2 .n { font-size: 11px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ic2.on .t { box-shadow: 0 0 0 3px rgba(255,255,255,.25); }
+  .ic2.on .n { background: var(--sel); color: var(--accent-ink); border-radius: 4px; padding: 0 4px; }
+  .ic2 .st { position: absolute; top: -2px; right: 2px; font-size: 12px; color: var(--accent); text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+  .pm { display: flex; border-top: .5px solid var(--hair); } .pm span { width: 26px; height: 22px; display: flex; align-items: center; justify-content: center; color: var(--muted); border-right: .5px solid var(--hair); }
+  .btn { padding: 3px 12px; border-radius: 6px; background: rgba(255,255,255,.14); box-shadow: inset 0 .5px 0 rgba(255,255,255,.2); }
+  .btn.def { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+  /* alert */
+  .alert { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 260px; padding: 18px 16px 14px; text-align: center; border-radius: 14px; }
+  .alert .ai { width: 54px; height: 54px; margin: 0 auto 10px; border-radius: 12px; background: linear-gradient(135deg, #ffffff, #cfd2da); box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+  .alert b { display: block; font-size: 13px; margin-bottom: 4px; } .alert .m { font-size: 11px; }
+  .alert .bs { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; } .alert .bs span { padding: 5px; border-radius: 7px; }
+  .notif { position: absolute; top: 12px; right: 12px; width: 260px; padding: 10px 12px; border-radius: 14px; display: flex; gap: 10px; align-items: center; }
+  .notif .ai { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #ffffff, #cfd2da); flex: none; }
+  .count { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 150px; height: 150px; border-radius: 75px; display: flex; align-items: center; justify-content: center; font-size: 70px; font-weight: 300; }
+  .recpill { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 5px 12px 5px 8px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+  .recpill .dot { width: 10px; height: 10px; border-radius: 50%; background: #FF453A; box-shadow: 0 0 8px #FF453A; animation: bl 1.2s ease-in-out infinite; }
+  .recpill .stop { width: 18px; height: 18px; border-radius: 50%; background: rgba(255,255,255,.18); display: flex; align-items: center; justify-content: center; }
+  .recpill .stop i { width: 7px; height: 7px; background: #fff; border-radius: 1.5px; }
+  @keyframes bl { 50% { opacity: .25; } }
+  .prompt { position: absolute; left: 50%; top: 60%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; padding: 6px 12px 6px 6px; border-radius: 999px; font-size: 14px; }
+  .prompt .kc { font-size: 12px; padding: 4px 8px; }
+  .cross { position: absolute; left: 50%; top: 46%; width: 4px; height: 4px; background: #fff; border-radius: 50%; box-shadow: 0 0 2px #000; }
+  .tag { position: absolute; bottom: 8px; left: 10px; font-size: 11px; color: #fff; background: rgba(0,0,0,.35); padding: 2px 8px; border-radius: 10px; }
+</style>
+
+<div class="mac">
+<h2>Liquid Glass UI</h2>
+<p class="subtitle">Every UI piece the roadmap plans, in the look agreed on 2026-11-07: Liquid Glass, a white accent, Lucide icons, white keycaps on a grey skirt. Dev text is English; the door prompt is the game's own UI. Each block names its roadmap row.</p>
+
+<div class="sec"><h3>2 · F1 keys panel + F2 FPS</h3><p>The keys panel is a popover under the FPS, one keycap per tool.</p></div>
+<div class="scene" style="height:430px">
+  <div class="fps">144 FPS<div class="graph"></div></div>
+  <div class="glass pad" style="top:52px; left:10px; width:190px;">
+    <div class="hdr"><i class="icon-keyboard lic "></i>Dev tools</div>
+    <div class="r"><span><i class="icon-activity lic "></i>FPS</span><span class="kc">F2</span></div>
+    <div class="r"><span><i class="icon-camera lic "></i>Photo mode</span><span class="kc">F3</span></div>
+    <div class="r"><span><i class="icon-hourglass lic "></i>Slow motion</span><span class="kc">F4</span></div>
+    <div class="r"><span><i class="icon-scan lic "></i>Physics debug</span><span class="kc">F6</span></div>
+    <div class="r"><span><i class="icon-wind lic "></i>Fly</span><span class="kc">F7</span></div>
+    <div class="r"><span><i class="icon-sport-shoe lic "></i>Speed</span><span class="kc">F8</span></div>
+    <div class="r"><span><i class="icon-video lic "></i>Record</span><span class="kc">F9</span></div>
+    <div class="r"><span><i class="icon-box lic "></i>Prop editor</span><span class="kc">F10</span></div>
+    <div class="r"><span><i class="icon-folder lic "></i>File explorer</span><span class="kc">Num 0</span></div>
+  </div>
+  <span class="tag">gameplay</span>
+</div>
+
+<div class="sec"><h3>2 + 7 · F4 slow motion, F8 speed</h3><p>Slow motion and speed share the volume slider capsule, in the same place, since they are never open together.</p></div>
+<div class="split">
+  <div class="scene short" style="height:240px">
+    <div class="glass hud" style="right:16px; top:30px;">
+      <div class="ic"><i class="icon-hourglass"></i></div><div class="v">0.25×</div>
+      <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+      <div class="k">Numpad − / +</div>
+    </div>
+  </div>
+  <div class="scene short" style="height:240px">
+    <div class="glass hud" style="right:16px; top:30px;">
+      <div class="ic"><i class="icon-sport-shoe"></i></div><div class="v">13.2 m/s</div>
+      <div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+      <div class="k">5× · Numpad − / +</div>
+    </div>
+  </div>
+</div>
+
+<div class="sec"><h3>3 · F3 photo mode</h3><p>The hint is a glass bar at the bottom; "Photo saved" is a notification.</p></div>
+<div class="scene short" style="height:260px">
+  <div class="glass notif"><div class="ai" style="display:flex;align-items:center;justify-content:center"><i class="icon-camera lic ink big"></i></div><div><b style="font-size:13px">Photo saved</b><div class="m" style="font-size:12px">2026-11-07_14-32-05.png</div></div></div>
+  <div class="glass bar" style="padding:6px 8px;">
+    <div class="tb"><i class="icon-camera lic "></i><span class="kc">E</span>Take photo</div><div class="sep"></div><div class="tb"><i class="icon-log-out lic "></i><span class="kc">F3</span>Exit</div>
+  </div>
+</div>
+
+<div class="sec"><h3>4 · Numpad 0 file explorer</h3><p>A Finder window: traffic lights, back and forward, the path, search, a sidebar tree rooted at Gallery, columns, Quick Look, a context menu. A photo is being dragged onto "intro shots".</p></div>
+<div class="scene tall">
+  <div class="glass win" style="inset:28px 48px;">
+    <div class="tbar"><div class="lights"><i></i><i></i><i></i></div><span class="nav" style="letter-spacing:0"><i class="icon-chevron-left lic "></i><i class="icon-chevron-right lic "></i></span><span class="ttl"><span class="m">Gallery ›</span> trailer</span>
+      <div class="search"><i class="icon-search lic "></i>Search</div></div>
+    <div class="body">
+      <div class="side">
+        <div class="si"><i class="icon-clock lic a"></i>Recents</div>
+        <div class="hdr" style="padding-left:8px; margin-top:10px">Locations</div>
+        <div class="si"><i class="icon-chevron-down lic"></i><i class="icon-images lic a"></i>Gallery</div>
+        <div class="si on" style="margin-left:22px"><i class="icon-folder lic a"></i>trailer</div>
+        <div class="si" style="margin-left:22px"><i class="icon-folder lic a"></i>bugs</div>
+      </div>
+      <div class="list">
+        <div class="lh"><span>Name</span><span>Date</span><span>Size</span></div>
+        <div class="li drop"><span><i class="icon-folder lic a"></i>intro shots</span><span class="m">Today 14:10</span><span class="m">—</span></div>
+        <div class="li on"><span><i class="icon-image lic "></i>2026-11-07_14-32-05.png</span><span class="m">Today 14:32</span><span class="m">2.4 MB</span></div>
+        <div class="li"><span><i class="icon-image lic "></i>2026-11-07_14-31-40.png</span><span class="m">Today 14:31</span><span class="m">2.3 MB</span></div>
+        <div class="li"><span><i class="icon-film lic "></i>2026-11-07_14-20-11.mp4</span><span class="m">Today 14:20</span><span class="m">48 MB</span></div>
+        <div class="li"><span><i class="icon-image lic "></i>bridge at sunset.png</span><span class="m">Yesterday</span><span class="m">2.6 MB</span></div>
+        <div class="drag" style="top:34px; left:180px;"><i class="icon-image lic ink"></i>2026-11-07_14-31-40.png</div>
+        <div class="glass pop" style="top:62px; left:210px;">
+          <div class="mi">Open</div><div class="ms"></div><div class="mi hl">Rename</div><div class="mi">Move to Trash</div>
+        </div>
+      </div>
+      <div class="ql"><div class="shot"></div>
+        <div style="margin-top:10px; font-weight:600">2026-11-07_14-32-05.png</div>
+        <div class="m" style="font-size:12px">PNG image · 2.4 MB<br>1920 × 1080<br>Today, 14:32</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="sec"><h3>8 · F9 recording</h3><p>A glass bar at the bottom, no Options menu: a click turns the sound on or off, a click swaps 30 and 60 fps, and only the timer opens a list (open here). Below, the bar after clicking sound and frame rate.</p></div>
+<div class="scene" style="height:340px">
+  <span class="tag" style="bottom:auto; top:8px">F9: setup, cursor free</span>
+  <div class="glass pop" style="bottom:66px; left:calc(50% + 18px); min-width:130px;">
+    <div class="mi"><span><span class="check"></span>None</span></div>
+    <div class="mi hl"><span><span class="check">✓</span>3 seconds</span></div>
+    <div class="mi"><span><span class="check"></span>5 seconds</span></div>
+    <div class="mi"><span><span class="check"></span>10 seconds</span></div>
+  </div>
+  <div class="glass bar">
+    <div class="tb"><i class="icon-volume-2 lic "></i>Sound on</div>
+    <div class="tb"><i class="icon-film lic "></i>60 fps</div>
+    <div class="tb on"><i class="icon-timer lic "></i>3 s <i class="icon-chevron-down lic "></i></div>
+    <div class="sep"></div>
+    <div class="tb primary"><i class="icon-circle-dot lic ink"></i>Record <span class="kc" style="margin-left:4px">Space</span></div>
+  </div>
+</div>
+<div class="scene short" style="height:120px; margin-top:12px">
+  <span class="tag" style="bottom:auto; top:8px">clicked: sound off, 30 fps</span>
+  <div class="glass bar" style="bottom:22px">
+    <div class="tb" style="opacity:.75"><i class="icon-volume-x lic "></i>Sound off</div>
+    <div class="tb"><i class="icon-film lic "></i>30 fps</div>
+    <div class="tb"><i class="icon-timer lic "></i>3 s <i class="icon-chevron-down lic "></i></div>
+    <div class="sep"></div>
+    <div class="tb primary"><i class="icon-circle-dot lic ink"></i>Record <span class="kc" style="margin-left:4px">Space</span></div>
+  </div>
+</div>
+</div>
+<div class="split" style="margin-top:12px">
+  <div class="scene short"><span class="tag">Space: countdown</span><div class="glass count">3</div></div>
+  <div class="scene short"><span class="tag">recording (never in the video)</span>
+    <div class="glass recpill"><span class="dot"></span><span>00:42</span><span class="stop"><i></i></span><span class="kc">F9</span></div></div>
+</div>
+
+<style>
+  .pe-scenes { position: absolute; top: 34px; right: 14px; width: 230px; padding: 12px; }
+  .pe-scenes .hdr { margin: 0 0 8px 2px; }
+  .pe-row { display: flex; align-items: center; justify-content: space-between; height: 30px; padding: 0 10px; border-radius: 12px; white-space: nowrap; }
+  .pe-row.on { background: #fff; color: #111114; font-weight: 500; }
+  .pe-row .ed { font-size: 11px; opacity: .65; }
+  .pe-foot { display: flex; gap: 6px; margin-top: 10px; }
+  .pe-foot span { height: 28px; min-width: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0 10px; border-radius: 999px;
+                  background: rgba(255,255,255,.14); box-shadow: inset 1px 1px 0 rgba(255,255,255,.35); }
+  .pe-foot span .lic { margin: 0; }
+  .pe-foot .save { margin-left: auto; background: #fff; color: #111114; font-weight: 600; gap: 6px; }
+  .pe-foot .save .lic { color: #111114 !important; }
+  .pe-props { position: absolute; left: 14px; right: 14px; bottom: 14px; padding: 12px 14px 14px; }
+  .pe-head { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
+  .pe-head .seg span { display: inline-flex; align-items: center; white-space: nowrap; }
+  .pe-head .seg .lic { font-size: 15px; margin-right: 6px; }
+  .pe-head .search { flex: 1; min-width: 120px; max-width: 260px; width: auto !important; }
+  .pe-sort { margin-left: auto; white-space: nowrap; font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
+  .pe-sort .lic { margin: 0; font-size: 15px; }
+  .pe-grid { display: flex; gap: 14px; margin-top: 12px; overflow: hidden; }
+  .pe-item { width: 78px; flex: none; text-align: center; position: relative; }
+  .pe-item .t { width: 78px; height: 78px; border-radius: 18px; background: rgba(255,255,255,.08); box-shadow: inset 1px 1px 0 rgba(255,255,255,.25);
+                display: flex; align-items: center; justify-content: center; }
+  .pe-item .t i { display: block; width: 46px; height: 46px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #d9b28a, #7a5634 70%); }
+  .pe-item:nth-child(2n) .t i { background: radial-gradient(circle at 50% 40%, #9fd09a, #3f6a3a 70%); }
+  .pe-item:nth-child(3n) .t i { border-radius: 8px; background: linear-gradient(135deg, #b8b8b8 0 50%, #6a6a6a 50%); }
+  .pe-item.on .t { box-shadow: 0 0 0 2px #fff; }
+  .pe-item .n { font-size: 11px; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 1px 6px; border-radius: 999px; }
+  .pe-item.on .n { background: #fff; color: #111114; }
+  .pe-item .st { position: absolute; top: 4px; right: 6px; font-size: 13px; color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+</style>
+<div class="sec"><h3>13 + 14 · F10 prop editor and scenes</h3><p>Props along the bottom as a Finder icon view: tabs, search, sort, thumbnails with a star on favourites. Scenes in the corner as an inspector list with + / − and Save.</p></div>
+<div class="scene tall">
+  <span class="tag" style="bottom:auto; top:8px">editor: free camera, game running</span>
+  <div class="glass pe-scenes">
+    <div class="hdr"><i class="icon-clapperboard lic"></i>Scenes</div>
+    <div class="pe-row">intro</div>
+    <div class="pe-row on">scene 1<span class="ed">Edited</span></div>
+    <div class="pe-row">bridge night</div>
+    <div class="pe-foot"><span><i class="icon-plus lic"></i></span><span><i class="icon-minus lic"></i></span><span class="save"><i class="icon-save lic"></i>Save</span></div>
+  </div>
+  <div class="glass pe-props">
+    <div class="pe-head">
+      <div class="seg"><span class="on"><i class="icon-box lic"></i>All</span><span><i class="icon-star lic"></i>Favourites</span><span><i class="icon-clock lic"></i>Recent</span></div>
+      <div class="search"><i class="icon-search lic"></i>Search props</div>
+      <span class="pe-sort m">Sort by <b style="color:#fff; font-weight:500">Name</b><i class="icon-chevron-down lic"></i></span>
+    </div>
+    <div class="pe-grid">
+      <div class="pe-item on"><div class="t"><i></i></div><span class="st"><i class="icon-star"></i></span><div class="n">barrel</div></div>
+      <div class="pe-item"><div class="t"><i></i></div><div class="n">bush_round</div></div>
+      <div class="pe-item"><div class="t"><i></i></div><div class="n">crate</div></div>
+      <div class="pe-item"><div class="t"><i></i></div><span class="st"><i class="icon-star"></i></span><div class="n">lamp_post</div></div>
+      <div class="pe-item"><div class="t"><i></i></div><div class="n">rock_big</div></div>
+      <div class="pe-item"><div class="t"><i></i></div><div class="n">table</div></div>
+      <div class="pe-item"><div class="t"><i></i></div><div class="n">bench</div></div>
+      <div class="pe-item"><div class="t"><i></i></div><div class="n">fence_long</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="sec"><h3>14 · Unsaved scene alert</h3><p>A macOS alert over a dimmed game, in a thicker colourless glass so the sky never tints it.</p></div>
+<div class="scene short" style="height:280px">
+  <div class="veil"></div><div class="glass alert neutral"><div class="ai" style="display:flex;align-items:center;justify-content:center"><i class="icon-clapperboard" style="font-size:30px;color:#111114"></i></div><b>Discard changes to "scene 1"?</b><div class="m">Your changes will be lost if you don't save them.</div>
+    <div class="bs"><span class="btn def">Save</span><span class="btn">Discard</span><span class="btn">Cancel</span></div></div>
+</div>
+
+<style>
+  .ekey { position: absolute; left: 50%; top: 60%; transform: translateX(-50%); width: 34px; height: 34px; border-radius: 8px;
+          display: flex; align-items: center; justify-content: center; font: 700 17px/1 system-ui, sans-serif; color: #fff;
+          border: 2px solid rgba(255,255,255,.9); background: rgba(0,0,0,.25); text-shadow: 0 1px 2px rgba(0,0,0,.6);
+          box-shadow: 0 2px 6px rgba(0,0,0,.4); }
+</style>
+<div class="sec"><h3>12 · Door prompt (game UI)</h3><p>The game's own UI, so not the editor's glass: the E key alone, no words, just under the crosshair.</p></div>
+<div class="scene short" style="height:200px; filter:brightness(.6)">
+  <div class="cross"></div>
+  <div class="ekey">E</div>
+</div>
+</div>
+<style>
+  /* ---- liquid glass: clearer material, specular rim, darkened edges ---- */
+  .glass {
+    background:
+      linear-gradient(160deg, rgba(255,255,255,.20) 0%, rgba(255,255,255,.06) 38%, rgba(255,255,255,.02) 60%, rgba(255,255,255,.08) 100%),
+      rgba(18,18,22,.30) !important;
+    -webkit-backdrop-filter: blur(14px) saturate(200%) brightness(1.06) !important;
+    backdrop-filter: blur(14px) saturate(200%) brightness(1.06) !important;
+    border-radius: 26px !important;
+    box-shadow:
+      inset 1.5px 1.5px 0 rgba(255,255,255,.55),
+      inset -1px -1px 0 rgba(255,255,255,.18),
+      inset 0 0 0 .5px rgba(255,255,255,.28),
+      inset 0 -24px 40px -28px rgba(0,0,0,.55),
+      inset 0 24px 40px -30px rgba(255,255,255,.18),
+      0 0 0 .5px rgba(0,0,0,.30),
+      0 20px 60px rgba(0,0,0,.35) !important;
+  }
+  .glass.pop, .glass.notif, .glass.alert { border-radius: 22px !important; }
+  .glass.bar, .glass.recpill, .glass.prompt { border-radius: 999px !important; }
+  .glass.count { border-radius: 50% !important; }
+  .glass .glass { box-shadow: inset 1px 1px 0 rgba(255,255,255,.4), inset 0 0 0 .5px rgba(255,255,255,.2) !important; }
+
+  /* capsules everywhere */
+  .kc { border-radius: 999px !important; padding: 3px 8px !important;
+        background: linear-gradient(rgba(255,255,255,.28), rgba(255,255,255,.10)) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -1px 0 rgba(0,0,0,.25) !important; }
+  .btn, .tb, .primary, .seg, .seg span, .search { border-radius: 999px !important; }
+  .tb.on { background: rgba(255,255,255,.22) !important; box-shadow: inset 1px 1px 0 rgba(255,255,255,.4); }
+  .primary { box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 4px 14px rgba(255,255,255,.35); }
+  .search { background: rgba(255,255,255,.12) !important; box-shadow: inset 1px 1px 0 rgba(255,255,255,.3) !important; }
+  .pop .mi { border-radius: 10px !important; }
+  .pop .mi.hl { background: rgba(255,255,255,.85) !important; }
+
+  /* HUDs become the new slider capsule */
+  .glass.hud { flex-direction: row !important; width: auto !important; height: auto !important;
+               padding: 12px 20px 12px 16px !important; gap: 14px !important; border-radius: 999px !important; }
+  .hud .ic { font-size: 32px !important; }
+  .hud .v { font-size: 15px !important; min-width: 70px; }
+  .hud .steps i { width: 30px !important; height: 8px !important; border-radius: 999px !important; }
+  .hud .steps i.on { background: #ffffff !important; box-shadow: 0 0 6px rgba(255,255,255,.5); }
+  .hud .k { display: none; }
+
+  /* finder: floating inset sidebar, edge to edge, coloured active item */
+  .win .tbar { border-bottom: 0 !important; height: 52px !important; }
+  .side { margin: 0 0 10px 10px; border-radius: 18px; background: rgba(255,255,255,.08) !important;
+          box-shadow: inset 1px 1px 0 rgba(255,255,255,.3), inset 0 0 0 .5px rgba(255,255,255,.12); border-right: 0 !important; }
+  .side .si.on { background: rgba(255,255,255,.28) !important; color: #fff; box-shadow: inset 0 0 0 .5px rgba(255,255,255,.6); }
+  .side .si { border-radius: 10px !important; }
+  .li { border-radius: 10px; margin: 0 8px; }
+  .li:nth-child(odd) { background: transparent !important; }
+  .li.on { background: rgba(255,255,255,.85) !important; }
+  .lh { border-bottom: 0 !important; margin: 0 8px; }
+  .ql { border-left: 0 !important; }
+  .shot { border-radius: 14px !important; }
+  .nav { padding: 4px 8px; border-radius: 999px; background: rgba(255,255,255,.12); box-shadow: inset 1px 1px 0 rgba(255,255,255,.3); }
+  .ttl { padding: 4px 12px; border-radius: 999px; background: rgba(255,255,255,.08); }
+
+  /* new stoplights: gradient and a highlight */
+  .lights i { width: 13px !important; height: 13px !important; box-shadow: inset 0 1px 1px rgba(255,255,255,.6), inset 0 -1px 2px rgba(0,0,0,.25), 0 0 0 .5px rgba(0,0,0,.3); }
+  .lights i:nth-child(1) { background: radial-gradient(circle at 50% 30%, #ff8a82, #ff3b30 70%) !important; }
+  .lights i:nth-child(2) { background: radial-gradient(circle at 50% 30%, #ffe08a, #ffb31a 70%) !important; }
+  .lights i:nth-child(3) { background: radial-gradient(circle at 50% 30%, #8cf09a, #24c03a 70%) !important; }
+
+  /* prop thumbnails and lists rounder */
+  .ic2 .t { border-radius: 18px !important; }
+  .ic2.on .n { border-radius: 999px !important; padding: 0 8px !important; }
+  .pm { border-top: 0 !important; padding: 6px; gap: 6px; }
+  .pm span { border-right: 0 !important; border-radius: 999px; background: rgba(255,255,255,.12); box-shadow: inset 1px 1px 0 rgba(255,255,255,.3); }
+  .alert .ai, .notif .ai { border-radius: 14px !important; }
+  .alert .bs span { border-radius: 999px !important; }
+  .dlg { border-radius: 26px !important; }
+</style>
+<style>
+  /* the explorer's toolbar reads at full strength over the glass */
+  .tbar .nav, .tbar .nav .lic, .tbar .ttl, .tbar .ttl .m, .tbar .search, .tbar .search .lic { color: rgba(255,255,255,.95) !important; opacity: 1 !important; }
+  .tbar .ttl .m { font-weight: 400; }
+  .tbar .ttl { font-weight: 600; }
+  .tbar, .search, .hdr, .m, .k { text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+</style>
+<style>
+  /* a white fill takes dark ink, everything inside it included */
+  .tb.primary, .tb.primary *, .btn.def, .li.on, .li.on *, .ic2.on .n { color: #111114 !important; opacity: 1 !important; }
+  .tb.primary .kc { background: rgba(17,17,20,.12) !important; box-shadow: inset 0 0 0 .5px rgba(17,17,20,.25) !important; color: #111114 !important; }
+  .tb.primary { text-shadow: none !important; font-weight: 600; }
+  /* the countdown in solid white */
+  .count { color: #ffffff !important; font-weight: 500 !important; text-shadow: 0 2px 10px rgba(0,0,0,.45); }
+</style>
+<style>
+  /* a modal dims the game and uses a thicker, colourless glass, so the sky never tints it */
+  .veil { position: absolute; inset: 0; background: rgba(0,0,0,.35); }
+  .glass.alert.neutral {
+    background: linear-gradient(160deg, rgba(255,255,255,.16), rgba(255,255,255,.05) 40%, rgba(255,255,255,.08)), rgba(38,38,42,.62) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(60%) !important; backdrop-filter: blur(30px) saturate(60%) !important; }
+</style>
+<style>
+  /* the page frame has a blue --accent of its own; the white accent is written out here */
+  .btn.def, .tb.primary, .pe-foot .save { background: #ffffff !important; color: #111114 !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 4px 14px rgba(255,255,255,.18) !important; }
+</style>
+<style>
+  /* keycap "1": a white face on a grey skirt */
+  .kc, .tb.primary .kc { display: inline-block; font: 600 11px/1 system-ui, sans-serif !important; color: #1d1d1f !important; text-shadow: none !important;
+        padding: 6px 8px !important; min-width: 18px; text-align: center; border-radius: 6px !important; margin-bottom: 5px;
+        background: linear-gradient(#ffffff, #f3f3f6) !important;
+        box-shadow: inset 0 1px 0 #fff, 0 .5px 0 rgba(0,0,0,.12), 0 5px 0 #c3c3cb, 0 5px 0 .5px rgba(0,0,0,.22), 0 9px 8px rgba(0,0,0,.35) !important; }
+  .r { height: 30px; }
+</style>
+
+</body>
+</html>

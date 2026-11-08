@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
-use super::blur::Floating;
+use super::blur::{Floating, GlassLayers};
 use super::{BORDER, BORDER_PX, BUTTON_GAP_PX, ButtonKind, SURFACE, button, label};
 use crate::fade::Fade;
 
@@ -39,6 +39,11 @@ pub(super) fn plugin(app: &mut App) {
     // no run_if: a floating root comes in, and a dialog closes, over any screen or overlay
     app.add_systems(Update, animate_entrances);
     app.add_observer(close_dialog);
+    app.init_resource::<GlassLayers>();
+    app.world_mut()
+        .resource_mut::<GlassLayers>()
+        .0
+        .push(DIALOG_Z_INDEX);
 }
 
 // ==== Widgets ================================================================

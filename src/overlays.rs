@@ -3,6 +3,7 @@ use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
 use crate::screens::Pause;
+use crate::ui::blur::GlassLayers;
 use crate::ui::{ButtonKind, Dialog, button, card, floating_root};
 
 mod credits;
@@ -32,6 +33,11 @@ pub(super) fn plugin(app: &mut App) {
         Update,
         apply_esc_action.run_if(input_just_pressed(KeyCode::Escape)),
     );
+    app.init_resource::<GlassLayers>();
+    app.world_mut()
+        .resource_mut::<GlassLayers>()
+        .0
+        .push(OVERLAY_Z_INDEX);
 }
 
 // ==== Overlay Panel ==========================================================
