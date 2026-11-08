@@ -46,11 +46,11 @@ listed in `docs/flow.md` and is never restated.
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 1.1 `GlassLayers` resource in `src/ui/blur.rs`: the list of floating layers | you | `#[derive(Resource, Default)] struct GlassLayers(Vec<GlobalZIndex>)`, `pub(crate)` |
-| [ ] | 1.2 `pause.rs`, `overlays.rs` and `panel.rs` register their layer from their plugin | you | `app.init_resource::<GlassLayers>()` (does nothing if it already exists), then `app.world_mut().resource_mut::<GlassLayers>().0.push(PAUSE_Z_INDEX)` |
-| [ ] | 1.3 `spawn_floating_camera` becomes `spawn_layer_cameras`: one camera per registered layer, as the floating camera is today, with a `LayerCamera(GlobalZIndex)` marker | you | `GlobalZIndex(pub i32)`; `order: z.0 as isize`; keep `clear_color: ClearColorConfig::None` and `RenderLayers::none()`, for the reasons their comments give |
-| [ ] | 1.4 `target_floating_camera` sends a new `Floating` root to the camera of its own layer | you | `On<Add<Floating>>` runs once the whole bundle is in, so the root's `GlobalZIndex` is there: `Query<&GlobalZIndex>`, then the `LayerCamera` with the same value |
-| [ ] | 1.5 `docs/flow.md` "Two cameras and the blur" and `docs/template.md`: one camera per layer | Claude | |
+| [x] | 1.1 `GlassLayers` resource in `src/ui/blur.rs`: the list of floating layers | you | `#[derive(Resource, Default)] struct GlassLayers(Vec<GlobalZIndex>)`, `pub(crate)` |
+| [x] | 1.2 `pause.rs`, `overlays.rs` and `panel.rs` register their layer from their plugin | you | `app.init_resource::<GlassLayers>()` (does nothing if it already exists), then `app.world_mut().resource_mut::<GlassLayers>().0.push(PAUSE_Z_INDEX)` |
+| [x] | 1.3 `spawn_floating_camera` becomes `spawn_layer_cameras`: one camera per registered layer, as the floating camera is today, with a `LayerCamera(GlobalZIndex)` marker | you | `GlobalZIndex(pub i32)`; `order: z.0 as isize`; keep `clear_color: ClearColorConfig::None` and `RenderLayers::none()`, for the reasons their comments give |
+| [x] | 1.4 `target_floating_camera` sends a new `Floating` root to the camera of its own layer | you | `On<Add<Floating>>` runs once the whole bundle is in, so the root's `GlobalZIndex` is there: `Query<&GlobalZIndex>`, then the `LayerCamera` with the same value |
+| [x] | 1.5 `docs/flow.md` "Two cameras and the blur" and `docs/template.md`: one camera per layer | Claude | |
 | [ ] | 1.6 `just run` on `3d/player`, then on `main`: pause; Settings and Load over the pause menu; "Quit without saving?" over it; clicks reach only the top layer; everything looks as before; review; commit | both | `playroom.rs` already gives every `Camera2d` `Hdr` and `Msaa::Off`, the new cameras included |
 
 ## Step 2: `feat: blur behind each layer with a dual Kawase`

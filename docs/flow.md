@@ -228,7 +228,7 @@ frame. An autosave counts as a save, so quitting right after one asks nothing.
 
 **The pause menu** (`src/screens/gameplay/pause.rs`, registered by `gameplay.rs`'s plugin).
 `OnEnter(Pause::On)` spawns the panel with `DespawnOnExit(Pause::On)`: a `floating_root` holding a
-`card`, so the frozen game shows blurred and dimmed behind it (see "Two cameras and the blur").
+`card`, so the frozen game shows blurred and dimmed behind it (see "The cameras and the blur").
 It also calls `Time<Virtual>::pause()`, and `OnExit` calls `unpause()`. Any gameplay written later
 that reads `Res<Time>` stops while paused for free, with no `run_if` of its own.
 
@@ -369,22 +369,28 @@ do this. The layers, bottom to top:
 | overlays | 100 | `OVERLAY_Z_INDEX` |
 | dialog | 200 | `DIALOG_Z_INDEX`, in `ui/panel.rs` |
 
-Those numbers order roots *within a camera*. Every `Floating` root (pause, overlays, dialogs) is
-drawn by the floating camera, after the screen camera, so all of them are above every screen
-whatever its `GlobalZIndex`.
+Those numbers order roots *within a camera*. Every floating layer (pause, overlays, dialogs) also
+has a camera of its own, ordered by the same number and drawn after the screen camera, so each
+layer is above every screen whatever its `GlobalZIndex`, and above the layers under it.
 
-## Two cameras and the blur
+## The cameras and the blur
 
 `main.rs` spawns the **screen camera**: `Camera2d`, `IsDefaultUiCamera`, and the `BlurStrength`
 that `src/ui/blur.rs` drives. Every UI root without a `UiTargetCamera` is drawn by it: the splash,
 the menu, loading, the intro, gameplay.
 
-`src/ui/blur.rs` spawns the **floating camera** at `Startup`: order 1, so it draws after, and
-`ClearColorConfig::None`, so it draws over the screen camera's image instead of wiping it, and
-`RenderLayers::none()`, so it draws no sprite or tilemap of a 2D game a second time, sharp, over
-the blurred one; UI ignores render layers, so the panels still reach it. An
-observer on `Add<Floating>` gives each new `Floating` root a `UiTargetCamera` pointing at it.
-Clicks need nothing: Bevy's UI picking tests both cameras and puts the later one's hits first.
+Each floating layer gets a **layer camera**. `pause.rs`, `overlays.rs` and `ui/panel.rs` push
+their `*_Z_INDEX` onto the `GlassLayers` resource from their plugins, and `spawn_layer_cameras`
+(`src/ui/blur.rs`) spawns one camera per entry at `Startup`: a `LayerCamera` holding that
+`GlobalZIndex`, which is also its `order`, so the cameras draw in the order the layers stack;
+`ClearColorConfig::None`, so each draws over what the cameras below it drew instead of wiping
+it; and `RenderLayers::none()`, so none draws a sprite or tilemap of a 2D game a second time,
+sharp, over the blurred one; UI ignores render layers, so the panels still reach them. The
+observer `target_layer_camera` gives each new `Floating` root a `UiTargetCamera` pointing at the
+camera of its `GlobalZIndex`; a root on a layer nobody pushed logs a warning and stays on the
+screen camera. A new layer is three things: its constant, the push from its plugin, and its row
+in the table above. Clicks need nothing: Bevy's UI picking tests every camera and puts the
+later one's hits first.
 
 `update_blur` moves `BlurStrength` toward 1 while any `Floating` exists and toward 0 when none
 does, over `BLUR_RAMP_SECS`, on `Time<Real>` because the pause menu freezes virtual time. While
@@ -393,8 +399,8 @@ it is above 0, the screen camera carries `BlurHorizontal` and `BlurVertical`, tw
 `.after(ui_pass).before(upscaling)` in `Core2d`: after the UI so the menu's buttons blur too, and
 outside Bevy's own post-processing, which runs before the UI. At 0 both components are removed
 and no pass runs. Three settings must stay as they are: `IsDefaultUiCamera` on the screen camera
-(or every root moves to the floating one), `ClearColorConfig::None` on the floating camera (or the
-screens vanish), and the same HDR and MSAA on both (or they stop sharing the image).
+(or every root moves to the top layer's camera), `ClearColorConfig::None` on the layer cameras (or
+the screens vanish), and the same HDR and MSAA on all of them (or they stop sharing the image).
 
 ## Shared code
 
@@ -403,7 +409,7 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
 | `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
-| `src/ui/blur.rs` | the floating camera, `Floating`, `BlurStrength`, the two blur passes | the pause menu, every overlay and every dialog float |
+| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `BlurStrength`, the two blur passes | the pause menu, every overlay and every dialog float |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the blur and the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
