@@ -6,6 +6,7 @@ use crate::i18n::{Language, Translations};
 use crate::overlays::Overlay;
 use crate::save::{SaveFinished, Session, has_unsaved_progress};
 use crate::screens::Screen;
+use crate::ui::blur::GlassLayers;
 use crate::ui::{
     ACCENT, BUTTON_GAP_PX, ButtonKind, DANGER, SMALL_FONT_SIZE_PX, TEXT_MUTED, card, dialog,
     floating_root, font, heading, menu_button,
@@ -43,6 +44,11 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(confirm_quit.run_if(in_state(Pause::On)));
     app.add_observer(show_save_status.run_if(in_state(Pause::On)));
     app.add_systems(Update, fade_save_status.run_if(in_state(Pause::On)));
+    app.init_resource::<GlassLayers>();
+    app.world_mut()
+        .resource_mut::<GlassLayers>()
+        .0
+        .push(PAUSE_Z_INDEX);
 }
 
 // ==== State ==================================================================
