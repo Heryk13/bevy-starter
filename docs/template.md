@@ -80,7 +80,7 @@ src/
   ui/
     button.rs       buttons, their paint and their sounds
     panel.rs        floating roots, cards, their entrance and dialogs
-    blur.rs         the floating camera and the blur behind every panel
+    blur.rs         a camera per floating layer and the blur behind every panel
 docs/
   template.md       this file: turning the template into a game
   flow.md           how the screens, overlays and fades fit together
@@ -142,6 +142,9 @@ The colors and type sizes of every screen, panel and button are the `Config` sec
 editing those constants. The game's name on the menu and the window is `GAME_TITLE` in
 `src/main.rs`. Anything that should float over the screens with the blur behind it is built on
 `floating_root()` and `card()` from `ui.rs`; the `Floating` marker they carry is all the blur needs.
+A panel on a layer that exists (`OVERLAY_Z_INDEX` for a new overlay) needs nothing else. A new
+layer is a new `*_Z_INDEX` pushed onto `GlassLayers` from its plugin, or it logs a warning and
+draws under every other layer (see "The cameras and the blur" in `docs/flow.md`).
 
 ### Translations
 
