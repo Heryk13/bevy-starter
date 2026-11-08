@@ -135,15 +135,15 @@ fn spawn_playroom(
     commands.spawn((Atmosphere::earth(medium), DespawnOnExit(Screen::Gameplay)));
 }
 
-/// Matches the UI cameras, the screen camera and the floating one above it, to the
+/// Matches the UI cameras, the screen camera and the layer cameras above it, to the
 /// playroom's camera: its `Hdr`, which its atmosphere and `Bloom` bring, and its
 /// `Msaa::Off`, which its SSAO needs. Cameras on one window share an image only while their
 /// format and MSAA match: apart, the screen camera's opaque clear hides the level, its blur
-/// never sees it, and the floating camera, which never clears, keeps showing the last frame
+/// never sees it, and the layer cameras, which never clear, keep showing the last frame
 /// they shared. Sharing an image is not sharing its clear, though: each camera clears it the
 /// first time it draws. With MSAA on, Bevy copied the cameras below into each one's MSAA
 /// image first, which hid that; without it, the screen camera must not clear at all.
-/// The screen camera also loses its render layers, as the floating one never had any: a
+/// The screen camera also loses its render layers, as the layer cameras never had any: a
 /// `Camera2d` draws whatever the world draws on layer 0, and the level's gizmos would show
 /// through it as a tiny map in the middle of the screen, a metre to a pixel. UI ignores
 /// render layers, so the menus still reach it.
@@ -163,7 +163,7 @@ fn match_ui_cameras_to_playroom_camera(
 /// Returns the UI cameras to their defaults: outside gameplay there is no level under them.
 /// `Msaa` is put back rather than removed, since every camera needs one, while the screen
 /// camera's `RenderLayers` is removed, so it is back on layer 0 as `main.rs` spawned it. The
-/// floating camera is left out of that: its `RenderLayers::none()` is its own, for good.
+/// layer cameras are left out of that: their `RenderLayers::none()` is their own, for good.
 fn reset_ui_cameras(
     mut commands: Commands,
     cameras: Query<Entity, With<Camera2d>>,

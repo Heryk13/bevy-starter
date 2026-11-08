@@ -210,10 +210,10 @@ in `playroom.rs`: it requires the `Camera3d` and the camera kit (exposure, sky l
 SSAO, SMAA, `Msaa::Off`), so any camera that carries it looks the same. It draws first
 (`PLAYROOM_CAMERA_ORDER`, below the screen camera's 0), so the UI lands on top of the level.
 For the blur to see the level the cameras must share one image, which takes the same format
-and MSAA: `match_ui_cameras_to_playroom_camera` gives both UI cameras `Hdr` and `Msaa::Off` on
+and MSAA: `match_ui_cameras_to_playroom_camera` gives every UI camera `Hdr` and `Msaa::Off` on
 entering gameplay and stops the screen camera clearing, since each camera clears the shared
-image on its own. It also takes the screen camera off every render layer, like the floating
-camera, so the level's gizmos are not drawn a second time through a 2D camera as a tiny map.
+image on its own. It also takes the screen camera off every render layer, like the layer
+cameras, so the level's gizmos are not drawn a second time through a 2D camera as a tiny map.
 `reset_ui_cameras` undoes it on leaving. The `Session` arrives with `StartGame`,
 fresh or loaded, and `count_play_time` adds each frame's virtual time to it, so the pause menu
 never counts as play. The resource is also created at startup: a default `Session` is a valid
@@ -411,8 +411,8 @@ screen camera. A new layer is three things: its constant, the push from its plug
 in the table above. Clicks need nothing: Bevy's UI picking tests every camera and puts the
 later one's hits first.
 
-On `3d/base` a third camera sits under both: the playroom's still `Camera3d`, at order -1, which
-draws the level before the screen camera draws the UI over it (see [Gameplay](#gameplay)).
+On `3d/base` one more camera sits under them all: the playroom's still `Camera3d`, at order -1,
+which draws the level before the screen camera draws the UI over it (see [Gameplay](#gameplay)).
 
 `update_blur` moves `BlurStrength` toward 1 while any `Floating` exists and toward 0 when none
 does, over `BLUR_RAMP_SECS`, on `Time<Real>` because the pause menu freezes virtual time. While
