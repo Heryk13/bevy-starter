@@ -51,7 +51,7 @@ listed in `docs/flow.md` and is never restated.
 | [x] | 1.3 `spawn_floating_camera` becomes `spawn_layer_cameras`: one camera per registered layer, as the floating camera is today, with a `LayerCamera(GlobalZIndex)` marker | you | `GlobalZIndex(pub i32)`; `order: z.0 as isize`; keep `clear_color: ClearColorConfig::None` and `RenderLayers::none()`, for the reasons their comments give |
 | [x] | 1.4 `target_floating_camera` sends a new `Floating` root to the camera of its own layer | you | `On<Add<Floating>>` runs once the whole bundle is in, so the root's `GlobalZIndex` is there: `Query<&GlobalZIndex>`, then the `LayerCamera` with the same value |
 | [x] | 1.5 `docs/flow.md` "Two cameras and the blur" and `docs/template.md`: one camera per layer | Claude | |
-| [ ] | 1.6 `just run` on `3d/player`, then on `main`: pause; Settings and Load over the pause menu; "Quit without saving?" over it; clicks reach only the top layer; everything looks as before; review; commit | both | `playroom.rs` already gives every `Camera2d` `Hdr` and `Msaa::Off`, the new cameras included |
+| [x] | 1.6 `just run` on `3d/player`, then on `main`: pause; Settings and Load over the pause menu; "Quit without saving?" over it; clicks reach only the top layer; everything looks as before; review; commit | both | `playroom.rs` already gives every `Camera2d` `Hdr` and `Msaa::Off`, the new cameras included |
 
 ## Step 2: `feat: blur behind each layer with a dual Kawase`
 
