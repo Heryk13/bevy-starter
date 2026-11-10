@@ -13,8 +13,6 @@ use bevy::input::common_conditions::input_just_pressed;
 use bevy::log::{DEFAULT_FILTER, LogPlugin};
 use bevy::prelude::*;
 
-use ui::blur::BlurStrength;
-
 mod assets;
 mod disk;
 mod fade;
@@ -89,7 +87,7 @@ fn main() {
 /// Spawns the camera that renders the screens: the game and every UI root that does not
 /// float. Its image is what gets blurred behind a floating panel.
 fn spawn_screen_camera(mut commands: Commands) {
-    commands.spawn((Camera2d, IsDefaultUiCamera, BlurStrength::default()));
+    commands.spawn((Camera2d, IsDefaultUiCamera));
 }
 
 /// Shows or hides the FPS overlay, its frame time graph along with its text.

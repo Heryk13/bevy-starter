@@ -284,9 +284,9 @@ not count, so quitting right after starting never asks.
 Every panel follows the same lines: spawn on `OnEnter(Overlay::X)`, build an `overlay_root()` holding
 one `overlay_card()`, and carry `DespawnOnExit(Overlay::X)`. The card starts with `heading(key)`
 and ends with `close_footer()`, Close on the right. `overlay_root()` in `src/overlays.rs` is
-`floating_root(OVERLAY_Z_INDEX)` from `ui.rs`: the whole window, `Floating`, a dim that comes in
-with the card. The dim matters when an overlay opens over the pause menu: the pause card darkens
-under it instead of competing with it.
+`floating_root(OVERLAY_Z_INDEX)` from `ui.rs`: the whole window, `Floating`, and glass that comes
+in with the card. The glass's dimming tint matters when an overlay opens over the pause menu: the
+pause card darkens under it instead of competing with it.
 
 - **Credits** (`src/overlays/credits.rs`): a translated line, the names as plain text, and a Close
   button.
@@ -404,10 +404,9 @@ layer is above every screen whatever its `GlobalZIndex`, and above the layers un
 
 ## The cameras and the blur
 
-`main.rs` spawns the **screen camera**: `Camera2d`, `IsDefaultUiCamera`, and the `BlurStrength`
-that `src/ui/blur.rs` drives. Every UI root without a `UiTargetCamera` is drawn by it: the splash,
-the menu, loading, the intro (on `3d/base` gameplay has no UI root of its own; its pause menu
-floats).
+`main.rs` spawns the **screen camera**: `Camera2d` and `IsDefaultUiCamera`. Every UI root
+without a `UiTargetCamera` is drawn by it: the splash, the menu, loading, the intro (on
+`3d/base` gameplay has no UI root of its own; its pause menu floats).
 
 Each floating layer gets a **layer camera**. `pause.rs`, `overlays.rs` and `ui/panel.rs` push
 their `*_Z_INDEX` onto the `GlassLayers` resource from their plugins, and `spawn_layer_cameras`
@@ -420,20 +419,40 @@ observer `target_layer_camera` gives each new `Floating` root a `UiTargetCamera`
 camera of its `GlobalZIndex`; a root on a layer nobody pushed logs a warning and stays on the
 screen camera. A new layer is three things: its constant, the push from its plugin, and its row
 in the table above. Clicks need nothing: Bevy's UI picking tests every camera and puts the
-later one's hits first.
+later one's hits first. `activate_layer_cameras` turns a layer camera on only while a `Floating`
+root of its layer is open, in `PostUpdate` so a root opened or closed during `Update` already
+counts: an inactive camera draws nothing, so a closed layer costs nothing.
 
 On `3d/base` one more camera sits under them all: the playroom's still `Camera3d`, at order -1,
 which draws the level before the screen camera draws the UI over it (see [Gameplay](#gameplay)).
 
-`update_blur` moves `BlurStrength` toward 1 while any `Floating` exists and toward 0 when none
-does, over `BLUR_RAMP_SECS`, on `Time<Real>` because the pause menu freezes virtual time. While
-it is above 0, the screen camera carries `BlurHorizontal` and `BlurVertical`, two
-`FullscreenMaterial`s running `assets/shaders/blur.wesl` across then down. Both are ordered
-`.after(ui_pass).before(upscaling)` in `Core2d`: after the UI so the menu's buttons blur too, and
-outside Bevy's own post-processing, which runs before the UI. At 0 both components are removed
-and no pass runs. Three settings must stay as they are: `IsDefaultUiCamera` on the screen camera
-(or every root moves to the top layer's camera), `ClearColorConfig::None` on the layer cameras (or
-the screens vanish), and the same HDR and MSAA on all of them (or they stop sharing the image).
+The blur is a **dual Kawase**, run by each layer camera on what the cameras below it drew. At
+`Startup`, and again on every `WindowResized`, `generate_level_images` gives each layer camera a
+`GlassCopies`: the descent, `Rgba16Float` images each half the one before, as many halvings as
+`levels_for_height` takes to bring the screen to `GLASS_TARGET_HEIGHT_PX` or below, plus one level
+more for the cards; and the ascent, back up to half the screen. `init_kawase_pipelines` queues
+the two Kawase pipelines at `RenderStartup`, so they compile while the game loads, not on the
+first pause; the glass material's own pipeline is still compiled by Bevy on its first use.
+`blur_layer_backdrops` runs in `Core2d`, once per active layer camera, between
+`Core2dSystems::PostProcess` and `ui_pass`, the bounds the UI pass itself has: the shared image
+then holds the layers below but not this layer's own UI, and nothing before it (the MSAA
+writeback of a camera that does not clear swaps the image) can swap it mid-read. It halves the image
+down the backdrop's levels with `assets/shaders/kawase_down.wesl`, every pass reading the one
+before, then doubles it back up the ascent with `kawase_up.wesl`. Each pass is timed with a
+`pass_span`, so `RenderDiagnosticsPlugin` can log it as `kawase_down_pass` or `kawase_up_pass`.
+
+`target_layer_camera` also gives each new `Floating` root a `MaterialNode` of its own
+`GlassMaterial`: the top of its layer's chain (or the first level, when the window is so small
+that the ascent is empty), the `SCREEN_DIM` tint, and an alpha that `animate_entrances` brings
+from 0 to 1 over `ENTRANCE`. `assets/shaders/glass.wesl` reads the copy at the fragment's screen
+position, lays the tint over it and fades by that alpha, so the glass comes in with its panel.
+Which image the glass reads is `GlassCopies::glass_copy`. A resize gives the cameras new copies,
+and the observer `refresh_glass_copies`, on `Insert<GlassCopies>`, points every open root of
+that layer at them, so a panel left open through a resize keeps blurring instead of freezing.
+
+Three settings must stay as they are: `IsDefaultUiCamera` on the screen camera (or every root
+moves to the top layer's camera), `ClearColorConfig::None` on the layer cameras (or the screens
+vanish), and the same HDR and MSAA on all of them (or they stop sharing the image).
 
 ## Shared code
 
@@ -442,9 +461,9 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
 | `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
-| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `BlurStrength`, the two blur passes | the pause menu, every overlay and every dialog float |
+| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial` | the pause menu, every overlay and every dialog float |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
-| `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the blur and the buttons |
+| `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
 | `src/save.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `is_autosave()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves |
 | `src/disk.rs` | `game_data_dir()`, `write_atomic()` | saves and settings both live in the data folder and are written atomically |
@@ -460,7 +479,7 @@ the left, and `row_button(content)` around any bundle, for a list row. `ButtonKi
 `paint_buttons` eases each button's `ButtonMotion` toward its `Hovered` and `Has<Pressed>` state
 with `approach`, on `Time<Real>`, and paints its fill, border and glow from the pure
 `button_colors(kind, hover, press)`. `floating_root(z)` and `card(width)` are what every panel is
-built from; `animate_entrances` brings each new root in, its dim darkening and its card rising
+built from; `animate_entrances` brings each new root in, its glass fading in and its card rising
 12 px and scaling up, by the `ENTRANCE` fade. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
 so there is no state to gate them on. `load_button_sounds` loads `ui/click.wav` and `ui/hover.wav`
 once at `Startup` into a `ButtonSounds` resource, and `play_button_sounds` spawns a one-shot player

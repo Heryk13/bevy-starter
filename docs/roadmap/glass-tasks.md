@@ -19,7 +19,7 @@ tasks small enough for one sitting each, with the facts each task needs.
 - A task is done when `just check` passes, except where it says the next task makes it pass.
 - Mark a task done by changing its `[ ]` to `[x]`.
 
-## Two departures from the spec, to record in its "What changed while building it"
+## Departures from the spec, to record in its "What changed while building it"
 
 - **"Coming in" is not a step of its own.** Step 2 removes the Gaussian, and with it the only
   thing `update_blur` drives, so the backdrop's alpha follows `ENTRANCE` from step 2 and the
@@ -29,6 +29,29 @@ tasks small enough for one sitting each, with the facts each task needs.
   returns linear colour, so a 16-bit float copy keeps the colours of either image ("Wrong colour"
   in Must not), and its textures need no remaking when gameplay switches the cameras to HDR. The
   copies are small, so the wider format costs next to nothing.
+- **The copies are a component on each layer camera, not a `GlassCopies` resource** (decided
+  while building 2.4). They belong to one camera, and `CONTRIBUTING.md` puts state that belongs
+  to an entity on it: the render system of 2.8 then gets a camera's copies in the same query as
+  the camera, with no lookup by `GlobalZIndex`, and 2.5 needs only `ExtractComponent`.
+- **`KAWASE_OFFSET` is `KAWASE_OFFSET_TEXELS`** (decided while building 2.1). `CONTRIBUTING.md`
+  puts the unit in a constant's name, and an offset in texels of the image a pass reads is easy
+  to mistake for one in screen pixels, which would widen the blur at every level.
+- **`LayerCamera` is not extracted** (decided in 2.14's review). Only layer cameras carry
+  `GlassCopies`, so the render system's `ViewQuery` on it alone already skips every other
+  camera, and 2.5's second `ExtractComponent` had nothing left to read it.
+- **The glass material's pipeline is not compiled ahead** (found in 2.14's review, left for
+  later). Only the two Kawase pipelines are queued at `RenderStartup`; Bevy specializes the
+  `GlassMaterial` pipeline the first frame a glass shows and skips drawing it until it is
+  ready, so the first pause may bring its glass in a few frames late. Not seen while testing,
+  so it waits for a hitch someone can see. The level lists built inside
+  `generate_level_images` also wait: they become a pure, tested function in 3.1, which changes
+  them for the card.
+- **A resize points the open glass at the new copies** (found while testing 2.12). A resize
+  remakes every `GlassCopies` with new handles, and a root's material kept the old ones, which
+  nothing writes any more: the glass of an open panel froze, stretched, until it was reopened,
+  and a panel that never closes (a HUD, the prop editor) would stay frozen. An observer on
+  `Insert<GlassCopies>` now hands every open root of that layer the new copy, and the choice of
+  which image the glass reads is `GlassCopies::glass_copy`, shared by both places.
 
 ## The layers at a glance
 
@@ -57,20 +80,20 @@ listed in `docs/flow.md` and is never restated.
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 2.1 Config: `GLASS_TARGET_HEIGHT_PX` (start at 270, tuned in 2.12) and `KAWASE_OFFSET` (1.0) | you | |
-| [ ] | 2.2 `fn levels_for_height(screen_height_px: u32) -> u32`: how many halvings bring the screen down to the target | you | stop at the first halving at or below the target; `saturating_sub`-style care at the small end, so a tiny window gives 1, never 0 |
-| [ ] | 2.3 Tests for 2.2, at 720, 1080, 1440 and 2160 px tall, written over the constant | you | `deepest_level_lands_within_a_halving_of_the_target` (`target / 2 < height >> levels <= target`); `a_4k_screen_takes_one_level_more_than_1080p` (a Rust name cannot start with a digit) |
-| [ ] | 2.4 The copy textures: per layer, one `Image` per descent level (one more than the backdrop's, for the card in step 3) and one per ascent level, all `Rgba16Float`, held in a `GlassCopies` resource | you | `Image::new_target_texture(width, height, TextureFormat::Rgba16Float, None)`; `ResMut<Assets<Image>>`; made at `Startup` and remade on `MessageReader<WindowResized>` (`bevy::window`) |
-| [ ] | 2.5 Hand `GlassCopies` and `LayerCamera` to the render world | Claude hands the lines | `#[derive(ExtractResource)]` + `ExtractResourcePlugin` (`bevy::render::extract_resource`); `LayerCamera` gets `ExtractComponent` with `#[extract_app(RenderApp)]`, as `BlurHorizontal` has today |
-| [ ] | 2.6 `assets/shaders/kawase_down.wesl` and `kawase_up.wesl` | you | the fullscreen vertex is `bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput`, as `blur.wesl` imports it; `textureSample` with a filtering sampler, not `textureLoad`: the bilinear reads are the trick. Formulas below |
-| [ ] | 2.7 The two pipelines, queued at `RenderStartup` so they are compiled before the first pause ("A hitch" in Must not) | Claude hands the lines | mirror `init_pipeline` in `bevy_core_pipeline/src/fullscreen_material.rs`: `FullscreenShader::to_vertex_state()`, a layout of `texture_2d` (filterable) + `sampler(Filtering)` + `uniform_buffer`, one `ColorTargetState { format: TextureFormat::Rgba16Float, blend: None, .. }`, `PipelineCache::queue_render_pipeline` |
-| [ ] | 2.8 The render system that runs the chain for each active layer camera, in `Core2d`, `.before(ui_pass)`, so it reads what the cameras below left and the layer's own UI is not in it yet | Claude hands the lines, you write the loop over the levels | mirror `fullscreen_material_system`: `ViewQuery<(&ViewTarget, &LayerCamera)>`, `RenderContext`, `Res<RenderAssets<GpuImage>>`; the source of the first halving is `view_target.main_texture_view()`; one `diagnostics.pass_span` per pass, so the test panel can measure it |
-| [ ] | 2.9 A layer camera with no `Floating` root is not active, so a closed layer runs no pass | you | `Camera { is_active, .. }`; a system after the roots spawn and despawn |
-| [ ] | 2.10 `GlassMaterial` and `assets/shaders/glass.wesl`: reads the layer's copy at the fragment's screen position, lays the tint over it, and fades by the node's alpha | you | `#[derive(AsBindGroup, Asset, TypePath, Clone)]` + `impl UiMaterial` (`bevy::ui_render`), `UiMaterialPlugin::<GlassMaterial>`; `#[uniform(0)]` tint and alpha, `#[texture(1)] #[sampler(2)]` the copy; in the shader `@group(0) @binding(0) var<uniform> view: View;` from `bevy_render::view::View`, and the screen position is `in.position.xy / view.viewport.zw`. The UI material pipeline already alpha-blends |
-| [ ] | 2.11 The backdrop: the observer from 1.4 also gives the root `MaterialNode(GlassMaterial { tint: SCREEN_DIM, alpha: 0.0, copy })`, and `animate_entrances` moves its alpha where it moved the dim's. `BlurHorizontal`, `BlurVertical`, `BlurStrength`, `update_blur`, `BLUR_RAMP_SECS`, `BLUR_SIGMA_PX` and `blur.wesl` go | you | each root gets its own material (`Assets<GlassMaterial>::add`), since each fades on its own; `Assets::get_mut` in `animate_entrances`; `MaterialNode` is `bevy::ui_render::prelude::MaterialNode`. The backdrop has no corners to cut |
-| [ ] | 2.12 The test panel on `3d/player`, never committed: a glass node in a corner during gameplay, on a test layer of its own; tune `GLASS_TARGET_HEIGHT_PX` by eye against today's blur (`git stash` it, look, pop it); measure `elapsed_gpu` | both | vsync off and the diagnostics plugins, as in the roadmap's spike |
-| [ ] | 2.13 `docs/flow.md` (the cameras section, the shared-files table) and `docs/template.md` (the shader files) | Claude | |
-| [ ] | 2.14 `just run` on both branches, against Must not: no flicker walking past the test panel, no hitch on the first pause, colours unchanged, text readable over the sky; the dialog over the pause menu blurs the pause menu; review; throw the test panel away; commit | both | |
+| [x] | 2.1 Config: `GLASS_TARGET_HEIGHT_PX` (start at 270, tuned in 2.12) and `KAWASE_OFFSET` (1.0) | you | |
+| [x] | 2.2 `fn levels_for_height(screen_height_px: u32) -> u32`: how many halvings bring the screen down to the target | you | stop at the first halving at or below the target; `saturating_sub`-style care at the small end, so a tiny window gives 1, never 0 |
+| [x] | 2.3 Tests for 2.2, at 720, 1080, 1440 and 2160 px tall, written over the constant | you | `deepest_level_lands_within_a_halving_of_the_target` (`target / 2 < height >> levels <= target`); `a_4k_screen_takes_one_level_more_than_1080p` (a Rust name cannot start with a digit) |
+| [x] | 2.4 The copy textures: per layer, one `Image` per descent level (one more than the backdrop's, for the card in step 3) and one per ascent level, all `Rgba16Float`, held in a `GlassCopies` component on the layer's camera | you | `Image::new_target_texture(width, height, TextureFormat::Rgba16Float, None)`; `ResMut<Assets<Image>>`; made at `Startup` and remade on `MessageReader<WindowResized>` (`bevy::window`) |
+| [x] | 2.5 Hand `GlassCopies` and `LayerCamera` to the render world | Claude hands the lines | both get `ExtractComponent` with `#[extract_app(RenderApp)]`, as `BlurHorizontal` has today |
+| [x] | 2.6 `assets/shaders/kawase_down.wesl` and `kawase_up.wesl` | you | the fullscreen vertex is `bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput`, as `blur.wesl` imports it; `textureSample` with a filtering sampler, not `textureLoad`: the bilinear reads are the trick. Formulas below |
+| [x] | 2.7 The two pipelines, queued at `RenderStartup` so they are compiled before the first pause ("A hitch" in Must not) | Claude hands the lines | mirror `init_pipeline` in `bevy_core_pipeline/src/fullscreen_material.rs`: `FullscreenShader::to_vertex_state()`, a layout of `texture_2d` (filterable) + `sampler(Filtering)` + `uniform_buffer`, one `ColorTargetState { format: TextureFormat::Rgba16Float, blend: None, .. }`, `PipelineCache::queue_render_pipeline` |
+| [x] | 2.8 The render system that runs the chain for each active layer camera, in `Core2d`, `.before(ui_pass)`, so it reads what the cameras below left and the layer's own UI is not in it yet | Claude hands the lines, you write the loop over the levels | mirror `fullscreen_material_system`: `ViewQuery<(&ViewTarget, &LayerCamera)>`, `RenderContext`, `Res<RenderAssets<GpuImage>>`; the source of the first halving is `view_target.main_texture_view()`; one `diagnostics.pass_span` per pass, so the test panel can measure it |
+| [x] | 2.9 A layer camera with no `Floating` root is not active, so a closed layer runs no pass | you | `Camera { is_active, .. }`; a system after the roots spawn and despawn |
+| [x] | 2.10 `GlassMaterial` and `assets/shaders/glass.wesl`: reads the layer's copy at the fragment's screen position, lays the tint over it, and fades by the node's alpha | you | `#[derive(AsBindGroup, Asset, TypePath, Clone)]` + `impl UiMaterial` (`bevy::ui_render`), `UiMaterialPlugin::<GlassMaterial>`; `#[uniform(0)]` tint and alpha, `#[texture(1)] #[sampler(2)]` the copy; in the shader `@group(0) @binding(0) var<uniform> view: View;` from `bevy_render::view::View`, and the screen position is `in.position.xy / view.viewport.zw`. The UI material pipeline already alpha-blends |
+| [x] | 2.11 The backdrop: the observer from 1.4 also gives the root `MaterialNode(GlassMaterial { tint: SCREEN_DIM, alpha: 0.0, copy })`, and `animate_entrances` moves its alpha where it moved the dim's. `BlurHorizontal`, `BlurVertical`, `BlurStrength`, `update_blur`, `BLUR_RAMP_SECS`, `BLUR_SIGMA_PX` and `blur.wesl` go | you | each root gets its own material (`Assets<GlassMaterial>::add`), since each fades on its own; `Assets::get_mut` in `animate_entrances`; `MaterialNode` is `bevy::ui_render::prelude::MaterialNode`. The backdrop has no corners to cut |
+| [x] | 2.12 The test panel on `3d/player`, never committed: a glass node in a corner during gameplay, on a test layer of its own; tune `GLASS_TARGET_HEIGHT_PX` by eye against today's blur (`git stash` it, look, pop it); measure `elapsed_gpu` | both | vsync off and the diagnostics plugins, as in the roadmap's spike |
+| [x] | 2.13 `docs/flow.md` (the cameras section, the shared-files table) and `docs/template.md` (the shader files) | Claude | |
+| [x] | 2.14 `just run` on both branches, against Must not: no flicker walking past the test panel, no hitch on the first pause, colours unchanged, text readable over the sky; the dialog over the pause menu blurs the pause menu; review; throw the test panel away; commit | both | |
 
 **The Kawase formulas** (Marius Bjørge's dual filter, SIGGRAPH 2015), with `t` the *source*
 texture's texel size (`1.0 / vec2<f32>(textureDimensions(source))`) times `KAWASE_OFFSET`:
