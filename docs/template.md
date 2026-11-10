@@ -44,7 +44,7 @@ assets/             game assets, loaded at runtime
   loading/          the loading screen's slideshow pictures
   locales/          one folder per language, each with its main.ftl translations
   menu/             the menu's background and music
-  shaders/          blur.wesl, the blur behind every floating panel
+  shaders/          the glass: kawase_down.wesl and kawase_up.wesl blur, glass.wesl draws it
   splash/           the Bevy logo
     logos/          the game's own logos, shown after the Bevy one
   ui/               the button sounds
@@ -75,7 +75,7 @@ src/
   ui/
     button.rs       buttons, their paint and their sounds
     panel.rs        floating roots, cards, their entrance and dialogs
-    blur.rs         a camera per floating layer and the blur behind every panel
+    blur.rs         a camera per floating layer and the glass behind every panel
 docs/
   template.md       this file: turning the template into a game
   flow.md           how the screens, overlays and fades fit together
@@ -133,7 +133,8 @@ editing those constants. The game's name on the menu and the window is `GAME_TIT
 `floating_root()` and `card()` from `ui.rs`; the `Floating` marker they carry is all the blur needs.
 A panel on a layer that exists (`OVERLAY_Z_INDEX` for a new overlay) needs nothing else. A new
 layer is a new `*_Z_INDEX` pushed onto `GlassLayers` from its plugin, or it logs a warning and
-draws under every other layer (see "The cameras and the blur" in `docs/flow.md`).
+draws under every other layer, with no glass behind it (see "The cameras and the blur" in
+`docs/flow.md`).
 
 ### Translations
 

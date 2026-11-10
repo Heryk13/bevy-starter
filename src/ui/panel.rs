@@ -1,14 +1,14 @@
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
-use super::blur::{Floating, GlassLayers};
+use super::blur::{Floating, GlassLayers, GlassMaterial};
 use super::{BORDER, BORDER_PX, BUTTON_GAP_PX, ButtonKind, SURFACE, button, label};
 use crate::fade::Fade;
 
 // ==== Config =================================================================
 
 // laid over the blur, under a card, so the card stands out from what it floats over
-const SCREEN_DIM: Color = Color::srgba(0.0, 0.0, 0.0, 0.35);
+pub(super) const SCREEN_DIM: Color = Color::srgba(0.0, 0.0, 0.0, 0.35);
 
 // ---- cards ------------------------------------------------------------------
 const CARD_PADDING_PX: f32 = 32.0;
@@ -18,7 +18,7 @@ const CARD_SHADOW_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
 const CARD_SHADOW_OFFSET_PX: f32 = 12.0;
 const CARD_SHADOW_BLUR_PX: f32 = 40.0;
 
-// ---- entrance: a card rises into place as its dim comes in ------------------
+// ---- entrance: a card rises into place as its glass comes in ----------------
 // held forever once in, so it is a fade that only ever comes in
 const ENTRANCE: Fade = Fade {
     delay_secs: 0.0,
@@ -49,7 +49,7 @@ pub(super) fn plugin(app: &mut App) {
 // ==== Widgets ================================================================
 
 /// Returns the root of something that floats over the screens: the whole window, its
-/// panel centered, a dim coming in behind it, and blocking clicks to whatever is under it.
+/// panel centered, glass coming in behind it, and blocking clicks to whatever is under it.
 pub(crate) fn floating_root(z_index: GlobalZIndex) -> impl Bundle {
     (
         Node {
@@ -59,7 +59,6 @@ pub(crate) fn floating_root(z_index: GlobalZIndex) -> impl Bundle {
             align_items: AlignItems::Center,
             ..default()
         },
-        BackgroundColor(SCREEN_DIM.with_alpha(0.0)),
         Entrance::default(),
         Floating,
         z_index,
@@ -147,20 +146,27 @@ struct Entrance {
 
 // ==== Systems ================================================================
 
-/// Brings every new `floating_root` in: its dim darkens and its card rises into place. Counts
+/// Brings every new `floating_root` in: its glass fades in and its card rises into place. Counts
 /// real time, so the pause menu comes in although it freezes virtual time as it opens.
 fn animate_entrances(
     time: Res<Time<Real>>,
-    mut roots: Query<(&mut Entrance, &mut BackgroundColor, &Children)>,
+    mut roots: Query<(
+        &mut Entrance,
+        Option<&MaterialNode<GlassMaterial>>,
+        &Children,
+    )>,
     mut cards: Query<&mut UiTransform, With<Card>>,
+    mut materials: ResMut<Assets<GlassMaterial>>,
 ) {
-    for (mut entrance, mut dim, children) in &mut roots {
+    for (mut entrance, glass_material, children) in &mut roots {
         if entrance.secs > ENTRANCE.fade_in_secs {
             continue;
         }
         entrance.secs += time.delta_secs();
         let progress = ENTRANCE.alpha(entrance.secs);
-        dim.0 = SCREEN_DIM.with_alpha(SCREEN_DIM.alpha() * progress);
+        if let Some(mut material) = glass_material.and_then(|glass| materials.get_mut(&glass.0)) {
+            material.alpha = progress;
+        }
         for child in children {
             if let Ok(mut transform) = cards.get_mut(*child) {
                 *transform = entrance_transform(progress);
