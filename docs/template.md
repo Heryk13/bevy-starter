@@ -6,9 +6,9 @@ For setup and the day-to-day commands, see the [README](../README.md).
 ## Starting a new game
 
 [`create-bevy-starter`](https://github.com/Heryk13/create-bevy-starter) does step 0 and the
-three renames of step 1, empties `docs/specs/`, drops the README's Branches section, deletes
-`tools/` and makes the first commit. The steps below are the manual path, and what is left
-after it.
+three renames of step 1, empties `docs/specs/`, drops the Branches section of the README and
+of `CONTRIBUTING.md`, deletes `tools/`, the template's own scripts for its branch tree, and
+makes the first commit. The steps below are the manual path, and what is left after it.
 
 0. Start from the branch closest to the game: `main` for the bare template, or a variant
    such as `3d/base` or `2d/base` (see [Branches](https://github.com/Heryk13/bevy-starter#branches)).
@@ -81,7 +81,6 @@ docs/
   template.md       this file: turning the template into a game
   flow.md           how the screens, overlays and fades fit together
   specs/            one folder per implementation, with its design and plan
-tools/              the template's own: commits a change and merges it down the branches
 .cargo/config.toml  linker configuration
 about.toml          accepted dependency licenses
 about.hbs           template for the license notices
