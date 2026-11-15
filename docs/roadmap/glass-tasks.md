@@ -123,6 +123,32 @@ tasks small enough for one sitting each, with the facts each task needs.
 - **The two checkboxes share `checkbox()` and `set_checkbox`** (decided while building 7.3).
   Task 7.3 built the new one like the fullscreen one; with two, the bundle and the painting
   moved into helpers of `settings.rs` instead of being written twice.
+- **The passes tell the main world when a copy is kept** (found while building 9.1). Task 9.1
+  stopped the level's camera "once the pause layer's copy is made", but the main world, which
+  turns cameras on and off, cannot know that: a camera stopped a frame early leaves the glass
+  to copy an image without the level. `FrozenLayer` gained `copy_kept`, one flag shared by the
+  camera's component and its extracted copy, written by `blur_layer_backdrops` and read a
+  frame later. It is the one message from the render world to the main one.
+- **Step 9 is two commits, and its first is on `main`** (decided while building 9.1). From
+  that flag `blur.rs` settles a resource of its own, `ScreensCovered`, which any branch can
+  read: `3d/base` only adds the system that stops the playroom's cameras with it. The 2D room
+  does not use it: the screen camera draws it, with the UI, and it costs little.
+- **A camera turned back on has to be on before Bevy's camera systems run** (found in 9.2's
+  first run). Bevy works out what a camera sees, and builds its shadow cascades, only for a
+  camera whose `is_active` is set. The system that stopped the playroom's cameras ran in
+  `Last`, after all that, so a resize under the pause menu brought the camera back blind: it
+  drew an empty frame, only the physics debug lines in it, and the glass copied that, black.
+  It now runs in `PostUpdate`, after `ScreensCoveredSystems` and before `CameraUpdateSystems`.
+- **No layer keeps the copy of the frame the screens are uncovered** (decided with the fix
+  above). The frame something starts drawing again, it may not be whole yet, so
+  `update_screens_covered` unfreezes every layer for that frame, and the copy kept is the next
+  one's. A resize also clears `copy_kept` itself, at once, instead of leaving it to the passes.
+- **Measured in 9.2 with the physics debug view off.** With it on, the dev build ran at about
+  105 fps drawn or not: drawing every collider's outline each frame held the frame, and hid
+  the gain. With it off and vsync off, the running game drew about 275 frames a second and
+  the paused one, its level no longer drawn, about 440: a frame of 2.3 ms in place of 3.6 ms.
+- **Flat glass stops nothing** (by design, asked in 9.2). Under Reduce Transparency the paused
+  game shows sharp behind the dim, so its level has to keep being drawn.
 
 ## The layers at a glance
 
@@ -235,11 +261,11 @@ a level lower is tried with the test panel and kept only if it passes Must not.
 | | Task | Who | Facts |
 |---|------|-----|-------|
 | [x] | 8.1 `README.md` (line 23, "a real blur of the screen behind them"), `docs/template.md`, the spec's status to built and its "What changed while building it", the roadmap's row 0 | Claude | |
-| [ ] | 8.2 Commit; merge `main` → `3d/base` → `3d/player` and `main` → `2d/base`; push | both | |
+| [x] | 8.2 Commit; merge `main` → `3d/base` → `3d/player` and `main` → `2d/base`; push | both | |
 
 ## Step 9 (on `3d/base`): `perf: stop drawing the level under the pause menu`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 9.1 The playroom's camera stops drawing under `Pause::On`, once the pause layer's copy is made, and draws again when the game resumes | you | `Camera { is_active, .. }` on the `Camera3d` in `playroom.rs`; the screen camera keeps drawing, so the copy below the pause layer is still there |
-| [ ] | 9.2 `just run`: the paused game looks the same; its `frame_time` is lower than the running game's; review; commit; merge `3d/base` → `3d/player`; push | both | |
+| [x] | 9.1 The playroom's camera stops drawing under `Pause::On`, once the pause layer's copy is made, and draws again when the game resumes | you | `Camera { is_active, .. }` on the `Camera3d` in `playroom.rs`; the screen camera keeps drawing, so the copy below the pause layer is still there |
+| [x] | 9.2 `just run`: the paused game looks the same; its `frame_time` is lower than the running game's; review; commit; merge `3d/base` → `3d/player`; push | both | |
