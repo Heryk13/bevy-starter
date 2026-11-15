@@ -141,8 +141,15 @@ pub(super) struct Card;
 
 /// How long a `floating_root` has been coming in, in real seconds.
 #[derive(Component, Default)]
-struct Entrance {
+pub(super) struct Entrance {
     secs: f32,
+}
+
+impl Entrance {
+    /// Tells whether the root is fully in, so its entrance no longer changes the picture.
+    pub(super) fn is_finished(&self) -> bool {
+        self.secs > ENTRANCE.fade_in_secs
+    }
 }
 
 // ==== Systems ================================================================
@@ -161,7 +168,7 @@ fn animate_entrances(
     mut materials: ResMut<Assets<GlassMaterial>>,
 ) {
     for (mut entrance, root_glass, children) in &mut roots {
-        if entrance.secs > ENTRANCE.fade_in_secs {
+        if entrance.is_finished() {
             continue;
         }
         entrance.secs += time.delta_secs();

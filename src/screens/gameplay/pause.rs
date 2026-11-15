@@ -6,7 +6,7 @@ use crate::i18n::{Language, Translations};
 use crate::overlays::Overlay;
 use crate::save::{SaveFinished, Session, has_unsaved_progress};
 use crate::screens::Screen;
-use crate::ui::blur::GlassLayers;
+use crate::ui::blur::{GlassLayers, freeze_background, unfreeze_background};
 use crate::ui::{
     ACCENT, BUTTON_GAP_PX, ButtonKind, DANGER, SMALL_FONT_SIZE_PX, TEXT_MUTED, card, dialog,
     floating_root, font, heading, menu_button,
@@ -38,8 +38,11 @@ const SAVE_STATUS_FADE: Fade = Fade {
 
 pub(super) fn plugin(app: &mut App) {
     app.add_sub_state::<Pause>();
-    app.add_systems(OnEnter(Pause::On), (spawn_pause_menu, pause_time));
-    app.add_systems(OnExit(Pause::On), unpause_time);
+    app.add_systems(
+        OnEnter(Pause::On),
+        (spawn_pause_menu, pause_time, freeze_background),
+    );
+    app.add_systems(OnExit(Pause::On), (unpause_time, unfreeze_background));
     app.add_observer(activate_pause_button.run_if(in_state(Pause::On)));
     app.add_observer(confirm_quit.run_if(in_state(Pause::On)));
     app.add_observer(show_save_status.run_if(in_state(Pause::On)));
