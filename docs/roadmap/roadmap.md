@@ -39,7 +39,7 @@ Agreed on 2026-11-07.
 | 12 | **Doors**: press E to open | `3d/player` | | | agreed so far: below; test on `DarkRoom_Door`, `Door_Bedroom1/2`, `Door_Front` (each with a `_Knob`) |
 | 13 | **Prop editor** (F10): spawn, delete, move, rotate; the map file | base in `main`, then 2D and 3D | | | agreed so far: below; after doors, since a door is a kind of prop |
 | 14 | **Trailer scenes**: named copies of the map, the player included, picked from a window F10 opens | base in `main`, then 2D and 3D | | | agreed so far: below; uses the props, so it comes after them |
-| 15 | **Third-person camera**: over the shoulder, V swaps shoulders | `3d/player` | | | agreed so far: below; brings the CLI's camera question, marker removal and `just check-combos` |
+| 15 | **Third-person camera**: over the shoulder, V swaps shoulders | `3d/player` | | | agreed so far: below; the CLI already asks for the camera (0.2.1: None, First person, the other two shown as coming soon) and clones `3d/player` whole; this row lets it take several, and brings marker removal and `just check-combos` |
 | 16 | **Isometric camera**: fixed, in perspective | `3d/player` | | | agreed so far: below; marker `// camera: isometric` |
 | 17 | **Camera switch** (F5) | `3d/player` | | | agreed so far: below; `camera_switch.rs`, only when a game has two cameras or more |
 | 18 | **Multiplayer**: co-op up to 10, one player hosts, the rest join by IP (LAN or Radmin) | to decide | | | agreed so far: below; last, since it reaches into spawn, input, save, pause and scenes; its spec decides how the CLI removes it |
