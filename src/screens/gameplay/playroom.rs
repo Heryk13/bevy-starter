@@ -1,6 +1,6 @@
 use avian3d::prelude::{ColliderConstructor, ColliderConstructorHierarchy, RigidBody};
 use bevy::anti_alias::smaa::Smaa;
-use bevy::camera::{Exposure, Hdr, visibility::RenderLayers};
+use bevy::camera::{CameraUpdateSystems, Exposure, Hdr, visibility::RenderLayers};
 use bevy::light::atmosphere::ScatteringMedium;
 use bevy::light::{Atmosphere, AtmosphereEnvironmentMapLight, SunDisk};
 use bevy::pbr::{AtmosphereSettings, ScreenSpaceAmbientOcclusion};
@@ -9,6 +9,7 @@ use bevy::prelude::*;
 
 use crate::screens::Screen;
 use crate::screens::loading::GameplayAssets;
+use crate::ui::blur::{ScreensCovered, ScreensCoveredSystems};
 
 mod sun_glare;
 
@@ -70,6 +71,16 @@ pub(super) fn plugin(app: &mut App) {
         (reset_ui_cameras, unload_gameplay_assets),
     );
     app.add_plugins(sun_glare::plugin);
+    // between the two: after `ScreensCovered` is settled, and before Bevy works out what each
+    // camera sees and builds its shadows, which it only does for a camera that is on. One
+    // turned back on any later draws an empty frame, and the glass would copy that
+    app.add_systems(
+        PostUpdate,
+        rest_playroom_cameras
+            .after(ScreensCoveredSystems)
+            .before(CameraUpdateSystems)
+            .run_if(in_state(Screen::Gameplay)),
+    );
 }
 
 // ==== Components =============================================================
@@ -168,6 +179,22 @@ fn match_ui_cameras_to_playroom_camera(
     let (screen_entity, mut screen_camera) = screen_camera.into_inner();
     commands.entity(screen_entity).insert(RenderLayers::none());
     screen_camera.clear_color = ClearColorConfig::None;
+}
+
+/// Stops every playroom camera while the screens are wholly hidden behind a layer's blur,
+/// as under the pause menu once its copy is made, and starts it again the moment they are
+/// not. The level is the costliest thing drawn, its sky, shadows and ambient occlusion
+/// included, and none of it would show: a paused game then costs less than a running one.
+fn rest_playroom_cameras(
+    screens_covered: Res<ScreensCovered>,
+    mut cameras: Query<&mut Camera, With<PlayroomCamera>>,
+) {
+    for mut camera in &mut cameras {
+        // compared first: writing the same value would still mark the camera changed
+        if camera.is_active == screens_covered.0 {
+            camera.is_active = !screens_covered.0;
+        }
+    }
 }
 
 /// Returns the UI cameras to their defaults: outside gameplay there is no level under them.
