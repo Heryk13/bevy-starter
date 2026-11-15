@@ -156,7 +156,10 @@ editing those constants. The game's name on the menu and the window is `GAME_TIT
 A panel on a layer that exists (`OVERLAY_Z_INDEX` for a new overlay) needs nothing else. A new
 layer is a new `*_Z_INDEX` pushed onto `GlassLayers` from its plugin, or it logs a warning and
 draws under every other layer, with no glass behind it (see "The cameras and the blur" in
-`docs/flow.md`).
+`docs/flow.md`). A feature that stops everything behind the panels, as the pause menu does, runs
+`freeze_background` from `ui::blur` when that begins and `unfreeze_background` when it ends, and
+the glass over it is blurred once instead of every frame. Without them the glass is still right,
+only slower.
 
 ### Translations
 

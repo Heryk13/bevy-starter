@@ -1,5 +1,6 @@
 use bevy::camera::visibility::RenderLayers;
 use bevy::core_pipeline::{Core2d, Core2dSystems, FullscreenShader};
+use bevy::ecs::entity::EntityHashMap;
 use bevy::prelude::*;
 use bevy::render::diagnostic::RecordDiagnostics;
 use bevy::render::extract_component::{ExtractComponent, ExtractComponentPlugin};
@@ -21,7 +22,7 @@ use bevy::ui_render::ui_pass;
 use bevy::window::{PrimaryWindow, WindowResized};
 
 use super::SURFACE;
-use super::panel::{Card, SCREEN_DIM};
+use super::panel::{Card, Entrance, SCREEN_DIM};
 
 // ==== Config =================================================================
 
@@ -47,8 +48,10 @@ const GLASS_COPY_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
 pub(super) fn plugin(app: &mut App) {
     app.add_plugins((
         ExtractComponentPlugin::<GlassCopies>::default(),
+        ExtractComponentPlugin::<FrozenLayer>::default(),
         UiMaterialPlugin::<GlassMaterial>::default(),
     ));
+    app.init_resource::<FrozenBackground>();
     app.add_systems(
         Startup,
         (spawn_layer_cameras, generate_level_images).chain(),
@@ -60,7 +63,7 @@ pub(super) fn plugin(app: &mut App) {
         Update,
         generate_level_images.run_if(on_message::<WindowResized>),
     );
-    app.add_systems(PostUpdate, activate_layer_cameras);
+    app.add_systems(PostUpdate, (activate_layer_cameras, freeze_settled_layers));
     // an app built without rendering has no render world, so nothing to blur in it
     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
@@ -88,6 +91,13 @@ pub(crate) struct Floating;
 /// layer cameras apart by their `GlassCopies`, which no other camera has.
 #[derive(Component)]
 struct LayerCamera(GlobalZIndex);
+
+/// Whether a layer may keep the copy it already blurred: the background was called still, and
+/// every floating root at or below the layer has finished coming in, so nothing the layer
+/// blurs changes any more. Extracted with its camera, where the passes read it.
+#[derive(Component, ExtractComponent, Clone, Default)]
+#[extract_app(RenderApp)]
+struct FrozenLayer(bool);
 
 /// The images a layer camera blurs into, made for the window's size: the descent, each half
 /// the one before it, from half the screen down to one level past the backdrop's (the card's),
@@ -125,6 +135,16 @@ impl GlassCopies {
 /// gets a camera of its own, drawn over the layers below it.
 #[derive(Resource, Default)]
 pub(crate) struct GlassLayers(pub(crate) Vec<GlobalZIndex>);
+
+/// Whether nothing behind the floating layers can change right now, so a layer may keep the
+/// copy it already blurred instead of blurring a new one every frame. Off unless a feature
+/// turns it on: whatever stills the world says so from its own plugin, with
+/// `freeze_background` and `unfreeze_background`, as it registers its layer, so this file
+/// never names the pause menu or the main menu and a game adds its own still moments the same
+/// way. A background nobody called still is blurred every frame, which is always right, only
+/// slower.
+#[derive(Resource, Default)]
+pub(crate) struct FrozenBackground(pub(crate) bool);
 
 /// The two passes of the glass's dual Kawase, in the render world: the layout, sampler and
 /// offset buffer both shaders bind, and the ids of the pipelines queued for them, which the
@@ -180,6 +200,7 @@ fn spawn_layer_cameras(mut commands: Commands, glass_layers: Res<GlassLayers>) {
             // floating panels still reach it through UiTargetCamera
             RenderLayers::none(),
             LayerCamera(*z_index),
+            FrozenLayer::default(),
         ));
     }
 }
@@ -316,6 +337,18 @@ fn retarget_open_glass(
     }
 }
 
+/// Says the world behind the floating layers went still. For a feature's plugin to run when
+/// its still moment begins, as the pause menu does on `OnEnter(Pause::On)`.
+pub(crate) fn freeze_background(mut frozen_background: ResMut<FrozenBackground>) {
+    frozen_background.0 = true;
+}
+
+/// Says the world behind the floating layers moves again. For a feature's plugin to run when
+/// its still moment ends.
+pub(crate) fn unfreeze_background(mut frozen_background: ResMut<FrozenBackground>) {
+    frozen_background.0 = false;
+}
+
 /// Turns each layer camera on while a `Floating` root of its layer is open and off once none
 /// is, so a closed layer runs no blur pass. In `PostUpdate`, so a root that an observer opened
 /// or a state closed during `Update` already counts.
@@ -326,6 +359,23 @@ fn activate_layer_cameras(
     for (layer_camera, mut camera) in cameras {
         let layer_open = roots.iter().any(|z_index| *z_index == layer_camera.0);
         camera.is_active = layer_open;
+    }
+}
+
+/// Marks each layer frozen while the background is still and the layer has settled. A copy
+/// kept from before that would hold a root below half faded in, or the button that opened
+/// the layer still lit, for as long as the layer stays open. In `PostUpdate`, so the
+/// entrances `animate_entrances` moved during `Update` already count.
+fn freeze_settled_layers(
+    frozen_background: Res<FrozenBackground>,
+    cameras: Query<(&LayerCamera, &mut FrozenLayer)>,
+    roots: Query<(&GlobalZIndex, &Entrance), With<Floating>>,
+) {
+    for (layer_camera, mut frozen_layer) in cameras {
+        let entrances = roots
+            .iter()
+            .map(|(z_index, entrance)| (*z_index, entrance.is_finished()));
+        frozen_layer.0 = frozen_background.0 && is_settled(layer_camera.0, entrances);
     }
 }
 
@@ -407,15 +457,31 @@ fn init_kawase_pipelines(
 /// the image down the descent and doubles it back up twice, the backdrop's ascent from the
 /// level above the deepest and the card's from the deepest, before the layer's own UI. The
 /// card's chain goes one level further down, so a card reads blurrier than the backdrop.
+///
+/// A frozen layer is blurred once: `kept_copies` remembers, for each layer camera, the copy it
+/// last blurred while frozen, and the passes are skipped while that copy is still the one in
+/// use. It is written only after every pass ran, so a frame that could not blur (a pipeline
+/// still compiling, an image not on the GPU yet) is tried again, and a resize, which hands
+/// the layer new images, is blurred again without being told.
 fn blur_layer_backdrops(
-    camera: ViewQuery<(&ViewTarget, &GlassCopies)>,
+    camera: ViewQuery<(&ViewTarget, &GlassCopies, &FrozenLayer)>,
     pipeline_cache: Res<PipelineCache>,
     kawase: Res<KawasePipelines>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     mut ctx: RenderContext,
     render_device: Res<RenderDevice>,
+    mut kept_copies: Local<EntityHashMap<AssetId<Image>>>,
 ) {
-    let (view_target, copies) = camera.into_inner();
+    let camera_entity = camera.entity();
+    let (view_target, copies, frozen_layer) = camera.into_inner();
+    let Some(copy_id) = copies.backdrop_copy().map(Handle::id) else {
+        return;
+    };
+    if !frozen_layer.0 {
+        kept_copies.remove(&camera_entity);
+    } else if kept_copies.get(&camera_entity) == Some(&copy_id) {
+        return;
+    }
     let Some(down_pipeline) = pipeline_cache.get_render_pipeline(kawase.down) else {
         return;
     };
@@ -506,6 +572,9 @@ fn blur_layer_backdrops(
         );
         card_source = &texture.texture_view;
     }
+    if frozen_layer.0 {
+        kept_copies.insert(camera_entity, copy_id);
+    }
 }
 
 // ==== Helpers ================================================================
@@ -550,6 +619,16 @@ fn lay_over(top: LinearRgba, bottom: LinearRgba) -> LinearRgba {
     )
 }
 
+/// Tells whether a layer has settled: every root at or below it, each given as its layer and
+/// whether its entrance has finished, is fully in. A root above it is drawn over the layer and
+/// never reaches its copy, so it does not hold the layer back.
+fn is_settled(layer: GlobalZIndex, roots: impl IntoIterator<Item = (GlobalZIndex, bool)>) -> bool {
+    roots
+        .into_iter()
+        .filter(|(root_layer, _)| root_layer.0 <= layer.0)
+        .all(|(_, finished)| finished)
+}
+
 // ==== Tests ==================================================================
 
 #[cfg(test)]
@@ -559,6 +638,10 @@ mod tests {
     // the common window heights, from 720p to 4K
     const SCREEN_HEIGHTS_PX: [u32; 4] = [720, 1080, 1440, 2160];
     const TOLERANCE: f32 = 1e-5;
+    // three layers stacked, the middle one being the layer under test
+    const LOWER_LAYER: GlobalZIndex = GlobalZIndex(50);
+    const LAYER: GlobalZIndex = GlobalZIndex(100);
+    const UPPER_LAYER: GlobalZIndex = GlobalZIndex(200);
 
     #[test]
     fn deepest_level_lands_within_a_halving_of_the_target() {
@@ -630,5 +713,22 @@ mod tests {
         // exact on purpose, where a float usually gets a tolerance: the guard hands back the
         // constant itself, and the NaN a division by zero would leave equals nothing
         assert_eq!(out, LinearRgba::NONE);
+    }
+
+    #[test]
+    fn a_root_still_coming_in_below_holds_the_layer() {
+        let roots = [(LOWER_LAYER, false), (LAYER, true)];
+        assert!(!is_settled(LAYER, roots));
+    }
+
+    #[test]
+    fn a_layer_waits_for_its_own_root() {
+        assert!(!is_settled(LAYER, [(LAYER, false)]));
+    }
+
+    #[test]
+    fn a_root_coming_in_above_does_not_hold_the_layer() {
+        let roots = [(LOWER_LAYER, true), (LAYER, true), (UPPER_LAYER, false)];
+        assert!(is_settled(LAYER, roots));
     }
 }
