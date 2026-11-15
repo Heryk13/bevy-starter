@@ -59,7 +59,7 @@ src/
   overlays/
     credits.rs      credits panel
     saves.rs        the lists of saved games: save new or over one, load or delete one
-    settings.rs     fullscreen, volume and language, remembered in settings.ron
+    settings.rs     fullscreen, reduce transparency, volume and language, kept in settings.ron
   screens.rs        Screen state and screen plugins
   screens/
     splash.rs       splash screen

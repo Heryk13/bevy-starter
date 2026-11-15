@@ -104,6 +104,25 @@ tasks small enough for one sitting each, with the facts each task needs.
   passes ran for the 0.2 s of the entrance and then stopped: the age grew a second per line
   (0.8, 1.9, 2.9 ... 7.9 s) until the menu closed, and opening it again ran them for another
   0.2 s. Each pass took about 0.003 ms going down and 0.009 ms coming up on the GPU.
+- **Steps 5 and 6, the regions, are put off to the Pieces spec** (decided on 2026-11-16, before
+  starting 5.1). Every floating root is a modal whose backdrop covers the screen, so each
+  layer's region would be the whole screen and the two steps would save nothing; only a test
+  panel could exercise them. The whole chain measured about 0.03 ms a frame on the full
+  screen. They come with the first glass panel smaller than the screen, the dev tools' own,
+  which blurs every frame over a running game and gives them something to measure. Their
+  tasks stay below as written, for that spec to pick up.
+- **Reduce Transparency is a `flat` uniform of the glass, not another kind of node** (decided
+  while building 7.5). The alpha the material already had makes a card solid, as 7.5 said, but
+  not a backdrop: its shader lays the dim over the blurred copy, and with no copy the dim has
+  to be drawn alone, over the sharp screen. One `flat` uniform does both: the shader draws the
+  tint alone, as opaque as the tint's alpha, so the dim stays see-through and the card's tint
+  is the surface made opaque. The entrance needs no second path, since the same alpha fades it.
+- **Turning Reduce Transparency on forgets the copies kept** (found while building 7.5). A
+  layer frozen before the setting went on would otherwise, when it goes off, show the copy from
+  back then: the passes had stopped, so nothing had remade it.
+- **The two checkboxes share `checkbox()` and `set_checkbox`** (decided while building 7.3).
+  Task 7.3 built the new one like the fullscreen one; with two, the bundle and the painting
+  moved into helpers of `settings.rs` instead of being written twice.
 
 ## The layers at a glance
 
@@ -180,6 +199,8 @@ a level lower is tried with the test panel and kept only if it passes Must not.
 
 ## Step 5: `perf: blur only inside each layer's region`
 
+**Put off to the Pieces spec** (2026-11-16, see the departures above): not built here.
+
 | | Task | Who | Facts |
 |---|------|-----|-------|
 | [ ] | 5.1 Each layer's region: the rectangle around its glass nodes, plus the margin, kept inside the screen | you | `ComputedNode::size()` and `UiGlobalTransform` (`bevy::ui`) give a node's size and centre in physical pixels; the margin follows from the levels' count (each level's reads reach two of its texels), as a derived constant |
@@ -187,6 +208,8 @@ a level lower is tried with the test panel and kept only if it passes Must not.
 | [ ] | 5.3 `just run` with the test panel: the passes' `elapsed_gpu` drops with the panel's share of the screen; no smeared edge on the panel; review; commit | both | |
 
 ## Step 6: `perf: merge glass regions that touch`
+
+**Put off to the Pieces spec** with step 5: not built here.
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
@@ -199,19 +222,19 @@ a level lower is tried with the test panel and kept only if it passes Must not.
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 7.1 `reduce_transparency: bool` in `SettingsFile`, defaulting to off for an older `settings.ron` | you | `#[serde(default)]` on the field |
-| [ ] | 7.2 Test: `settings_without_reduce_transparency_load_with_it_off` | you | `ron::from_str` on a string without the field |
-| [ ] | 7.3 The checkbox, built like the fullscreen one | you | `FullscreenToggle`, `toggle_fullscreen`, `update_fullscreen_checkbox` in `src/overlays/settings.rs` |
-| [ ] | 7.4 The key `settings-reduce-transparency` in every `main.ftl` | you | en `Reduce Transparency`, pt-BR `Reduzir Transparência`, ja `透明度を下げる` (macOS's own words) |
-| [ ] | 7.5 A `ReduceTransparency(bool)` resource in `blur.rs` that settings writes; while on, no layer copies and every card is solid | you | the material's alpha uniform already exists; a solid card is `SURFACE` at alpha 1 |
-| [ ] | 7.6 `docs/flow.md` | Claude | |
-| [ ] | 7.7 `just run`: the box saves and comes back after a restart; with it on, the passes stop logging; review; commit | both | |
+| [x] | 7.1 `reduce_transparency: bool` in `SettingsFile`, defaulting to off for an older `settings.ron` | you | `#[serde(default)]` on the field |
+| [x] | 7.2 Test: `settings_without_reduce_transparency_load_with_it_off` | you | `ron::from_str` on a string without the field |
+| [x] | 7.3 The checkbox, built like the fullscreen one | you | `FullscreenToggle`, `toggle_fullscreen`, `update_fullscreen_checkbox` in `src/overlays/settings.rs` |
+| [x] | 7.4 The key `settings-reduce-transparency` in every `main.ftl` | you | en `Reduce Transparency`, pt-BR `Reduzir Transparência`, ja `透明度を下げる` (macOS's own words) |
+| [x] | 7.5 A `ReduceTransparency(bool)` resource in `blur.rs` that settings writes; while on, no layer copies and every card is solid | you | the material's alpha uniform already exists; a solid card is `SURFACE` at alpha 1 |
+| [x] | 7.6 `docs/flow.md` | Claude | |
+| [x] | 7.7 `just run`: the box saves and comes back after a restart; with it on, the passes stop logging; review; commit | both | |
 
 ## Step 8: `docs: document the glass`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 8.1 `README.md` (line 23, "a real blur of the screen behind them"), `docs/template.md`, the spec's status to built and its "What changed while building it", the roadmap's row 0 | Claude | |
+| [x] | 8.1 `README.md` (line 23, "a real blur of the screen behind them"), `docs/template.md`, the spec's status to built and its "What changed while building it", the roadmap's row 0 | Claude | |
 | [ ] | 8.2 Commit; merge `main` → `3d/base` → `3d/player` and `main` → `2d/base`; push | both | |
 
 ## Step 9 (on `3d/base`): `perf: stop drawing the level under the pause menu`
