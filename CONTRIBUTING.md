@@ -187,16 +187,18 @@ The character tells the kind of boundary:
   so a branch cut from it never inherits plans that are not its own.
 - Options a game combines freely, like the cameras, are not branches: git cannot add up two
   sibling branches, since both change the same files. They will live side by side in one
-  branch, and `create-bevy-starter` will delete the ones a game does not keep once the first
-  camera exists (see `docs/specs/create-bevy-starter/design.md`). For it to find them, each
+  branch, and `create-bevy-starter` will delete the ones a game does not keep once a second
+  camera exists (see `docs/specs/create-bevy-starter/design.md`): with first-person alone, it
+  asks for the camera and clones `3d/player` whole. For it to find them, each
   option will be one file, and every line outside that file naming it will end with its marker
   (`mod first_person; // camera: first-person`).
 - `create-bevy-starter` renames the game where `docs/template.md` says to: `name` in
   `Cargo.toml`, `game` in `justfile`, `GAME_TITLE` in `src/main.rs`. It also removes the
-  `## Branches` section of `README.md`, empties `docs/specs/` and deletes `tools/`, which a
-  game without a branch tree has no use for. Moving one of these, or renaming that heading or
-  that folder, means changing the CLI in the same change: a folder it does not find is left
-  alone in silence, so a renamed `tools/` would reach every new game.
+  `## Branches` section of `README.md` and this one, empties `docs/specs/` and deletes
+  `tools/`: a game has no branch tree, so its rules and its tools stay with the template, and
+  nothing outside these two sections names either. Moving one of these, or renaming that
+  heading or that folder, means changing the CLI in the same change: a folder it does not find
+  is left alone in silence, so a renamed `tools/` would reach every new game.
 - Git cannot hold a branch `3d` next to `3d/base`, since a branch name is a file and a
   `/` makes it a folder: a genre's base is always `<genre>/base`.
 - Models stay plain binary files in `.gitattributes`, not Git LFS: this repository has LFS
