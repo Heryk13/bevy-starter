@@ -35,6 +35,7 @@ credits-title = Credits
 credits-made-with = Made with Bevy
 settings-title = Settings
 settings-fullscreen = Fullscreen
+settings-reduce-transparency = Reduce Transparency
 settings-volume = Volume
 settings-language = Language
 

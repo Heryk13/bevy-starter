@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use super::{Overlay, close_footer, overlay_card, overlay_root};
 use crate::disk::{game_data_dir, write_atomic};
 use crate::i18n::{Language, language_from_locale};
+use crate::ui::blur::ReduceTransparency;
 use crate::ui::{
     ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, FIELD_FILL, TEXT, TEXT_MUTED, font, heading,
     label,
@@ -22,10 +23,12 @@ use crate::ui::{
 const LABEL_WIDTH_PX: f32 = 140.0;
 const CONTROL_GAP_PX: f32 = 12.0;
 
-// ---- fullscreen checkbox ----------------------------------------------------
+// ---- fullscreen -------------------------------------------------------------
 // borderless, on the monitor the window is on: it switches instantly and never
 // changes the desktop resolution
 const FULLSCREEN_MODE: WindowMode = WindowMode::BorderlessFullscreen(MonitorSelection::Current);
+
+// ---- checkboxes: fullscreen and reduce transparency -------------------------
 const CHECKBOX_SIZE_PX: f32 = 22.0;
 const CHECKBOX_RADIUS_PX: f32 = 4.0;
 
@@ -53,12 +56,14 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(Startup, load_settings);
     app.add_systems(OnEnter(Overlay::Settings), spawn_settings_overlay);
     app.add_observer(toggle_fullscreen.run_if(in_state(Overlay::Settings)));
+    app.add_observer(toggle_reduce_transparency.run_if(in_state(Overlay::Settings)));
     app.add_observer(update_volume.run_if(in_state(Overlay::Settings)));
     app.add_observer(choose_language.run_if(in_state(Overlay::Settings)));
     app.add_systems(
         Update,
         (
             update_fullscreen_checkbox,
+            update_reduce_transparency_checkbox,
             update_volume_slider,
             update_language_radios,
         )
@@ -72,6 +77,10 @@ pub(super) fn plugin(app: &mut App) {
 /// Marks the checkbox that switches the window in and out of fullscreen.
 #[derive(Component)]
 struct FullscreenToggle;
+
+/// Marks the checkbox that turns the glass into flat fills, with no blur behind them.
+#[derive(Component)]
+struct ReduceTransparencyToggle;
 
 /// Marks the slider that sets the game's volume.
 #[derive(Component)]
@@ -100,17 +109,21 @@ struct SettingsFile {
     // `None` follows the OS. The default lets a file from before languages existed load
     #[serde(default)]
     language: Option<Language>,
+    // off in a file from before the glass existed, which the default lets load
+    #[serde(default)]
+    reduce_transparency: bool,
 }
 
 // ==== Systems ================================================================
 
-/// Applies the remembered settings to the window, the volume and the language. Anything
-/// missing, unreadable or from another version keeps the defaults, silently: it is a
-/// preference. A language never chosen follows the OS.
+/// Applies the remembered settings to the window, the volume, the language and the glass.
+/// Anything missing, unreadable or from another version keeps the defaults, silently: it is
+/// a preference. A language never chosen follows the OS.
 fn load_settings(
     mut window: Single<&mut Window>,
     mut global_volume: ResMut<GlobalVolume>,
     mut language: ResMut<Language>,
+    mut reduce_transparency: ResMut<ReduceTransparency>,
 ) {
     let settings = game_data_dir()
         .and_then(|dir| std::fs::read_to_string(dir.join(SETTINGS_FILE_NAME)).ok())
@@ -130,6 +143,7 @@ fn load_settings(
     } else {
         WindowMode::Windowed
     };
+    reduce_transparency.0 = settings.reduce_transparency;
 }
 
 /// Spawns the settings panel over the current screen, blocking clicks to it.
@@ -144,18 +158,17 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
                 setting_row(
                     "settings-fullscreen",
                     (
-                        Node {
-                            width: px(CHECKBOX_SIZE_PX),
-                            height: px(CHECKBOX_SIZE_PX),
-                            border: UiRect::all(px(BORDER_PX)),
-                            border_radius: BorderRadius::all(px(CHECKBOX_RADIUS_PX)),
-                            ..default()
-                        },
-                        Checkbox,
-                        BackgroundColor(FIELD_FILL),
-                        BorderColor::all(BORDER),
+                        checkbox(),
                         FullscreenToggle,
                         AccessibleLabel::new("Fullscreen"),
+                    ),
+                ),
+                setting_row(
+                    "settings-reduce-transparency",
+                    (
+                        checkbox(),
+                        ReduceTransparencyToggle,
+                        AccessibleLabel::new("Reduce Transparency"),
                     ),
                 ),
                 setting_row(
@@ -220,23 +233,46 @@ fn toggle_fullscreen(
     }
 }
 
-/// Paints the fullscreen checkbox and sets its checked state from the window mode: filled
-/// with the accent when on, an empty box when off.
+/// Turns Reduce Transparency on or off when its checkbox is clicked. The glass follows at
+/// once, this panel's own included.
+fn toggle_reduce_transparency(
+    value_change: On<ValueChange<bool>>,
+    reduce_transparency_toggles: Query<(), With<ReduceTransparencyToggle>>,
+    mut reduce_transparency: ResMut<ReduceTransparency>,
+) {
+    if reduce_transparency_toggles.contains(value_change.source) {
+        reduce_transparency.0 = !reduce_transparency.0;
+    }
+}
+
+/// Checks and paints the fullscreen checkbox from the window mode.
 fn update_fullscreen_checkbox(
     mut commands: Commands,
     checkbox: Single<(Entity, &mut BackgroundColor, &mut BorderColor), With<FullscreenToggle>>,
     window: Single<&Window>,
 ) {
     let (entity, mut fill, mut border) = checkbox.into_inner();
-    if window.mode == WindowMode::Windowed {
-        commands.entity(entity).remove::<Checked>();
-        fill.0 = FIELD_FILL;
-        *border = BorderColor::all(BORDER);
-    } else {
-        commands.entity(entity).insert(Checked);
-        fill.0 = ACCENT;
-        *border = BorderColor::all(ACCENT);
-    }
+    let checked = window.mode != WindowMode::Windowed;
+    set_checkbox(&mut commands, entity, &mut fill, &mut border, checked);
+}
+
+/// Checks and paints the Reduce Transparency checkbox from the setting.
+fn update_reduce_transparency_checkbox(
+    mut commands: Commands,
+    checkbox: Single<
+        (Entity, &mut BackgroundColor, &mut BorderColor),
+        With<ReduceTransparencyToggle>,
+    >,
+    reduce_transparency: Res<ReduceTransparency>,
+) {
+    let (entity, mut fill, mut border) = checkbox.into_inner();
+    set_checkbox(
+        &mut commands,
+        entity,
+        &mut fill,
+        &mut border,
+        reduce_transparency.0,
+    );
 }
 
 /// Sets the game's volume from the volume slider, and stores the slider's new value,
@@ -312,18 +348,20 @@ fn update_language_radios(
     }
 }
 
-/// Writes the window mode, the volume and the language to `settings.ron` as the panel
-/// closes, once per visit rather than on every slider move.
+/// Writes the window mode, the volume, the language and the glass setting to `settings.ron`
+/// as the panel closes, once per visit rather than on every slider move.
 fn save_settings(
     window: Single<&Window>,
     global_volume: Res<GlobalVolume>,
     language: Res<Language>,
+    reduce_transparency: Res<ReduceTransparency>,
 ) {
     let settings = SettingsFile {
         version: SETTINGS_VERSION,
         fullscreen: window.mode != WindowMode::Windowed,
         volume: global_volume.volume.to_linear(),
         language: Some(*language),
+        reduce_transparency: reduce_transparency.0,
     };
     let Ok(text) = ron::to_string(&settings) else {
         return;
@@ -357,6 +395,43 @@ fn setting_row(key: &'static str, control: impl Bundle) -> impl Bundle {
             control,
         ],
     )
+}
+
+/// Returns an empty checkbox, for its marker and its accessible label to be added to. Its
+/// `update_*_checkbox` system checks and paints it every frame, since the widget does neither.
+fn checkbox() -> impl Bundle {
+    (
+        Node {
+            width: px(CHECKBOX_SIZE_PX),
+            height: px(CHECKBOX_SIZE_PX),
+            border: UiRect::all(px(BORDER_PX)),
+            border_radius: BorderRadius::all(px(CHECKBOX_RADIUS_PX)),
+            ..default()
+        },
+        Checkbox,
+        BackgroundColor(FIELD_FILL),
+        BorderColor::all(BORDER),
+    )
+}
+
+/// Checks or unchecks a checkbox and paints it to match: filled with the accent when on, an
+/// empty box when off.
+fn set_checkbox(
+    commands: &mut Commands,
+    entity: Entity,
+    fill: &mut BackgroundColor,
+    border: &mut BorderColor,
+    checked: bool,
+) {
+    if checked {
+        commands.entity(entity).insert(Checked);
+        fill.0 = ACCENT;
+        *border = BorderColor::all(ACCENT);
+    } else {
+        commands.entity(entity).remove::<Checked>();
+        fill.0 = FIELD_FILL;
+        *border = BorderColor::all(BORDER);
+    }
 }
 
 /// Returns a stretch of the volume slider's track, `width` long from the left: the whole
@@ -512,6 +587,20 @@ mod tests {
             parse_settings(&text).unwrap().language,
             Some(Language::Japanese)
         );
+    }
+
+    #[test]
+    fn settings_without_reduce_transparency_load_with_it_off() {
+        let text = format!("(version: {SETTINGS_VERSION}, fullscreen: true, volume: 0.25)");
+        assert!(!parse_settings(&text).unwrap().reduce_transparency);
+    }
+
+    #[test]
+    fn reduce_transparency_reads_back() {
+        let text = format!(
+            "(version: {SETTINGS_VERSION}, fullscreen: true, volume: 0.25, reduce_transparency: true)"
+        );
+        assert!(parse_settings(&text).unwrap().reduce_transparency);
     }
 
     #[test]

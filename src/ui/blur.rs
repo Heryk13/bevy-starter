@@ -4,6 +4,7 @@ use bevy::ecs::entity::EntityHashMap;
 use bevy::prelude::*;
 use bevy::render::diagnostic::RecordDiagnostics;
 use bevy::render::extract_component::{ExtractComponent, ExtractComponentPlugin};
+use bevy::render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy::render::render_asset::RenderAssets;
 use bevy::render::render_resource::binding_types::{sampler, texture_2d, uniform_buffer};
 use bevy::render::render_resource::{
@@ -49,9 +50,11 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins((
         ExtractComponentPlugin::<GlassCopies>::default(),
         ExtractComponentPlugin::<FrozenLayer>::default(),
+        ExtractResourcePlugin::<ReduceTransparency>::default(),
         UiMaterialPlugin::<GlassMaterial>::default(),
     ));
     app.init_resource::<FrozenBackground>();
+    app.init_resource::<ReduceTransparency>();
     app.add_systems(
         Startup,
         (spawn_layer_cameras, generate_level_images).chain(),
@@ -61,7 +64,10 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(retarget_open_glass);
     app.add_systems(
         Update,
-        generate_level_images.run_if(on_message::<WindowResized>),
+        (
+            generate_level_images.run_if(on_message::<WindowResized>),
+            apply_reduce_transparency.run_if(resource_changed::<ReduceTransparency>),
+        ),
     );
     app.add_systems(PostUpdate, (activate_layer_cameras, freeze_settled_layers));
     // an app built without rendering has no render world, so nothing to blur in it
@@ -146,6 +152,14 @@ pub(crate) struct GlassLayers(pub(crate) Vec<GlobalZIndex>);
 #[derive(Resource, Default)]
 pub(crate) struct FrozenBackground(pub(crate) bool);
 
+/// Whether the glass is drawn flat, for a player who reads better without it or whose machine
+/// runs better without it: no layer is blurred, a backdrop is the dim alone over the sharp
+/// screen and a card a solid fill. The Settings overlay writes it and saves it, so this file
+/// never names the overlay. Extracted, since the passes are what it stops.
+#[derive(Resource, ExtractResource, Clone, Default)]
+#[extract_app(RenderApp)]
+pub(crate) struct ReduceTransparency(pub(crate) bool);
+
 /// The two passes of the glass's dual Kawase, in the render world: the layout, sampler and
 /// offset buffer both shaders bind, and the ids of the pipelines queued for them, which the
 /// passes look up in the `PipelineCache` each frame, since a pipeline compiles in the
@@ -163,16 +177,44 @@ struct KawasePipelines {
 // ==== Assets =================================================================
 
 /// The glass a floating root and its card are drawn with: one of its layer's blurred copies,
-/// read where the node sits on screen, under a tint, all faded by the node's alpha.
+/// read where the node sits on screen, under a tint, all faded by the node's alpha. Flat, it
+/// draws the tint alone, as opaque as the tint's own alpha: what Reduce Transparency asks for.
 #[derive(AsBindGroup, Asset, TypePath, Clone)]
 pub(super) struct GlassMaterial {
     #[uniform(0)]
     tint: LinearRgba,
     #[uniform(0)]
     pub(super) alpha: f32,
+    // 1 while Reduce Transparency is on, 0 otherwise: a shader's uniform cannot hold a `bool`
+    #[uniform(0)]
+    flat: u32,
     #[texture(1)]
     #[sampler(2)]
     copy: Handle<Image>,
+}
+
+impl GlassMaterial {
+    /// Returns the glass of a floating root, still invisible: its layer's backdrop copy under
+    /// the dim, or flat, the dim alone over the sharp screen.
+    fn backdrop(copy: Handle<Image>, flat: bool) -> Self {
+        Self {
+            tint: SCREEN_DIM.into(),
+            alpha: 0.0,
+            flat: u32::from(flat),
+            copy,
+        }
+    }
+
+    /// Returns the glass of a card, still invisible: its layer's card copy under the card's
+    /// tint, or flat, the solid surface.
+    fn card(copy: Handle<Image>, flat: bool) -> Self {
+        Self {
+            tint: card_tint(flat),
+            alpha: 0.0,
+            flat: u32::from(flat),
+            copy,
+        }
+    }
 }
 
 impl UiMaterial for GlassMaterial {
@@ -249,6 +291,7 @@ fn target_layer_camera(
     mut commands: Commands,
     cameras: Query<(Entity, &LayerCamera, &GlassCopies)>,
     z_indexes: Query<&GlobalZIndex>,
+    reduce_transparency: Res<ReduceTransparency>,
     mut materials: ResMut<Assets<GlassMaterial>>,
 ) {
     // floating_root always brings one, so a root without it was not built from there
@@ -262,14 +305,11 @@ fn target_layer_camera(
     let Some(copy) = copies.backdrop_copy() else {
         return;
     };
-    let handle = materials.add(GlassMaterial {
-        tint: SCREEN_DIM.into(),
-        alpha: 0.0,
-        copy: copy.clone(),
-    });
-    commands
-        .entity(add.entity)
-        .insert((UiTargetCamera(camera), MaterialNode(handle)));
+    let material = GlassMaterial::backdrop(copy.clone(), reduce_transparency.0);
+    commands.entity(add.entity).insert((
+        UiTargetCamera(camera),
+        MaterialNode(materials.add(material)),
+    ));
 }
 
 /// Gives each new card a glass of its own, reading its layer's card copy, which is blurrier
@@ -280,6 +320,7 @@ fn give_card_glass(
     parents: Query<&ChildOf>,
     z_indexes: Query<&GlobalZIndex>,
     cameras: Query<(&LayerCamera, &GlassCopies)>,
+    reduce_transparency: Res<ReduceTransparency>,
     mut materials: ResMut<Assets<GlassMaterial>>,
     mut commands: Commands,
 ) {
@@ -296,13 +337,10 @@ fn give_card_glass(
     let Some(copy) = copies.card_copy() else {
         return;
     };
-    let handle = materials.add(GlassMaterial {
-        // the card's copy carries no dim, so its tint brings the backdrop's along
-        tint: lay_over(SURFACE.into(), SCREEN_DIM.into()),
-        alpha: 0.0,
-        copy: copy.clone(),
-    });
-    commands.entity(add.entity).insert(MaterialNode(handle));
+    let material = GlassMaterial::card(copy.clone(), reduce_transparency.0);
+    commands
+        .entity(add.entity)
+        .insert(MaterialNode(materials.add(material)));
 }
 
 /// Points every open glass of a layer, each root's and its card's, at the copies its camera
@@ -333,6 +371,29 @@ fn retarget_open_glass(
             if let Some(mut material) = materials.get_mut(&card_glass.0) {
                 material.copy = card_copy.clone();
             }
+        }
+    }
+}
+
+/// Redraws every open glass flat, or as glass again, when Reduce Transparency changes, so the
+/// setting shows at once on the panels already open, the Settings overlay it was changed in
+/// included. A card also changes its tint: flat, it is the solid surface.
+fn apply_reduce_transparency(
+    reduce_transparency: Res<ReduceTransparency>,
+    roots: Query<&MaterialNode<GlassMaterial>, With<Floating>>,
+    cards: Query<&MaterialNode<GlassMaterial>, With<Card>>,
+    mut materials: ResMut<Assets<GlassMaterial>>,
+) {
+    let flat = reduce_transparency.0;
+    for root_glass in &roots {
+        if let Some(mut material) = materials.get_mut(&root_glass.0) {
+            material.flat = u32::from(flat);
+        }
+    }
+    for card_glass in &cards {
+        if let Some(mut material) = materials.get_mut(&card_glass.0) {
+            material.flat = u32::from(flat);
+            material.tint = card_tint(flat);
         }
     }
 }
@@ -463,8 +524,11 @@ fn init_kawase_pipelines(
 /// use. It is written only after every pass ran, so a frame that could not blur (a pipeline
 /// still compiling, an image not on the GPU yet) is tried again, and a resize, which hands
 /// the layer new images, is blurred again without being told.
+///
+/// Under Reduce Transparency no pass runs: the glass is drawn flat and reads no copy.
 fn blur_layer_backdrops(
     camera: ViewQuery<(&ViewTarget, &GlassCopies, &FrozenLayer)>,
+    reduce_transparency: Res<ReduceTransparency>,
     pipeline_cache: Res<PipelineCache>,
     kawase: Res<KawasePipelines>,
     gpu_images: Res<RenderAssets<GpuImage>>,
@@ -474,6 +538,12 @@ fn blur_layer_backdrops(
 ) {
     let camera_entity = camera.entity();
     let (view_target, copies, frozen_layer) = camera.into_inner();
+    if reduce_transparency.0 {
+        // the copy a frozen layer kept grows old while nothing blurs: forgetting it makes the
+        // layer blur again the frame the setting is turned back off
+        kept_copies.remove(&camera_entity);
+        return;
+    }
     let Some(copy_id) = copies.backdrop_copy().map(Handle::id) else {
         return;
     };
@@ -598,6 +668,17 @@ fn level_size(screen_px: UVec2, level: u32) -> UVec2 {
     (screen_px / (1 << level)).max(UVec2::ONE)
 }
 
+/// Returns the tint of a card's glass. As glass, the surface laid over the backdrop's dim,
+/// which the card's own copy does not carry. Flat, the surface made opaque: a solid fill, with
+/// nothing of the screen behind it showing through.
+fn card_tint(flat: bool) -> LinearRgba {
+    if flat {
+        SURFACE.with_alpha(1.0).into()
+    } else {
+        lay_over(SURFACE.into(), SCREEN_DIM.into())
+    }
+}
+
 /// Returns the one color that looks like `top` laid over `bottom`, so the glass can draw two
 /// tints with the single one its shader mixes in. Fully clear when both are, since the color
 /// of nothing has no answer and would divide by zero.
@@ -674,6 +755,16 @@ mod tests {
     fn a_thin_window_never_gets_a_zero_sized_level() {
         // two halvings take 3 px to 0, a texture the GPU refuses
         assert_eq!(level_size(UVec2::new(1920, 3), 2).y, 1);
+    }
+
+    #[test]
+    fn a_flat_card_hides_everything_behind_it() {
+        assert!((card_tint(true).alpha - 1.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn a_glass_card_lets_some_of_the_blur_through() {
+        assert!(card_tint(false).alpha < 1.0 - TOLERANCE);
     }
 
     #[test]

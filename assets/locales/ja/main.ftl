@@ -35,6 +35,7 @@ credits-title = クレジット
 credits-made-with = Bevyで制作
 settings-title = 設定
 settings-fullscreen = フルスクリーン
+settings-reduce-transparency = 透明度を下げる
 settings-volume = 音量
 settings-language = 言語
 
