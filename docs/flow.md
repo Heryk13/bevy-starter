@@ -485,6 +485,21 @@ under the setting is built flat (`GlassMaterial::backdrop` and `GlassMaterial::c
 copy a frozen layer kept, so turning it off blurs that layer again instead of showing a copy
 from before.
 
+A layer that shows a blur it already made hides everything under it, so whatever is costly to
+draw there may stop. Only the passes know that a copy was really made, so they are the ones to
+say it: `FrozenLayer` carries `copy_kept`, one flag shared by the camera's component and its
+extracted copy, which `blur_layer_backdrops` writes and the main world reads a frame later.
+From it `update_screens_covered` sets `ScreensCovered`: some open layer is frozen and shows a
+copy it kept, and the glass is not flat, since a flat backdrop is a dim the screens show
+through (the pure `are_screens_covered`). Whoever stops drawing runs in `PostUpdate`, after
+`ScreensCoveredSystems` and before `CameraUpdateSystems`: Bevy works out what a camera sees,
+and builds its shadows, only for a camera that is on, so one turned back on later in the frame
+draws an empty frame, and the glass would copy that. Two more things keep the kept copy whole.
+A resize clears `copy_kept` at once, in `generate_level_images`, so what had stopped draws
+again before the new copy is made. And the frame the screens are uncovered, no layer keeps the
+copy it makes: the one kept is the next frame's, drawn whole. It all counts on every
+`Floating` root covering the window, as `floating_root` makes them.
+
 Three settings must stay as they are: `IsDefaultUiCamera` on the screen camera (or every root
 moves to the top layer's camera), `ClearColorConfig::None` on the layer cameras (or the screens
 vanish), and the same HDR and MSAA on all of them (or they stop sharing the image).
@@ -496,7 +511,7 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
 | `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
-| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()`, `ReduceTransparency` | the pause menu, every overlay and every dialog float |
+| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()`, `ReduceTransparency`, `ScreensCovered` with `ScreensCoveredSystems` | the pause menu, every overlay and every dialog float |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |

@@ -1,3 +1,7 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+use bevy::camera::CameraUpdateSystems;
 use bevy::camera::visibility::RenderLayers;
 use bevy::core_pipeline::{Core2d, Core2dSystems, FullscreenShader};
 use bevy::ecs::entity::EntityHashMap;
@@ -55,6 +59,7 @@ pub(super) fn plugin(app: &mut App) {
     ));
     app.init_resource::<FrozenBackground>();
     app.init_resource::<ReduceTransparency>();
+    app.init_resource::<ScreensCovered>();
     app.add_systems(
         Startup,
         (spawn_layer_cameras, generate_level_images).chain(),
@@ -69,7 +74,19 @@ pub(super) fn plugin(app: &mut App) {
             apply_reduce_transparency.run_if(resource_changed::<ReduceTransparency>),
         ),
     );
-    app.add_systems(PostUpdate, (activate_layer_cameras, freeze_settled_layers));
+    app.add_systems(
+        PostUpdate,
+        (
+            activate_layer_cameras,
+            freeze_settled_layers,
+            update_screens_covered,
+        )
+            .chain()
+            // so `ScreensCovered` is settled before Bevy works out what each camera sees, and a
+            // camera it turns back on is still in time for this frame
+            .before(CameraUpdateSystems)
+            .in_set(ScreensCoveredSystems),
+    );
     // an app built without rendering has no render world, so nothing to blur in it
     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
         return;
@@ -84,6 +101,14 @@ pub(super) fn plugin(app: &mut App) {
             .after(Core2dSystems::PostProcess),
     );
 }
+
+// ==== System Sets ============================================================
+
+/// The systems that settle `ScreensCovered`, in `PostUpdate`. Whatever stops drawing under
+/// the layers runs `.after` this set and `.before(CameraUpdateSystems)`: a camera turned back
+/// on later in the frame is too late for Bevy to work out what it sees, and draws nothing.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct ScreensCoveredSystems;
 
 // ==== Components =============================================================
 
@@ -103,7 +128,14 @@ struct LayerCamera(GlobalZIndex);
 /// blurs changes any more. Extracted with its camera, where the passes read it.
 #[derive(Component, ExtractComponent, Clone, Default)]
 #[extract_app(RenderApp)]
-struct FrozenLayer(bool);
+struct FrozenLayer {
+    frozen: bool,
+    // whether the layer is showing a copy finished in an earlier frame. The one thing the
+    // render world tells the main one: only the passes know a copy was really made, so they
+    // write it and the main world reads it a frame later. Every clone the extraction makes
+    // shares the one flag, which is what lets it cross between the two worlds
+    copy_kept: Arc<AtomicBool>,
+}
 
 /// The images a layer camera blurs into, made for the window's size: the descent, each half
 /// the one before it, from half the screen down to one level past the backdrop's (the card's),
@@ -159,6 +191,14 @@ pub(crate) struct FrozenBackground(pub(crate) bool);
 #[derive(Resource, ExtractResource, Clone, Default)]
 #[extract_app(RenderApp)]
 pub(crate) struct ReduceTransparency(pub(crate) bool);
+
+/// Whether the screens, the game and every root that does not float, are wholly hidden: an
+/// open layer shows a blur it already made, and its backdrop covers the window. Whatever is
+/// costly to draw under the layers may stop while this is on, as the 3D level's camera does,
+/// and must draw again as soon as it is off, since the next copy is made from what it draws.
+/// It counts on every `Floating` root covering the window, as `floating_root` makes them.
+#[derive(Resource, Default, PartialEq)]
+pub(crate) struct ScreensCovered(pub(crate) bool);
 
 /// The two passes of the glass's dual Kawase, in the render world: the layout, sampler and
 /// offset buffer both shaders bind, and the ids of the pipelines queued for them, which the
@@ -253,7 +293,7 @@ fn spawn_layer_cameras(mut commands: Commands, glass_layers: Res<GlassLayers>) {
 fn generate_level_images(
     window: Single<&Window, With<PrimaryWindow>>,
     mut images: ResMut<Assets<Image>>,
-    layer_cameras: Query<Entity, With<LayerCamera>>,
+    layer_cameras: Query<(Entity, &FrozenLayer), With<LayerCamera>>,
     mut commands: Commands,
 ) {
     let window_size = window.physical_size();
@@ -269,7 +309,7 @@ fn generate_level_images(
         image.copy_on_resize = false;
         images.add(image)
     };
-    for camera in &layer_cameras {
+    for (camera, frozen_layer) in &layer_cameras {
         let descent = (1..=levels + 1).map(&mut new_level_image).collect();
         let backdrop_ascent = (1..levels).rev().map(&mut new_level_image).collect();
         let card_ascent = (1..=levels).rev().map(&mut new_level_image).collect();
@@ -279,6 +319,10 @@ fn generate_level_images(
             card_ascent,
         };
         commands.entity(camera).insert(glass_copies);
+        // the copy the layer kept is gone with the old images. Said here and not left to the
+        // passes, which would only notice while making the new one: by then whatever
+        // `ScreensCovered` had stopped must already be drawing again, to be in it
+        frozen_layer.copy_kept.store(false, Ordering::Relaxed);
     }
 }
 
@@ -436,8 +480,33 @@ fn freeze_settled_layers(
         let entrances = roots
             .iter()
             .map(|(z_index, entrance)| (*z_index, entrance.is_finished()));
-        frozen_layer.0 = frozen_background.0 && is_settled(layer_camera.0, entrances);
+        frozen_layer.frozen = frozen_background.0 && is_settled(layer_camera.0, entrances);
     }
+}
+
+/// Says whether the screens are wholly hidden behind a layer that shows a blur it already
+/// made. After the two systems above, whose answers it reads, and the last of
+/// `ScreensCoveredSystems`, which others order themselves by.
+fn update_screens_covered(
+    reduce_transparency: Res<ReduceTransparency>,
+    mut cameras: Query<(&Camera, &mut FrozenLayer), With<LayerCamera>>,
+    mut screens_covered: ResMut<ScreensCovered>,
+) {
+    let layers = cameras.iter().map(|(camera, frozen_layer)| {
+        let copy_kept = frozen_layer.copy_kept.load(Ordering::Relaxed);
+        (camera.is_active, frozen_layer.frozen, copy_kept)
+    });
+    let covered = are_screens_covered(reduce_transparency.0, layers);
+    if screens_covered.0 && !covered {
+        // what was stopped under the layers only starts drawing again this frame, and may not
+        // be whole yet (its shadows, say): no layer keeps the copy it makes now. Next frame
+        // `freeze_settled_layers` freezes them again, and the copy kept is of a whole frame
+        for (_, mut frozen_layer) in &mut cameras {
+            frozen_layer.frozen = false;
+        }
+    }
+    // set_if_neq: a camera that follows this is touched only when the answer changes
+    screens_covered.set_if_neq(ScreensCovered(covered));
 }
 
 /// Queues the two Kawase pipelines once, at `RenderStartup`, so they compile while the game
@@ -538,20 +607,28 @@ fn blur_layer_backdrops(
 ) {
     let camera_entity = camera.entity();
     let (view_target, copies, frozen_layer) = camera.into_inner();
-    if reduce_transparency.0 {
-        // the copy a frozen layer kept grows old while nothing blurs: forgetting it makes the
-        // layer blur again the frame the setting is turned back off
-        kept_copies.remove(&camera_entity);
+    let copy_id = copies.backdrop_copy().map(Handle::id);
+    // whether the layer shows, this frame, a copy finished in an earlier one
+    let copy_kept = !reduce_transparency.0
+        && frozen_layer.frozen
+        && copy_id.is_some()
+        && kept_copies.get(&camera_entity) == copy_id.as_ref();
+    // told to the main world, which stops drawing what such a layer hides
+    frozen_layer.copy_kept.store(copy_kept, Ordering::Relaxed);
+    if copy_kept {
         return;
     }
-    let Some(copy_id) = copies.backdrop_copy().map(Handle::id) else {
+    if reduce_transparency.0 || !frozen_layer.frozen {
+        // the copy a frozen layer kept grows old while nothing blurs it again: forgetting it
+        // makes the layer blur anew when it freezes, or the setting is turned back off
+        kept_copies.remove(&camera_entity);
+    }
+    if reduce_transparency.0 {
+        return;
+    }
+    let Some(copy_id) = copy_id else {
         return;
     };
-    if !frozen_layer.0 {
-        kept_copies.remove(&camera_entity);
-    } else if kept_copies.get(&camera_entity) == Some(&copy_id) {
-        return;
-    }
     let Some(down_pipeline) = pipeline_cache.get_render_pipeline(kawase.down) else {
         return;
     };
@@ -642,7 +719,7 @@ fn blur_layer_backdrops(
         );
         card_source = &texture.texture_view;
     }
-    if frozen_layer.0 {
+    if frozen_layer.frozen {
         kept_copies.insert(camera_entity, copy_id);
     }
 }
@@ -708,6 +785,17 @@ fn is_settled(layer: GlobalZIndex, roots: impl IntoIterator<Item = (GlobalZIndex
         .into_iter()
         .filter(|(root_layer, _)| root_layer.0 <= layer.0)
         .all(|(_, finished)| finished)
+}
+
+/// Tells whether the screens are wholly hidden, from each layer given as whether it is open,
+/// whether it is frozen and whether it shows a copy it kept. One such layer is enough: its
+/// backdrop covers the window with that copy, so nothing under it shows. Flat glass covers
+/// nothing: its backdrop is a dim the screens show through.
+fn are_screens_covered(flat: bool, layers: impl IntoIterator<Item = (bool, bool, bool)>) -> bool {
+    !flat
+        && layers
+            .into_iter()
+            .any(|(open, frozen, copy_kept)| open && frozen && copy_kept)
 }
 
 // ==== Tests ==================================================================
@@ -821,5 +909,40 @@ mod tests {
     fn a_root_coming_in_above_does_not_hold_the_layer() {
         let roots = [(LOWER_LAYER, true), (LAYER, true), (UPPER_LAYER, false)];
         assert!(is_settled(LAYER, roots));
+    }
+
+    // a layer as `are_screens_covered` takes it: open, frozen, showing a copy it kept
+    const COVERING_LAYER: (bool, bool, bool) = (true, true, true);
+
+    #[test]
+    fn an_open_frozen_layer_showing_its_kept_copy_covers_the_screens() {
+        assert!(are_screens_covered(false, [COVERING_LAYER]));
+    }
+
+    #[test]
+    fn a_layer_still_making_its_copy_covers_nothing() {
+        assert!(!are_screens_covered(false, [(true, true, false)]));
+    }
+
+    #[test]
+    fn a_layer_over_a_moving_background_covers_nothing() {
+        assert!(!are_screens_covered(false, [(true, false, true)]));
+    }
+
+    #[test]
+    fn a_closed_layer_covers_nothing() {
+        // closed, its marks are left over from the last time it was open
+        assert!(!are_screens_covered(false, [(false, true, true)]));
+    }
+
+    #[test]
+    fn flat_glass_covers_nothing() {
+        assert!(!are_screens_covered(true, [COVERING_LAYER]));
+    }
+
+    #[test]
+    fn one_covering_layer_is_enough_among_others() {
+        let layers = [(true, false, false), COVERING_LAYER, (false, false, false)];
+        assert!(are_screens_covered(false, layers));
     }
 }
