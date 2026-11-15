@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
 use super::blur::{Floating, GlassLayers, GlassMaterial};
-use super::{BORDER, BORDER_PX, BUTTON_GAP_PX, ButtonKind, SURFACE, button, label};
+use super::{BORDER, BORDER_PX, BUTTON_GAP_PX, ButtonKind, button, label};
 use crate::fade::Fade;
 
 // ==== Config =================================================================
@@ -66,7 +66,9 @@ pub(crate) fn floating_root(z_index: GlobalZIndex) -> impl Bundle {
 }
 
 /// Returns a glass card of the given width, the panel every overlay, the pause menu and
-/// every dialog is drawn on. It goes straight under a `floating_root`, which brings it in.
+/// every dialog is drawn on. It goes straight under a `floating_root`, which brings it in,
+/// and its fill is the glass `blur.rs` gives every `Card` from that root's layer: anywhere
+/// else it would have none.
 pub(crate) fn card(width_px: f32) -> impl Bundle {
     (
         Node {
@@ -78,7 +80,6 @@ pub(crate) fn card(width_px: f32) -> impl Bundle {
             border_radius: BorderRadius::all(px(CARD_RADIUS_PX)),
             ..default()
         },
-        BackgroundColor(SURFACE),
         BorderColor::all(BORDER),
         BoxShadow::new(
             CARD_SHADOW_COLOR,
@@ -134,9 +135,9 @@ pub(crate) struct Dialog;
 #[derive(Component)]
 struct CloseDialog;
 
-/// Marks a card, so its root's entrance can find it.
+/// Marks a card, so its root's entrance can find it and the blur can give it its glass.
 #[derive(Component)]
-struct Card;
+pub(super) struct Card;
 
 /// How long a `floating_root` has been coming in, in real seconds.
 #[derive(Component, Default)]
@@ -146,8 +147,9 @@ struct Entrance {
 
 // ==== Systems ================================================================
 
-/// Brings every new `floating_root` in: its glass fades in and its card rises into place. Counts
-/// real time, so the pause menu comes in although it freezes virtual time as it opens.
+/// Brings every new `floating_root` in: its glass and its card's fade in together and the card
+/// rises into place. Counts real time, so the pause menu comes in although it freezes virtual
+/// time as it opens.
 fn animate_entrances(
     time: Res<Time<Real>>,
     mut roots: Query<(
@@ -155,21 +157,25 @@ fn animate_entrances(
         Option<&MaterialNode<GlassMaterial>>,
         &Children,
     )>,
-    mut cards: Query<&mut UiTransform, With<Card>>,
+    mut cards: Query<(&mut UiTransform, Option<&MaterialNode<GlassMaterial>>), With<Card>>,
     mut materials: ResMut<Assets<GlassMaterial>>,
 ) {
-    for (mut entrance, glass_material, children) in &mut roots {
+    for (mut entrance, root_glass, children) in &mut roots {
         if entrance.secs > ENTRANCE.fade_in_secs {
             continue;
         }
         entrance.secs += time.delta_secs();
         let progress = ENTRANCE.alpha(entrance.secs);
-        if let Some(mut material) = glass_material.and_then(|glass| materials.get_mut(&glass.0)) {
+        if let Some(mut material) = root_glass.and_then(|glass| materials.get_mut(&glass.0)) {
             material.alpha = progress;
         }
         for child in children {
-            if let Ok(mut transform) = cards.get_mut(*child) {
-                *transform = entrance_transform(progress);
+            let Ok((mut transform, card_glass)) = cards.get_mut(*child) else {
+                continue;
+            };
+            *transform = entrance_transform(progress);
+            if let Some(mut material) = card_glass.and_then(|glass| materials.get_mut(&glass.0)) {
+                material.alpha = progress;
             }
         }
     }
