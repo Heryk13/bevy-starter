@@ -56,6 +56,19 @@ branch. [`create-bevy-starter`](https://github.com/Heryk13/create-bevy-starter) 
 from `main`, `3d/base` or `2d/base`: it clones the branch, renames the game and starts a fresh
 git history. Its design is in [its spec](docs/specs/create-bevy-starter/design.md).
 
+A change is committed on the highest branch that every game using it starts from, and merged
+down from there. `tools/` does both in one command, and a game made by `create-bevy-starter`
+does not get the folder:
+
+| Command                                | Description                                                      |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `just tools/sync <branch> "<message>"` | Commit the working changes on that branch, then merge them down  |
+| `just tools/down`                      | Merge every branch down the tree, committing nothing new         |
+| `just tools/test`                      | Try the two on a throwaway repository                            |
+
+Both check every branch they change with `just check`, stop at the first conflict or failed
+check, and ask before pushing.
+
 ## Requirements
 
 - Rust (latest stable) via [rustup](https://rustup.rs/)
