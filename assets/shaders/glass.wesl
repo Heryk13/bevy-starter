@@ -1,6 +1,7 @@
-// The glass a floating root is drawn with: `src/ui/blur.rs` blurs what the layers below left
-// into a copy that covers the screen at half its resolution, and this reads the part of it
-// right behind the node, lays the tint over it and fades the whole by the node's alpha.
+// The glass a floating root and its card are drawn with: `src/ui/blur.rs` blurs what the
+// layers below left into a copy that covers the screen at half its resolution, and this reads
+// the part of it right behind the node, lays the tint over it, fades the whole by the node's
+// alpha and cuts the node's rounded corners.
 //
 // Bind group 0 is Bevy's for every UI material (the view, then the globals); the material's
 // own bindings live in group 1, in the order of its fields in `GlassMaterial`.
@@ -28,5 +29,28 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // the tint's own alpha is how dark it lays over the blur; the material's alpha fades the
     // glass in and out with its root
     let color = mix(blurred.rgb, material.tint.rgb, material.tint.a);
-    return vec4(color, material.alpha);
+    // Bevy hands a material the whole rectangle of its node, so the rounded corners are cut
+    // here: in.uv runs 0 to 1 across the node, which makes this the pixel counted from its center
+    let point = (in.uv - 0.5) * in.size;
+    let distance = sd_rounded_box(point, in.size, in.border_radius_x.x);
+    return vec4(color, material.alpha * antialias(distance));
+}
+
+// How far a point is from the edge of a box with rounded corners, in pixels: negative inside,
+// positive outside. `point` is counted from the box's center.
+//
+// ponytail: one round radius for all four corners, the top left one's. A node whose corners
+// differ, or are ellipses, needs `sd_rounded_box` from `bevy_ui_render/src/ui.wesl` copied
+// here with the helpers it calls, since a material cannot import them.
+fn sd_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: f32) -> f32 {
+    // from the center of the nearest corner's circle to the point
+    let q = abs(point) - 0.5 * size + radius;
+    return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - radius;
+}
+
+// How much of a pixel this far from the edge is covered: all of it half a pixel inside, none
+// half a pixel outside, so the edge is a one pixel ramp instead of a staircase. The same as
+// Bevy's own, which a material cannot import either.
+fn antialias(distance: f32) -> f32 {
+    return saturate(0.5 - distance);
 }

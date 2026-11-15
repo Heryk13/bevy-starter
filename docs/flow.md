@@ -416,25 +416,33 @@ The blur is a **dual Kawase**, run by each layer camera on what the cameras belo
 `Startup`, and again on every `WindowResized`, `generate_level_images` gives each layer camera a
 `GlassCopies`: the descent, `Rgba16Float` images each half the one before, as many halvings as
 `levels_for_height` takes to bring the screen to `GLASS_TARGET_HEIGHT_PX` or below, plus one level
-more for the cards; and the ascent, back up to half the screen. `init_kawase_pipelines` queues
+more for the cards; and two ascents, the backdrop's and the cards', each back up to half the
+screen. `init_kawase_pipelines` queues
 the two Kawase pipelines at `RenderStartup`, so they compile while the game loads, not on the
 first pause; the glass material's own pipeline is still compiled by Bevy on its first use.
 `blur_layer_backdrops` runs in `Core2d`, once per active layer camera, between
 `Core2dSystems::PostProcess` and `ui_pass`, the bounds the UI pass itself has: the shared image
 then holds the layers below but not this layer's own UI, and nothing before it (the MSAA
 writeback of a camera that does not clear swaps the image) can swap it mid-read. It halves the image
-down the backdrop's levels with `assets/shaders/kawase_down.wesl`, every pass reading the one
-before, then doubles it back up the ascent with `kawase_up.wesl`. Each pass is timed with a
-`pass_span`, so `RenderDiagnosticsPlugin` can log it as `kawase_down_pass` or `kawase_up_pass`.
+down the descent with `assets/shaders/kawase_down.wesl`, every pass reading the one before, then
+doubles it back up twice with `kawase_up.wesl`: the backdrop's ascent from the level above the
+deepest, and the cards' from the deepest, so a card reads blurrier than the backdrop around it.
+Each pass is timed with a `pass_span`, so `RenderDiagnosticsPlugin` can log it as
+`kawase_down_pass` or `kawase_up_pass`.
 
 `target_layer_camera` also gives each new `Floating` root a `MaterialNode` of its own
-`GlassMaterial`: the top of its layer's chain (or the first level, when the window is so small
-that the ascent is empty), the `SCREEN_DIM` tint, and an alpha that `animate_entrances` brings
-from 0 to 1 over `ENTRANCE`. `assets/shaders/glass.wesl` reads the copy at the fragment's screen
-position, lays the tint over it and fades by that alpha, so the glass comes in with its panel.
-Which image the glass reads is `GlassCopies::glass_copy`. A resize gives the cameras new copies,
-and the observer `refresh_glass_copies`, on `Insert<GlassCopies>`, points every open root of
-that layer at them, so a panel left open through a resize keeps blurring instead of freezing.
+`GlassMaterial`: the top of its layer's backdrop ascent (or the first level, when the window is so
+small that the ascent is empty), the `SCREEN_DIM` tint, and an alpha that `animate_entrances`
+brings from 0 to 1 over `ENTRANCE`. `give_card_glass`, an observer on `Add<Card>`, gives each new
+card one too, reading the top of the cards' ascent and fading in with its root's. A material
+replaces what is under it, the root's dim included, so the card's tint is `SURFACE` laid over
+`SCREEN_DIM`, made one colour by the pure `lay_over`. `assets/shaders/glass.wesl` reads the copy
+at the fragment's screen position, lays the tint over it, fades by that alpha and cuts the node's
+rounded corners, which Bevy leaves to the material, so the glass comes in with its panel. Which
+image each reads is `GlassCopies::backdrop_copy` and `GlassCopies::card_copy`. A resize gives the
+cameras new copies, and the observer `retarget_open_glass`, on `Insert<GlassCopies>`, points
+every open root of that layer and its cards at them, so a panel left open through a resize keeps
+blurring instead of freezing.
 
 Three settings must stay as they are: `IsDefaultUiCamera` on the screen camera (or every root
 moves to the top layer's camera), `ClearColorConfig::None` on the layer cameras (or the screens
@@ -465,8 +473,8 @@ the left, and `row_button(content)` around any bundle, for a list row. `ButtonKi
 `paint_buttons` eases each button's `ButtonMotion` toward its `Hovered` and `Has<Pressed>` state
 with `approach`, on `Time<Real>`, and paints its fill, border and glow from the pure
 `button_colors(kind, hover, press)`. `floating_root(z)` and `card(width)` are what every panel is
-built from; `animate_entrances` brings each new root in, its glass fading in and its card rising
-12 px and scaling up, by the `ENTRANCE` fade. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
+built from; `animate_entrances` brings each new root in, its glass and its card's fading in and
+the card rising 12 px and scaling up, by the `ENTRANCE` fade. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
 so there is no state to gate them on. `load_button_sounds` loads `ui/click.wav` and `ui/hover.wav`
 once at `Startup` into a `ButtonSounds` resource, and `play_button_sounds` spawns a one-shot player
 per hover and per press with `PlaybackSettings::DESPAWN`, so nothing accumulates.

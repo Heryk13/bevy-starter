@@ -20,7 +20,8 @@ use bevy::shader::ShaderRef;
 use bevy::ui_render::ui_pass;
 use bevy::window::{PrimaryWindow, WindowResized};
 
-use super::panel::SCREEN_DIM;
+use super::SURFACE;
+use super::panel::{Card, SCREEN_DIM};
 
 // ==== Config =================================================================
 
@@ -53,6 +54,7 @@ pub(super) fn plugin(app: &mut App) {
         (spawn_layer_cameras, generate_level_images).chain(),
     );
     app.add_observer(target_layer_camera);
+    app.add_observer(give_card_glass);
     app.add_observer(retarget_open_glass);
     app.add_systems(
         Update,
@@ -89,21 +91,30 @@ struct LayerCamera(GlobalZIndex);
 
 /// The images a layer camera blurs into, made for the window's size: the descent, each half
 /// the one before it, from half the screen down to one level past the backdrop's (the card's),
-/// and the ascent, back up toward half the screen, where the glass reads it. Extracted with
-/// its camera, so the passes find the images to write in the same query as the view.
+/// and two ascents, the backdrop's and the card's, each back up toward half the screen, where
+/// its glass reads it. Extracted with its camera, so the passes find the images to write in
+/// the same query as the view.
 #[derive(Component, ExtractComponent, Clone)]
 #[extract_app(RenderApp)]
 struct GlassCopies {
     descent: Vec<Handle<Image>>,
-    ascent: Vec<Handle<Image>>,
+    backdrop_ascent: Vec<Handle<Image>>,
+    card_ascent: Vec<Handle<Image>>,
 }
 
 impl GlassCopies {
     /// Returns the image the glass reads, where the backdrop's blur ends: the top of the
-    /// ascent, or the first level when a window so small it takes a single level leaves the
-    /// ascent empty.
-    fn glass_copy(&self) -> Option<&Handle<Image>> {
-        self.ascent.last().or_else(|| self.descent.first())
+    /// backdrop's ascent, or the first level when a window so small it takes a single level
+    /// leaves that ascent empty.
+    fn backdrop_copy(&self) -> Option<&Handle<Image>> {
+        self.backdrop_ascent.last().or_else(|| self.descent.first())
+    }
+
+    /// Returns the image a card reads, where the card's blur ends: the top of the card's
+    /// ascent, which is never empty, since the card's chain always climbs from one level past
+    /// the backdrop's.
+    fn card_copy(&self) -> Option<&Handle<Image>> {
+        self.card_ascent.last()
     }
 }
 
@@ -131,8 +142,8 @@ struct KawasePipelines {
 
 // ==== Assets =================================================================
 
-/// The glass a floating root is drawn with: its layer's blurred copy, read where the node sits
-/// on screen, under a tint, all faded by the node's alpha.
+/// The glass a floating root and its card are drawn with: one of its layer's blurred copies,
+/// read where the node sits on screen, under a tint, all faded by the node's alpha.
 #[derive(AsBindGroup, Asset, TypePath, Clone)]
 pub(super) struct GlassMaterial {
     #[uniform(0)]
@@ -197,8 +208,13 @@ fn generate_level_images(
     };
     for camera in &layer_cameras {
         let descent = (1..=levels + 1).map(&mut new_level_image).collect();
-        let ascent = (1..levels).rev().map(&mut new_level_image).collect();
-        let glass_copies = GlassCopies { descent, ascent };
+        let backdrop_ascent = (1..levels).rev().map(&mut new_level_image).collect();
+        let card_ascent = (1..=levels).rev().map(&mut new_level_image).collect();
+        let glass_copies = GlassCopies {
+            descent,
+            backdrop_ascent,
+            card_ascent,
+        };
         commands.entity(camera).insert(glass_copies);
     }
 }
@@ -222,7 +238,7 @@ fn target_layer_camera(
         warn!("no glass layer {z_index:?}: register it in GlassLayers");
         return;
     };
-    let Some(copy) = copies.glass_copy() else {
+    let Some(copy) = copies.backdrop_copy() else {
         return;
     };
     let handle = materials.add(GlassMaterial {
@@ -235,26 +251,67 @@ fn target_layer_camera(
         .insert((UiTargetCamera(camera), MaterialNode(handle)));
 }
 
-/// Points every open glass of a layer at the copies its camera was just given. A resize
-/// remakes the copies with new handles, and the old ones are written no more, so a panel left
-/// open through it would otherwise freeze on the blur from before.
+/// Gives each new card a glass of its own, reading its layer's card copy, which is blurrier
+/// than the backdrop's so the card stands out from what is behind it. Each card gets its own
+/// material, since each fades in with its own root.
+fn give_card_glass(
+    add: On<Add<Card>>,
+    parents: Query<&ChildOf>,
+    z_indexes: Query<&GlobalZIndex>,
+    cameras: Query<(&LayerCamera, &GlassCopies)>,
+    mut materials: ResMut<Assets<GlassMaterial>>,
+    mut commands: Commands,
+) {
+    let Ok(child_of) = parents.get(add.entity) else {
+        return;
+    };
+    let Ok(z_index) = z_indexes.get(child_of.0) else {
+        return;
+    };
+    let Some((_, copies)) = cameras.iter().find(|(layer, _)| layer.0 == *z_index) else {
+        warn!("no glass layer {z_index:?}: register it in GlassLayers");
+        return;
+    };
+    let Some(copy) = copies.card_copy() else {
+        return;
+    };
+    let handle = materials.add(GlassMaterial {
+        // the card's copy carries no dim, so its tint brings the backdrop's along
+        tint: lay_over(SURFACE.into(), SCREEN_DIM.into()),
+        alpha: 0.0,
+        copy: copy.clone(),
+    });
+    commands.entity(add.entity).insert(MaterialNode(handle));
+}
+
+/// Points every open glass of a layer, each root's and its card's, at the copies its camera
+/// was just given. A resize remakes the copies with new handles, and the old ones are written
+/// no more, so a panel left open through it would otherwise freeze on the blur from before.
 fn retarget_open_glass(
     insert: On<Insert<GlassCopies>>,
     cameras: Query<(&LayerCamera, &GlassCopies)>,
-    roots: Query<(&GlobalZIndex, &MaterialNode<GlassMaterial>), With<Floating>>,
+    roots: Query<(&GlobalZIndex, &MaterialNode<GlassMaterial>, &Children), With<Floating>>,
+    cards: Query<&MaterialNode<GlassMaterial>, With<Card>>,
     mut materials: ResMut<Assets<GlassMaterial>>,
 ) {
     let Ok((layer_camera, copies)) = cameras.get(insert.entity) else {
         return;
     };
-    let Some(copy) = copies.glass_copy() else {
+    let (Some(backdrop_copy), Some(card_copy)) = (copies.backdrop_copy(), copies.card_copy())
+    else {
         return;
     };
-    for (z_index, node) in &roots {
-        if *z_index == layer_camera.0
-            && let Some(mut material) = materials.get_mut(&node.0)
-        {
-            material.copy = copy.clone();
+    for (z_index, root_glass, children) in &roots {
+        if *z_index != layer_camera.0 {
+            continue;
+        }
+        if let Some(mut material) = materials.get_mut(&root_glass.0) {
+            material.copy = backdrop_copy.clone();
+        }
+        for card_glass in cards.iter_many(children).flatten() {
+            if let Some(mut material) = materials.get_mut(&card_glass.0) {
+                material.copy = card_copy.clone();
+            }
         }
     }
 }
@@ -347,7 +404,9 @@ fn init_kawase_pipelines(
 }
 
 /// Blurs what the cameras below a layer drew into its `GlassCopies`: a dual Kawase that halves
-/// the image down the descent and doubles it back up the ascent, before the layer's own UI.
+/// the image down the descent and doubles it back up twice, the backdrop's ascent from the
+/// level above the deepest and the card's from the deepest, before the layer's own UI. The
+/// card's chain goes one level further down, so a card reads blurrier than the backdrop.
 fn blur_layer_backdrops(
     camera: ViewQuery<(&ViewTarget, &GlassCopies)>,
     pipeline_cache: Res<PipelineCache>,
@@ -364,7 +423,7 @@ fn blur_layer_backdrops(
         return;
     };
     // the deepest level is the card's, so the backdrop's ascent starts from the one above it
-    let Some((_, backdrop_levels)) = copies.descent.split_last() else {
+    let Some((card_level, backdrop_levels)) = copies.descent.split_last() else {
         return;
     };
     let mut source = view_target.main_texture_view();
@@ -417,12 +476,35 @@ fn blur_layer_backdrops(
         );
         source = &texture.texture_view;
     }
-    for handle in &copies.ascent {
+    let backdrop_bottom = source;
+    let Some(card_texture) = gpu_images.get(card_level) else {
+        return;
+    };
+    run_pass(
+        down_pipeline,
+        backdrop_bottom,
+        &card_texture.texture_view,
+        "kawase_down_pass",
+    );
+    for handle in &copies.backdrop_ascent {
         let Some(texture) = gpu_images.get(handle) else {
             return;
         };
         run_pass(up_pipeline, source, &texture.texture_view, "kawase_up_pass");
         source = &texture.texture_view;
+    }
+    let mut card_source = &card_texture.texture_view;
+    for handle in &copies.card_ascent {
+        let Some(texture) = gpu_images.get(handle) else {
+            return;
+        };
+        run_pass(
+            up_pipeline,
+            card_source,
+            &texture.texture_view,
+            "kawase_up_pass",
+        );
+        card_source = &texture.texture_view;
     }
 }
 
@@ -447,6 +529,27 @@ fn level_size(screen_px: UVec2, level: u32) -> UVec2 {
     (screen_px / (1 << level)).max(UVec2::ONE)
 }
 
+/// Returns the one color that looks like `top` laid over `bottom`, so the glass can draw two
+/// tints with the single one its shader mixes in. Fully clear when both are, since the color
+/// of nothing has no answer and would divide by zero.
+fn lay_over(top: LinearRgba, bottom: LinearRgba) -> LinearRgba {
+    // how much of `bottom` still shows through `top`
+    let bottom_share = (1.0 - top.alpha) * bottom.alpha;
+    let out_alpha = top.alpha + bottom_share;
+    if out_alpha == 0.0 {
+        return LinearRgba::NONE;
+    }
+    // each channel weighs both colors by how much of each shows, as a share of the whole
+    let channel =
+        |top_c: f32, bottom_c: f32| (top_c * top.alpha + bottom_c * bottom_share) / out_alpha;
+    LinearRgba::new(
+        channel(top.red, bottom.red),
+        channel(top.green, bottom.green),
+        channel(top.blue, bottom.blue),
+        out_alpha,
+    )
+}
+
 // ==== Tests ==================================================================
 
 #[cfg(test)]
@@ -455,6 +558,7 @@ mod tests {
 
     // the common window heights, from 720p to 4K
     const SCREEN_HEIGHTS_PX: [u32; 4] = [720, 1080, 1440, 2160];
+    const TOLERANCE: f32 = 1e-5;
 
     #[test]
     fn deepest_level_lands_within_a_halving_of_the_target() {
@@ -487,5 +591,44 @@ mod tests {
     fn a_thin_window_never_gets_a_zero_sized_level() {
         // two halvings take 3 px to 0, a texture the GPU refuses
         assert_eq!(level_size(UVec2::new(1920, 3), 2).y, 1);
+    }
+
+    #[test]
+    fn one_tint_looks_like_the_two_laid_in_turn() {
+        let (top, bottom): (LinearRgba, LinearRgba) = (SURFACE.into(), SCREEN_DIM.into());
+        let out = lay_over(top, bottom);
+        // what the `mix` in glass.wesl does to one channel of the blur behind the glass
+        let tinted = |behind: f32, tint: f32, alpha: f32| behind + (tint - behind) * alpha;
+        let channels = [
+            (top.red, bottom.red, out.red),
+            (top.green, bottom.green, out.green),
+            (top.blue, bottom.blue, out.blue),
+        ];
+        for behind in [0.0, 0.5, 1.0] {
+            for (top_c, bottom_c, out_c) in channels {
+                let in_turn = tinted(tinted(behind, bottom_c, bottom.alpha), top_c, top.alpha);
+                let at_once = tinted(behind, out_c, out.alpha);
+                assert!(
+                    (in_turn - at_once).abs() < TOLERANCE,
+                    "over {behind}: {in_turn} in turn, {at_once} at once",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn an_opaque_top_hides_the_bottom() {
+        let out = lay_over(LinearRgba::RED, LinearRgba::BLUE);
+        assert!((out.red - 1.0).abs() < TOLERANCE);
+        assert!(out.blue.abs() < TOLERANCE);
+        assert!((out.alpha - 1.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn two_clear_colors_lay_over_as_nothing() {
+        let out = lay_over(LinearRgba::NONE, LinearRgba::NONE);
+        // exact on purpose, where a float usually gets a tolerance: the guard hands back the
+        // constant itself, and the NaN a division by zero would leave equals nothing
+        assert_eq!(out, LinearRgba::NONE);
     }
 }
