@@ -425,6 +425,9 @@ counts: an inactive camera draws nothing, so a closed layer costs nothing.
 
 On `3d/base` one more camera sits under them all: the playroom's still `Camera3d`, at order -1,
 which draws the level before the screen camera draws the UI over it (see [Gameplay](#gameplay)).
+`rest_playroom_cameras` (`playroom.rs`) turns every `PlayroomCamera` off while `ScreensCovered`
+is on, as under the pause menu once its blur is made, and on again the moment it is not: the
+level is the costliest thing drawn, and none of it would show behind the blur.
 
 The blur is a **dual Kawase**, run by each layer camera on what the cameras below it drew. At
 `Startup`, and again on every `WindowResized`, `generate_level_images` gives each layer camera a
