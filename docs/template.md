@@ -138,7 +138,9 @@ draws under every other layer, with no glass behind it (see "The cameras and the
 `docs/flow.md`). A feature that stops everything behind the panels, as the pause menu does, runs
 `freeze_background` from `ui::blur` when that begins and `unfreeze_background` when it ends, and
 the glass over it is blurred once instead of every frame. Without them the glass is still right,
-only slower.
+only slower. A camera that draws only the game's world may stop while `ScreensCovered` is on,
+when a panel's blur hides all of it: it sets `Camera::is_active` from it in `PostUpdate`,
+after `ScreensCoveredSystems` and before `CameraUpdateSystems` (see the same section).
 
 ### Translations
 

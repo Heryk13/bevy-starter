@@ -1,6 +1,6 @@
 # Glass: a blurred copy behind every panel, cheap enough for any game
 
-Status: **built on `main`** — written and approved 2026-11-08; steps 1 to 4 and 7 built by 2026-11-16. The regions (steps 5 and 6) are put off to the Pieces spec, and step 9, on `3d/base`, is still to build (see "What changed while building it").
+Status: **built** — written and approved 2026-11-08; steps 1 to 4, 7 and 9 built by 2026-11-16, the last of step 9 on `3d/base`. The regions (steps 5 and 6) are put off to the Pieces spec (see "What changed while building it").
 Date: 2026-11-08
 Bevy: 0.20.0
 
@@ -347,3 +347,29 @@ since "Coming in" was folded into the steps before it.
 - **The two checkboxes share `checkbox()` and `set_checkbox`** (decided while building 7.3).
   Task 7.3 built the new one like the fullscreen one; with two, the bundle and the painting
   moved into helpers of `settings.rs` instead of being written twice.
+- **The passes tell the main world when a copy is kept** (found while building 9.1). Task 9.1
+  stopped the level's camera "once the pause layer's copy is made", but the main world, which
+  turns cameras on and off, cannot know that: a camera stopped a frame early leaves the glass
+  to copy an image without the level. `FrozenLayer` gained `copy_kept`, one flag shared by the
+  camera's component and its extracted copy, written by `blur_layer_backdrops` and read a
+  frame later. It is the one message from the render world to the main one.
+- **Step 9 is two commits, and its first is on `main`** (decided while building 9.1). From
+  that flag `blur.rs` settles a resource of its own, `ScreensCovered`, which any branch can
+  read: `3d/base` only adds the system that stops the playroom's cameras with it. The 2D room
+  does not use it: the screen camera draws it, with the UI, and it costs little.
+- **A camera turned back on has to be on before Bevy's camera systems run** (found in 9.2's
+  first run). Bevy works out what a camera sees, and builds its shadow cascades, only for a
+  camera whose `is_active` is set. The system that stopped the playroom's cameras ran in
+  `Last`, after all that, so a resize under the pause menu brought the camera back blind: it
+  drew an empty frame, only the physics debug lines in it, and the glass copied that, black.
+  It now runs in `PostUpdate`, after `ScreensCoveredSystems` and before `CameraUpdateSystems`.
+- **No layer keeps the copy of the frame the screens are uncovered** (decided with the fix
+  above). The frame something starts drawing again, it may not be whole yet, so
+  `update_screens_covered` unfreezes every layer for that frame, and the copy kept is the next
+  one's. A resize also clears `copy_kept` itself, at once, instead of leaving it to the passes.
+- **Measured in 9.2 with the physics debug view off.** With it on, the dev build ran at about
+  105 fps drawn or not: drawing every collider's outline each frame held the frame, and hid
+  the gain. With it off and vsync off, the running game drew about 275 frames a second and
+  the paused one, its level no longer drawn, about 440: a frame of 2.3 ms in place of 3.6 ms.
+- **Flat glass stops nothing** (by design, asked in 9.2). Under Reduce Transparency the paused
+  game shows sharp behind the dim, so its level has to keep being drawn.
