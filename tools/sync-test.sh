@@ -10,7 +10,8 @@ fail() {
 
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(mktemp -d)"
-trap 'rm -rf "$repo"' EXIT
+remote="$(mktemp -d)"
+trap 'rm -rf "$repo" "$remote"' EXIT
 cd "$repo"
 
 git init --quiet --initial-branch main
@@ -33,12 +34,20 @@ for edge in main:3d/base 3d/base:3d/player main:2d/base; do
     git add --all
     git commit --quiet --message "feat: start $child"
 done
+# a remote of its own, so the question about pushing is asked and its answer can be checked
+git init --quiet --bare "$remote"
+git remote add origin "$remote"
+
+# prints the commit the remote holds for the branch $1, or nothing when it has none
+remote_tip() {
+    git ls-remote origin "refs/heads/$1" | cut -f1
+}
 
 echo "---- a change made on 3d/player lands on main and reaches every branch"
 git switch --quiet 3d/player
 echo changed >>shared.txt
 echo new >new.txt
-sh tools/sync.sh commit main "feat: change"
+echo y | sh tools/sync.sh commit main "feat: change"
 [ "$(git branch --show-current)" = "3d/player" ] || fail "did not return to the starting branch"
 [ -z "$(git status --porcelain)" ] || fail "left changes behind"
 [ "$(git log -1 --format=%s main)" = "feat: change" ] || fail "main did not get the commit"
@@ -49,6 +58,11 @@ done
 if git show main:own-3d-base.txt >/dev/null 2>&1; then
     fail "main got a child's file"
 fi
+
+echo "---- answering y pushes every branch of the tree"
+for branch in main 3d/base 3d/player 2d/base; do
+    [ "$(git rev-parse "$branch")" = "$(remote_tip "$branch")" ] || fail "$branch was not pushed"
+done
 
 echo "---- a failed check stops before the commit, on the target branch"
 touch broken
@@ -76,14 +90,17 @@ git checkout --quiet -- shared.txt
 echo "---- a change to the script itself survives the stash and the switches that rewrite it"
 git switch --quiet 3d/player
 echo "# changed" >>tools/sync.sh
-sh tools/sync.sh commit main "build: change the script"
+sh tools/sync.sh commit main "build: change the script" </dev/null
 for branch in main 3d/base 3d/player 2d/base; do
     git show "$branch:tools/sync.sh" | grep -q "# changed" || fail "$branch missed the script's change"
 done
 
+echo "---- no answer pushes nothing"
+[ "$(git rev-parse main)" != "$(remote_tip main)" ] || fail "pushed without a yes"
+
 echo "---- merging down with nothing new changes nothing"
 tips_before="$(git for-each-ref --format='%(objectname)' refs/heads)"
-sh tools/sync.sh down
+sh tools/sync.sh down </dev/null
 [ "$tips_before" = "$(git for-each-ref --format='%(objectname)' refs/heads)" ] || fail "an idle merge down moved a branch"
 
 echo
