@@ -71,9 +71,19 @@ merge_down() {
 # pushes every branch of the tree, only on a typed "y"
 offer_push() {
     git remote get-url origin >/dev/null 2>&1 || return 0
-    branches="$(printf '%s\n' $TREE | tr ':' '\n' | sort -u | tr '\n' ' ')"
+    # each branch of the tree once, by hand: `sort -u` would do it, but on Windows that name
+    # finds the system's own sort before Git's, as `bash` finds WSL's
+    branches=""
+    for edge in $TREE; do
+        for branch in "${edge%%:*}" "${edge#*:}"; do
+            case " $branches " in
+            *" $branch "*) ;;
+            *) branches="$branches $branch" ;;
+            esac
+        done
+    done
     step "every branch is merged down, back on $start"
-    printf 'push %s? [y/N] ' "$branches"
+    printf 'push%s? [y/N] ' "$branches"
     read -r answer || answer=n
     if [ "$answer" != y ]; then
         echo "not pushed"
