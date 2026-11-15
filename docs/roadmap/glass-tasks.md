@@ -43,15 +43,35 @@ tasks small enough for one sitting each, with the facts each task needs.
   later). Only the two Kawase pipelines are queued at `RenderStartup`; Bevy specializes the
   `GlassMaterial` pipeline the first frame a glass shows and skips drawing it until it is
   ready, so the first pause may bring its glass in a few frames late. Not seen while testing,
-  so it waits for a hitch someone can see. The level lists built inside
-  `generate_level_images` also wait: they become a pure, tested function in 3.1, which changes
-  them for the card.
+  so it waits for a hitch someone can see.
+- **The level lists stay inside `generate_level_images`** (decided in step 3). The review of
+  2.14 meant them to become a pure, tested function in 3.1, which changed them for the card.
+  They are three ranges over `levels`, one line each: a function around them would be more
+  code than what it protects.
 - **A resize points the open glass at the new copies** (found while testing 2.12). A resize
   remakes every `GlassCopies` with new handles, and a root's material kept the old ones, which
   nothing writes any more: the glass of an open panel froze, stretched, until it was reopened,
   and a panel that never closes (a HUD, the prop editor) would stay frozen. An observer on
   `Insert<GlassCopies>` now hands every open root of that layer the new copy, and the choice of
-  which image the glass reads is `GlassCopies::glass_copy`, shared by both places.
+  which image the glass reads is `GlassCopies::backdrop_copy`, shared by both places (named
+  `glass_copy` until 3.2 gave the card a copy of its own, `card_copy`). Since 3.2 the same
+  observer, `retarget_open_glass`, hands each root's cards the new card copy too.
+- **A card gets its glass from an observer, not a system** (decided while building 3.2). An
+  observer on `Add<Card>` runs as the card is spawned, where a system on `Added<Card>` would
+  wait for the next `Update` and could show the card a frame without its glass; and it matches
+  `target_layer_camera`, which does the same for the roots.
+- **The card's two tints are one colour** (decided while building 3.2). A material replaces what
+  is under it, so the card's glass would lose the dim its root lays over the backdrop, and the
+  shader mixes in a single tint. The pure `lay_over(top, bottom)` in `blur.rs` gives the one
+  colour that looks like `SURFACE` laid over `SCREEN_DIM`, tested against laying the two in turn.
+- **The corners are cut with one radius, not Bevy's `sd_rounded_box`** (decided while building
+  3.2). Bevy's takes a radius per corner and ellipses, and calls two more functions a material
+  cannot import: some 40 lines copied for a card whose four corners share one round radius.
+  `glass.wesl` has the two-line box of a single radius, the top left corner's, and a comment
+  there says what to copy the day a node's corners differ.
+- **The card's flat fill went after 3.3, not in 3.2** (decided while building 3.2). The card's
+  glass starts at alpha 0 and 3.3 is what fades it in, so taking `BackgroundColor(SURFACE)` off
+  first would have left the card without a fill in between.
 
 ## The layers at a glance
 
@@ -111,10 +131,10 @@ a level lower is tried with the test panel and kept only if it passes Must not.
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 3.1 The card's chain: the descent's extra level and an ascent of its own from there | you | the descent is shared with the backdrop; same shaders, same pipelines |
-| [ ] | 3.2 A system gives each new `Card` a `GlassMaterial` reading its layer's card copy, tinted with `SURFACE` over the backdrop's dim, with its corners cut | you | `Query<(Entity, &ChildOf), Added<Card>>`, the layer from the parent's `GlobalZIndex`; the corners from `in.size`, `in.border_radius_x`, `in.border_radius_y` and `in.uv`: copy `sd_rounded_box` and the `antialias` it uses from `bevy_ui_render/src/ui.wesl` into `glass.wesl`, since a material cannot import them |
-| [ ] | 3.3 `animate_entrances` fades the card's material with the root's | you | |
-| [ ] | 3.4 `docs/flow.md` | Claude | |
+| [x] | 3.1 The card's chain: the descent's extra level and an ascent of its own from there | you | the descent is shared with the backdrop; same shaders, same pipelines |
+| [x] | 3.2 A system gives each new `Card` a `GlassMaterial` reading its layer's card copy, tinted with `SURFACE` over the backdrop's dim, with its corners cut | you | `Query<(Entity, &ChildOf), Added<Card>>`, the layer from the parent's `GlobalZIndex`; the corners from `in.size`, `in.border_radius_x`, `in.border_radius_y` and `in.uv`: copy `sd_rounded_box` and the `antialias` it uses from `bevy_ui_render/src/ui.wesl` into `glass.wesl`, since a material cannot import them |
+| [x] | 3.3 `animate_entrances` fades the card's material with the root's | you | |
+| [x] | 3.4 `docs/flow.md` | Claude | |
 | [ ] | 3.5 `just run` on both branches: the card stands out from the backdrop, its text reads over the sky; review; commit | both | |
 
 ## Step 4: `perf: blur a frozen layer once`
