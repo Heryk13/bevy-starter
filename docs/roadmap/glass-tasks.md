@@ -72,6 +72,38 @@ tasks small enough for one sitting each, with the facts each task needs.
 - **The card's flat fill went after 3.3, not in 3.2** (decided while building 3.2). The card's
   glass starts at alpha 0 and 3.3 is what fades it in, so taking `BackgroundColor(SURFACE)` off
   first would have left the card without a fill in between.
+- **The features say when the background is still; the glass does not ask** (decided while
+  building 4.1). Task 4.1 had `blur.rs` read `State<Pause>` and `State<Screen>`, which would
+  make `ui` depend on the screens for the first time, and a game with a still moment of its own
+  (an inventory that stops the game) would have to edit the glass. Instead `blur.rs` holds a
+  `FrozenBackground` resource, off by default, and hands out `freeze_background` and
+  `unfreeze_background`: `pause.rs` runs them on entering and leaving `Pause::On`, as it
+  registers its layer in `GlassLayers`.
+- **The menu is still only once its veil is gone** (found while building 4.1). The opening veil
+  fades for 0.8 s over the menu, so an overlay opened under it would keep a blur of the menu
+  half covered. `menu.rs` sets `FrozenBackground` from whether a `Veil` exists, each frame.
+- **A layer waits for its own entrance too** (decided while building 4.1). Its own root does not
+  reach its copy, but the 0.18 s it takes cover what is still settling under it: the button
+  that opened it eases out of its hover for 0.12 s.
+- **A change under a frozen layer is not seen until it closes** (accepted in 4.1). Changing
+  the language in Settings rewrites the menu's words behind it, and the frozen blur keeps the
+  old ones: blurred words cannot be read, and closing the overlay shows the new ones.
+- **The passes remember the copy they made; the game does not tell them to copy** (decided
+  while building 4.2). Task 4.2 had an extracted component saying whether to copy this frame,
+  set by the main world. But only the passes know whether a copy was really made: a pipeline
+  still compiling or an image not on the GPU yet ends the frame without one, and a main world
+  that had already counted it would leave the layer frozen on an empty copy. So the main
+  world only says whether the layer is frozen (`FrozenLayer`), and `blur_layer_backdrops`
+  keeps, per layer camera, the copy it last finished: a frozen layer whose copy is still that
+  one is skipped. A resize hands out new images, so it blurs again with no signal of its own.
+- **`FrozenLayer` holds a `bool` and never leaves the camera** (decided while building 4.1).
+  Bevy's extraction does not take a component off the render world when it leaves the main
+  one, so a marker inserted and removed would freeze the layer there for good.
+- **Measured in 4.4 by the age of each pass, not by a repeated value.** A throwaway system
+  logged, once a second, how long ago each Kawase pass was last timed. Under the pause menu the
+  passes ran for the 0.2 s of the entrance and then stopped: the age grew a second per line
+  (0.8, 1.9, 2.9 ... 7.9 s) until the menu closed, and opening it again ran them for another
+  0.2 s. Each pass took about 0.003 ms going down and 0.009 ms coming up on the GPU.
 
 ## The layers at a glance
 
@@ -135,16 +167,16 @@ a level lower is tried with the test panel and kept only if it passes Must not.
 | [x] | 3.2 A system gives each new `Card` a `GlassMaterial` reading its layer's card copy, tinted with `SURFACE` over the backdrop's dim, with its corners cut | you | `Query<(Entity, &ChildOf), Added<Card>>`, the layer from the parent's `GlobalZIndex`; the corners from `in.size`, `in.border_radius_x`, `in.border_radius_y` and `in.uv`: copy `sd_rounded_box` and the `antialias` it uses from `bevy_ui_render/src/ui.wesl` into `glass.wesl`, since a material cannot import them |
 | [x] | 3.3 `animate_entrances` fades the card's material with the root's | you | |
 | [x] | 3.4 `docs/flow.md` | Claude | |
-| [ ] | 3.5 `just run` on both branches: the card stands out from the backdrop, its text reads over the sky; review; commit | both | |
+| [x] | 3.5 `just run` on both branches: the card stands out from the backdrop, its text reads over the sky; review; commit | both | |
 
 ## Step 4: `perf: blur a frozen layer once`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 4.1 A layer is frozen while the game is paused or the screen is the menu, and once every layer below it has finished its entrance | you | `Res<State<Pause>>`, `Res<State<Screen>>`; the entrances are the `Entrance` components of the roots below |
-| [ ] | 4.2 A frozen layer whose copy is made skips its chain until it closes or the window resizes | you | an extracted component on the layer camera saying whether to copy this frame; a resize remakes the textures and so copies again |
-| [ ] | 4.3 `docs/flow.md` | Claude | |
-| [ ] | 4.4 `just run` with the diagnostics on `3d/player`: under the pause menu the passes log once and then repeat their last value (the spike's tell for a pass that did not run); review; commit | both | |
+| [x] | 4.1 A layer is frozen while the game is paused or the screen is the menu, and once every layer below it has finished its entrance | you | `Res<State<Pause>>`, `Res<State<Screen>>`; the entrances are the `Entrance` components of the roots below |
+| [x] | 4.2 A frozen layer whose copy is made skips its chain until it closes or the window resizes | you | an extracted component on the layer camera saying whether to copy this frame; a resize remakes the textures and so copies again |
+| [x] | 4.3 `docs/flow.md` | Claude | |
+| [x] | 4.4 `just run` with the diagnostics on `3d/player`: under the pause menu the passes log once and then repeat their last value (the spike's tell for a pass that did not run); review; commit | both | |
 
 ## Step 5: `perf: blur only inside each layer's region`
 

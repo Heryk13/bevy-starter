@@ -160,6 +160,10 @@ full-window node would still swallow every click.
 frame. It writes the volume every frame on purpose: `GlobalVolume` is only read when a sink starts,
 so the settings slider would otherwise do nothing to a track that is already playing.
 
+`update_frozen_background` also runs after `animate_veils`, and tells the glass the menu is still
+while no veil is left: an overlay opened under the opening veil would otherwise keep, for as
+long as it stays open, a blur of the menu half covered (see "The cameras and the blur").
+
 ### Loading
 
 A slideshow over black with a progress bar along the bottom. Where it goes next is the
@@ -248,7 +252,9 @@ frame. An autosave counts as a save, so quitting right after one asks nothing.
 `OnEnter(Pause::On)` spawns the panel with `DespawnOnExit(Pause::On)`: a `floating_root` holding a
 `card`, so the frozen game shows blurred and dimmed behind it (see "The cameras and the blur").
 It also calls `Time<Virtual>::pause()`, and `OnExit` calls `unpause()`. Any gameplay written later
-that reads `Res<Time>` stops while paused for free, with no `run_if` of its own.
+that reads `Res<Time>` stops while paused for free, with no `run_if` of its own. The same two
+schedules run `freeze_background` and `unfreeze_background`, which tell the glass that the game
+behind it stands still, so it is blurred once instead of every frame.
 
 The buttons carry a `PauseAction` component, read by the `activate_pause_button` observer, the
 same shape as the menu's:
@@ -444,8 +450,25 @@ at the fragment's screen position, lays the tint over it, fades by that alpha an
 rounded corners, which Bevy leaves to the material, so the glass comes in with its panel. Which
 image each reads is `GlassCopies::backdrop_copy` and `GlassCopies::card_copy`. A resize gives the
 cameras new copies, and the observer `retarget_open_glass`, on `Insert<GlassCopies>`, points
-every open root of that layer and its cards at them, so a panel left open through a resize keeps
-blurring instead of freezing.
+every open root of that layer and its cards at them, so a panel left open through a resize reads
+the new blur instead of the one from before it.
+
+A layer over a still background is blurred once. `blur.rs` holds `FrozenBackground`, off unless
+a feature turns it on, and hands out `freeze_background` and `unfreeze_background` for that:
+`pause.rs` runs them on entering and leaving `Pause::On`, and `menu.rs` sets it every frame from
+whether a veil is fading over the menu (`update_frozen_background`), and off on leaving the
+screen. So `blur.rs` names no screen, as with `GlassLayers`. In `PostUpdate`,
+`freeze_settled_layers` marks each layer camera's `FrozenLayer`: the background is still, and
+every `Floating` root at or below the layer has finished its `Entrance` (the pure `is_settled`).
+The layer's own root counts too: its entrance covers what is still settling under it, like the
+button that opened it easing out of its hover. `blur_layer_backdrops` reads the mark and keeps,
+for each layer camera, the copy it last finished while frozen; a frozen layer whose copy is
+still that one runs no pass. A resize hands out new copies, so it is blurred again without a
+signal of its own, and a frame that could not blur (a pipeline still compiling) is not counted.
+A background nobody called still is blurred every frame, which is always right, only slower:
+that is a panel over live gameplay, such as a dev tool. What changes under a frozen layer is
+not seen until the layer closes: a language picked in Settings rewrites the menu behind it,
+and the blur keeps the old words.
 
 Three settings must stay as they are: `IsDefaultUiCamera` on the screen camera (or every root
 moves to the top layer's camera), `ClearColorConfig::None` on the layer cameras (or the screens
@@ -458,7 +481,7 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
 | `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
-| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial` | the pause menu, every overlay and every dialog float |
+| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()` | the pause menu, every overlay and every dialog float |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |

@@ -7,6 +7,7 @@ use super::{Screen, StartGame};
 use crate::GAME_TITLE;
 use crate::overlays::Overlay;
 use crate::save::{Session, loaded_session, newest_ready, saves_on_disk};
+use crate::ui::blur::{FrozenBackground, unfreeze_background};
 use crate::ui::{
     BUTTON_GAP_PX, SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, TITLE_FONT_SIZE_PX, font, menu_button,
 };
@@ -53,9 +54,11 @@ pub(super) fn plugin(app: &mut App) {
             animate_veils,
             // read the veil after this frame's tick, so the sound never lags the picture
             update_menu_music_volume.after(animate_veils),
+            update_frozen_background.after(animate_veils),
         )
             .run_if(in_state(Screen::Menu)),
     );
+    app.add_systems(OnExit(Screen::Menu), unfreeze_background);
 }
 
 // ==== Components =============================================================
@@ -257,4 +260,14 @@ fn update_menu_music_volume(
     // set every frame: `GlobalVolume` is only read when a sink starts, so a track that
     // plays for minutes would not follow the settings slider otherwise
     music.set_volume(global_volume.volume * Volume::Linear(fade));
+}
+
+/// Tells the glass whether the menu behind an overlay is still, which it is while no veil
+/// fades over it. An overlay opened under the opening veil would otherwise keep, for as long
+/// as it stays open, a blur of the menu half covered.
+fn update_frozen_background(
+    veils: Query<(), With<Veil>>,
+    mut frozen_background: ResMut<FrozenBackground>,
+) {
+    frozen_background.0 = veils.is_empty();
 }
