@@ -24,7 +24,7 @@ Agreed on 2026-11-07.
 
 | #  | Item | Branch | Status | Spec / tasks | Notes |
 |----|------|--------|--------|--------------|-------|
-| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | glass designed | `glass/design.md`, `glass-tasks.md` | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
+| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | glass built, regions put off to pieces; look and pieces to design | `glass/design.md`, `glass-tasks.md` | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
 | 1  | **Key bindings**: a Controls page in Settings to change the keys and gamepad buttons | base in `main`, then each branch registers its own actions | | | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
 | 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | designed; to revise for rows 0 and 1 before building | `dev-tools/design.md`, `dev-tools-tasks.md` | waits on rows 0 and 1 |
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | | | agreed so far: below |
@@ -160,6 +160,11 @@ names its roadmap row.
     - Built in two steps: first the list always holds one region, the rectangle around every
       window, to learn the Kawase without the grouping; then the grouping, a pure function from
       rectangles to rectangles with its own tests. Nothing of the first step is thrown away.
+    - **Put off on 2026-11-16, to the Pieces spec.** Everything that floats today is a modal,
+      whose backdrop covers the screen, so every region would be the whole screen and nothing
+      would be saved; and the whole chain measured about 0.03 ms a frame on the full screen.
+      The regions come with the first glass panel smaller than the screen, where there is
+      something to measure and a real panel to try them on.
   - **Only while glass is on screen**: with no panel open the passes do not run, as
     `update_blur` already does today.
   - **Blurred once while nothing behind moves**: the pause menu and photo mode freeze the
@@ -203,11 +208,13 @@ names its roadmap row.
   Not SF Symbols: Apple's licence only allows them in apps for Apple platforms.
 - **Three specs, not one**, agreed on 2026-11-08: the row is too large for one plan of one
   commit per step. In this order:
-  1. **Glass**: the technique (the per-layer copies, the Kawase, the regions, the material
-     panels read it with), proven on one plain panel.
+  1. **Glass**: the technique (the per-layer copies, the Kawase, the material panels read it
+     with), proven on one plain panel.
   2. **Look**: the colours, the Lucide font, keycaps and capsules, and every existing screen,
      overlay and dialog redone in it.
-  3. **Pieces**: what only the dev tools use (popover, HUD, bar, list, alert).
+  3. **Pieces**: what only the dev tools use (popover, HUD, bar, list, alert), and the
+     regions, which only a panel smaller than the screen needs (put off from Glass on
+     2026-11-16).
 - **Tried on `3d/player`, committed on `main`**, agreed on 2026-11-08: on `main` nothing moves
   behind a panel (the menu's background is a still image, gameplay is empty), so each step is
   written and tried uncommitted on `3d/player`, where the level moves behind a window, then

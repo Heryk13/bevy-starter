@@ -285,17 +285,22 @@ pause card darkens under it instead of competing with it.
 - **Credits** (`src/overlays/credits.rs`): a translated line, the names as plain text, and a Close
   button.
 - **Settings** (`src/overlays/settings.rs`): a grid of `setting_row`s, each a label in a column of
-  its own beside its control: a fullscreen checkbox and a 0–100 volume slider, both from
-  `bevy_ui_widgets`, and the language radios. The slider is as tall as its thumb, with a thin
-  track through it and a `VolumeFill` up to the thumb, in the accent. Its
-  `update_fullscreen_checkbox`, `update_volume_slider` and `update_language_radios` are gated
-  with `.run_if(in_state(Overlay::Settings))`; the widgets are headless, so those systems are
-  what actually draw the state. All three choices are remembered in `settings.ron` in the
+  its own beside its control: a fullscreen checkbox, a Reduce Transparency checkbox and a 0–100
+  volume slider, all from `bevy_ui_widgets`, and the language radios. The two checkboxes are
+  the same `checkbox()`, checked and painted by `set_checkbox`. The slider is as tall as its
+  thumb, with a thin track through it and a `VolumeFill` up to the thumb, in the accent. Its
+  `update_fullscreen_checkbox`, `update_reduce_transparency_checkbox`, `update_volume_slider`
+  and `update_language_radios` are gated with `.run_if(in_state(Overlay::Settings))`; the
+  widgets are headless, so those systems are what actually draw the state.
+  `toggle_reduce_transparency` flips `ReduceTransparency`, a resource of `ui/blur.rs`, and the
+  glass follows at once, the Settings panel's own included (see "The cameras and the blur").
+  All four choices are remembered in `settings.ron` in the
   game's data folder: `load_settings` applies it at `Startup`, and `save_settings` writes it on
-  `OnExit(Overlay::Settings)`, once per visit rather than on every slider move. The `Window` and
-  `GlobalVolume` stay the only copy of the state; the file is read from them and written back to
-  them. A missing, unreadable or other-version file keeps the defaults silently, since
-  `parse_settings` returns `None` for all three; a failed write is logged with `error!`.
+  `OnExit(Overlay::Settings)`, once per visit rather than on every slider move. The `Window`,
+  `GlobalVolume`, `Language` and `ReduceTransparency` stay the only copy of the state; the file
+  is read from them and written back to them. A missing, unreadable or other-version file keeps
+  the defaults silently, since `parse_settings` returns `None` for all of them; a failed write
+  is logged with `error!`. A file from before Reduce Transparency existed loads with it off.
   A third row picks the language: a `RadioGroup` of one `RadioButton` per `Language::ALL`, each
   named in its own language. `choose_language` observes the group's `ValueChange<Entity>` and sets
   the `Language` resource; `update_language_radios` checks and paints the one that matches it.
@@ -467,6 +472,16 @@ that is a panel over live gameplay, such as a dev tool. What changes under a fro
 not seen until the layer closes: a language picked in Settings rewrites the menu behind it,
 and the blur keeps the old words.
 
+Reduce Transparency draws the glass flat. `ReduceTransparency` is a resource of `blur.rs` that
+the Settings overlay writes and saves, so `blur.rs` does not name the overlay. While it is on,
+`blur_layer_backdrops` runs no pass, and every `GlassMaterial` carries `flat`: the shader then
+draws the tint alone, as opaque as the tint's own alpha, so a backdrop is `SCREEN_DIM` over the
+sharp screen and a card is `SURFACE` made opaque (`card_tint`, a pure function). A panel opened
+under the setting is built flat (`GlassMaterial::backdrop` and `GlassMaterial::card`), and
+`apply_reduce_transparency` redraws the ones already open when it changes. Turning it on forgets the
+copy a frozen layer kept, so turning it off blurs that layer again instead of showing a copy
+from before.
+
 Three settings must stay as they are: `IsDefaultUiCamera` on the screen camera (or every root
 moves to the top layer's camera), `ClearColorConfig::None` on the layer cameras (or the screens
 vanish), and the same HDR and MSAA on all of them (or they stop sharing the image).
@@ -478,7 +493,7 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
 | `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
-| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()` | the pause menu, every overlay and every dialog float |
+| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()`, `ReduceTransparency` | the pause menu, every overlay and every dialog float |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
