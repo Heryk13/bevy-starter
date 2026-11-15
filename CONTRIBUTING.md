@@ -173,6 +173,11 @@ The character tells the kind of boundary:
   something every game needs into `main`, something every 3D game needs into `3d/base`.
   Written once there, it reaches the branches below by merging down, one level at a time:
   `main` into `3d/base`, `3d/base` into `3d/player`, and so on down.
+- `just tools/sync <branch> "<message>"` does both from wherever the change was written: it
+  moves the working changes to that branch, commits them there once `just check` passes, and
+  merges down the whole tree, checking each branch a merge changed. `just tools/down` only
+  merges down, which is also how to go on after resolving a conflict. The tree it walks is the
+  `TREE` list at the top of `tools/sync.sh`: a new branch is a new pair there.
 - A genre's base stays as small as the genre allows: `3d/base` is the level on screen
   and nothing that moves, so no branch below it has to take apart a body or a camera it
   does not want.
@@ -188,8 +193,10 @@ The character tells the kind of boundary:
   (`mod first_person; // camera: first-person`).
 - `create-bevy-starter` renames the game where `docs/template.md` says to: `name` in
   `Cargo.toml`, `game` in `justfile`, `GAME_TITLE` in `src/main.rs`. It also removes the
-  `## Branches` section of `README.md` and empties `docs/specs/`. Moving one of these, or
-  renaming that heading, means changing the CLI in the same change.
+  `## Branches` section of `README.md`, empties `docs/specs/` and deletes `tools/`, which a
+  game without a branch tree has no use for. Moving one of these, or renaming that heading or
+  that folder, means changing the CLI in the same change: a folder it does not find is left
+  alone in silence, so a renamed `tools/` would reach every new game.
 - Git cannot hold a branch `3d` next to `3d/base`, since a branch name is a file and a
   `/` makes it a folder: a genre's base is always `<genre>/base`.
 - Models stay plain binary files in `.gitattributes`, not Git LFS: this repository has LFS

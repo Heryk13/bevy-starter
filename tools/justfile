@@ -1,0 +1,14 @@
+# local to this clone, never in git: see the top of sync.sh
+# `sh`, never `bash`: on Windows that name finds WSL's first
+
+# commit every change on the branch it belongs to, then merge it down the tree
+sync branch message:
+    sh sync.sh commit {{quote(branch)}} {{quote(message)}}
+
+# merge every branch down the tree, committing nothing new
+down:
+    sh sync.sh down
+
+# try sync.sh on a throwaway repository
+test:
+    sh sync-test.sh
