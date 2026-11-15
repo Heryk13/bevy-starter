@@ -1,6 +1,6 @@
 # Glass: a blurred copy behind every panel, cheap enough for any game
 
-Status: **designed** — written and approved 2026-11-08, not started.
+Status: **built on `main`** — written and approved 2026-11-08; steps 1 to 4 and 7 built by 2026-11-16. The regions (steps 5 and 6) are put off to the Pieces spec, and step 9, on `3d/base`, is still to build (see "What changed while building it").
 Date: 2026-11-08
 Bevy: 0.20.0
 
@@ -236,4 +236,114 @@ After the merge down, on `3d/base`: the game's camera stops drawing under the pa
 
 ## What changed while building it
 
-Nothing yet.
+Built on `main` in steps 1 to 4 and 7 of `docs/roadmap/glass-tasks.md`, between 2026-11-08 and
+2026-11-16. The step numbers below are that file's: its steps 4 to 7 are this spec's 5 to 8,
+since "Coming in" was folded into the steps before it.
+
+- **Measured in 2.12, at 1920 × 1080, two levels.** A pass going down took about 0.009 ms and
+  one coming up about 0.013 ms on the GPU, about 0.03 ms for the whole chain, against the
+  0.16 ms of the Gaussian it replaced. Against the Must not list: smooth, no flicker walking
+  past the test panel, and the strength matched the old blur, so `GLASS_TARGET_HEIGHT_PX`
+  stayed at 270.
+- **"Coming in" is not a step of its own.** Step 2 removes the Gaussian, and with it the only
+  thing `update_blur` drives, so the backdrop's alpha follows `ENTRANCE` from step 2 and the
+  card's from step 3; otherwise two commits on `main` would pop the blur in. The spec's step 4
+  is folded into them, and its steps 5 to 8 become steps 4 to 7 here.
+- **The copies are always `Rgba16Float`**, whatever the camera's format. Sampling an sRGB image
+  returns linear colour, so a 16-bit float copy keeps the colours of either image ("Wrong colour"
+  in Must not), and its textures need no remaking when gameplay switches the cameras to HDR. The
+  copies are small, so the wider format costs next to nothing.
+- **The copies are a component on each layer camera, not a `GlassCopies` resource** (decided
+  while building 2.4). They belong to one camera, and `CONTRIBUTING.md` puts state that belongs
+  to an entity on it: the render system of 2.8 then gets a camera's copies in the same query as
+  the camera, with no lookup by `GlobalZIndex`, and 2.5 needs only `ExtractComponent`.
+- **`KAWASE_OFFSET` is `KAWASE_OFFSET_TEXELS`** (decided while building 2.1). `CONTRIBUTING.md`
+  puts the unit in a constant's name, and an offset in texels of the image a pass reads is easy
+  to mistake for one in screen pixels, which would widen the blur at every level.
+- **`LayerCamera` is not extracted** (decided in 2.14's review). Only layer cameras carry
+  `GlassCopies`, so the render system's `ViewQuery` on it alone already skips every other
+  camera, and 2.5's second `ExtractComponent` had nothing left to read it.
+- **The glass material's pipeline is not compiled ahead** (found in 2.14's review, left for
+  later). Only the two Kawase pipelines are queued at `RenderStartup`; Bevy specializes the
+  `GlassMaterial` pipeline the first frame a glass shows and skips drawing it until it is
+  ready, so the first pause may bring its glass in a few frames late. Not seen while testing,
+  so it waits for a hitch someone can see.
+- **The level lists stay inside `generate_level_images`** (decided in step 3). The review of
+  2.14 meant them to become a pure, tested function in 3.1, which changed them for the card.
+  They are three ranges over `levels`, one line each: a function around them would be more
+  code than what it protects.
+- **A resize points the open glass at the new copies** (found while testing 2.12). A resize
+  remakes every `GlassCopies` with new handles, and a root's material kept the old ones, which
+  nothing writes any more: the glass of an open panel froze, stretched, until it was reopened,
+  and a panel that never closes (a HUD, the prop editor) would stay frozen. An observer on
+  `Insert<GlassCopies>` now hands every open root of that layer the new copy, and the choice of
+  which image the glass reads is `GlassCopies::backdrop_copy`, shared by both places (named
+  `glass_copy` until 3.2 gave the card a copy of its own, `card_copy`). Since 3.2 the same
+  observer, `retarget_open_glass`, hands each root's cards the new card copy too.
+- **A card gets its glass from an observer, not a system** (decided while building 3.2). An
+  observer on `Add<Card>` runs as the card is spawned, where a system on `Added<Card>` would
+  wait for the next `Update` and could show the card a frame without its glass; and it matches
+  `target_layer_camera`, which does the same for the roots.
+- **The card's two tints are one colour** (decided while building 3.2). A material replaces what
+  is under it, so the card's glass would lose the dim its root lays over the backdrop, and the
+  shader mixes in a single tint. The pure `lay_over(top, bottom)` in `blur.rs` gives the one
+  colour that looks like `SURFACE` laid over `SCREEN_DIM`, tested against laying the two in turn.
+- **The corners are cut with one radius, not Bevy's `sd_rounded_box`** (decided while building
+  3.2). Bevy's takes a radius per corner and ellipses, and calls two more functions a material
+  cannot import: some 40 lines copied for a card whose four corners share one round radius.
+  `glass.wesl` has the two-line box of a single radius, the top left corner's, and a comment
+  there says what to copy the day a node's corners differ.
+- **The card's flat fill went after 3.3, not in 3.2** (decided while building 3.2). The card's
+  glass starts at alpha 0 and 3.3 is what fades it in, so taking `BackgroundColor(SURFACE)` off
+  first would have left the card without a fill in between.
+- **The features say when the background is still; the glass does not ask** (decided while
+  building 4.1). Task 4.1 had `blur.rs` read `State<Pause>` and `State<Screen>`, which would
+  make `ui` depend on the screens for the first time, and a game with a still moment of its own
+  (an inventory that stops the game) would have to edit the glass. Instead `blur.rs` holds a
+  `FrozenBackground` resource, off by default, and hands out `freeze_background` and
+  `unfreeze_background`: `pause.rs` runs them on entering and leaving `Pause::On`, as it
+  registers its layer in `GlassLayers`.
+- **The menu is still only once its veil is gone** (found while building 4.1). The opening veil
+  fades for 0.8 s over the menu, so an overlay opened under it would keep a blur of the menu
+  half covered. `menu.rs` sets `FrozenBackground` from whether a `Veil` exists, each frame.
+- **A layer waits for its own entrance too** (decided while building 4.1). Its own root does not
+  reach its copy, but the 0.18 s it takes cover what is still settling under it: the button
+  that opened it eases out of its hover for 0.12 s.
+- **A change under a frozen layer is not seen until it closes** (accepted in 4.1). Changing
+  the language in Settings rewrites the menu's words behind it, and the frozen blur keeps the
+  old ones: blurred words cannot be read, and closing the overlay shows the new ones.
+- **The passes remember the copy they made; the game does not tell them to copy** (decided
+  while building 4.2). Task 4.2 had an extracted component saying whether to copy this frame,
+  set by the main world. But only the passes know whether a copy was really made: a pipeline
+  still compiling or an image not on the GPU yet ends the frame without one, and a main world
+  that had already counted it would leave the layer frozen on an empty copy. So the main
+  world only says whether the layer is frozen (`FrozenLayer`), and `blur_layer_backdrops`
+  keeps, per layer camera, the copy it last finished: a frozen layer whose copy is still that
+  one is skipped. A resize hands out new images, so it blurs again with no signal of its own.
+- **`FrozenLayer` holds a `bool` and never leaves the camera** (decided while building 4.1).
+  Bevy's extraction does not take a component off the render world when it leaves the main
+  one, so a marker inserted and removed would freeze the layer there for good.
+- **Measured in 4.4 by the age of each pass, not by a repeated value.** A throwaway system
+  logged, once a second, how long ago each Kawase pass was last timed. Under the pause menu the
+  passes ran for the 0.2 s of the entrance and then stopped: the age grew a second per line
+  (0.8, 1.9, 2.9 ... 7.9 s) until the menu closed, and opening it again ran them for another
+  0.2 s. Each pass took about 0.003 ms going down and 0.009 ms coming up on the GPU.
+- **Steps 5 and 6, the regions, are put off to the Pieces spec** (decided on 2026-11-16, before
+  starting 5.1). Every floating root is a modal whose backdrop covers the screen, so each
+  layer's region would be the whole screen and the two steps would save nothing; only a test
+  panel could exercise them. The whole chain measured about 0.03 ms a frame on the full
+  screen. They come with the first glass panel smaller than the screen, the dev tools' own,
+  which blurs every frame over a running game and gives them something to measure. Their
+  tasks stay below as written, for that spec to pick up.
+- **Reduce Transparency is a `flat` uniform of the glass, not another kind of node** (decided
+  while building 7.5). The alpha the material already had makes a card solid, as 7.5 said, but
+  not a backdrop: its shader lays the dim over the blurred copy, and with no copy the dim has
+  to be drawn alone, over the sharp screen. One `flat` uniform does both: the shader draws the
+  tint alone, as opaque as the tint's alpha, so the dim stays see-through and the card's tint
+  is the surface made opaque. The entrance needs no second path, since the same alpha fades it.
+- **Turning Reduce Transparency on forgets the copies kept** (found while building 7.5). A
+  layer frozen before the setting went on would otherwise, when it goes off, show the copy from
+  back then: the passes had stopped, so nothing had remade it.
+- **The two checkboxes share `checkbox()` and `set_checkbox`** (decided while building 7.3).
+  Task 7.3 built the new one like the fullscreen one; with two, the bundle and the painting
+  moved into helpers of `settings.rs` instead of being written twice.
