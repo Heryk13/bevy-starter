@@ -35,6 +35,18 @@ approved are in `docs/roadmap/ui/look-screens.html`.
   while building 1.4). The reason is that they turn dark under the pointer, which is only
   true once `paint_buttons` paints a button's texts: a comment saying so two steps early
   would describe code that is not there.
+- **Pressing darkens the fill a button has, in place of swapping it for a dark one** (found
+  while building 3.2). Task 3.2 kept the mix toward `BUTTON_FILL_PRESSED`, a black at 20%:
+  on a button that is white under the pointer, that would put the dark ink on a dark fill for
+  as long as the press lasts. `button_colors` now mixes the fill toward black at the fill's
+  own alpha, by `BUTTON_PRESS_SHADE`, the mockup's `brightness(.82)`.
+- **A button resting where it was last painted is skipped** (decided while building 3.4).
+  Painting now walks down to every text a button holds, so `paint_buttons` leaves alone a
+  button whose `ButtonMotion` already sits on its targets, and paints a new one once.
+- **The ink is written, not propagated** (checked while building 3.4). Bevy's own
+  `Propagate<TextColor>` (`bevy::app`, what `bevy_feathers` paints its labels with) replaces
+  the whole colour of every text below, the alpha that keeps a row's details muted included,
+  and goes through commands on each change, where the ink changes every frame of an ease.
 
 ## The buttons at a glance
 
@@ -74,14 +86,14 @@ What `button_colors` returns from step 3 on, the fill first and the ink second:
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 3.1 `ButtonKind::Choice`, and `menu_button` and `row_button` move to it; `INK` in `ui.rs`'s palette | Claude (a move), you for `INK` | `INK` is `Color::srgb_u8(0x11, 0x11, 0x14)`. `Primary`'s only user left is `button("save-new", ..)` |
-| [ ] | 3.2 `ButtonColors` is a fill and an ink, and `button_colors` returns them by the table above. The border and the glow go: `BUTTON_GLOW_*`, the `border` in `button_frame`, `BorderColor` and `BoxShadow` in `button_base` | you | pressing still mixes toward `BUTTON_FILL_PRESSED`, whatever the fill; `CLEAR` stays the Quiet's rest, for the reason its comment gives; the fills are constants of `button.rs`'s colors group |
-| [ ] | 3.3 The tests of `button_colors`, replacing the six there: each kind at rest and hovered, a pressed one darker | you | suggested: `primary_button_is_white_already_at_rest`, `choice_button_hovered_turns_white_with_dark_ink`, `quiet_button_at_rest_draws_nothing`, `danger_button_hovered_fills_red_with_white_ink`, `pressed_button_darkens_its_fill`, `ink_is_dark_exactly_where_the_fill_is_white` (all four kinds, rest and hovered). `same_color` is already in the tests module |
-| [ ] | 3.4 `paint_buttons` writes the ink to every text under the button, keeping each text's own alpha | you | the query loses `BorderColor` and `BoxShadow` and gains `Entity`; a second `Query<&Children>` has `iter_descendants(entity)`; a third `Query<&mut TextColor>`; `ink.with_alpha(text_color.0.alpha())`. Without the alpha kept, a row's muted details would turn as dark as its name |
-| [ ] | 3.5 `row_button` takes a fixed corner, 18 px, in place of the pill's | you | `border_radius: BorderRadius::all(px(..))` after `..button_frame()` cannot be written: a struct's fields come before its `..rest`. Put it with the row's other fields |
-| [ ] | 3.6 `dialog()` in `panel.rs`: `JustifyContent::End` → `Center` | you | |
-| [ ] | 3.7 `README.md` line 22 (no amber glow), `docs/flow.md` lines 527 and 541 (`ButtonKind`'s kinds), `ButtonKind`'s own doc comments | Claude | |
-| [ ] | 3.8 `just run`: the pause menu, Credits, every dialog and the two save lists as they are today; a pointer down the pause menu leaves a trail; a pressed button; a row's details stay muted on white; review; sync | both | the pause menu, Credits and the dialogs are finished by this step |
+| [x] | 3.1 `ButtonKind::Choice`, and `menu_button` and `row_button` move to it; `INK` in `ui.rs`'s palette | Claude (a move), you for `INK` | `INK` is `Color::srgb_u8(0x11, 0x11, 0x14)`. `Primary`'s only user left is `button("save-new", ..)` |
+| [x] | 3.2 `ButtonColors` is a fill and an ink, and `button_colors` returns them by the table above. The border and the glow go: `BUTTON_GLOW_*`, the `border` in `button_frame`, `BorderColor` and `BoxShadow` in `button_base` | you | pressing still mixes toward `BUTTON_FILL_PRESSED`, whatever the fill; `CLEAR` stays the Quiet's rest, for the reason its comment gives; the fills are constants of `button.rs`'s colors group |
+| [x] | 3.3 The tests of `button_colors`, replacing the six there: each kind at rest and hovered, a pressed one darker | you | suggested: `primary_button_is_white_already_at_rest`, `choice_button_hovered_turns_white_with_dark_ink`, `quiet_button_at_rest_draws_nothing`, `danger_button_hovered_fills_red_with_white_ink`, `pressed_button_darkens_its_fill`, `ink_is_dark_exactly_where_the_fill_is_white` (all four kinds, rest and hovered). `same_color` is already in the tests module |
+| [x] | 3.4 `paint_buttons` writes the ink to every text under the button, keeping each text's own alpha | you | the query loses `BorderColor` and `BoxShadow` and gains `Entity`; a second `Query<&Children>` has `iter_descendants(entity)`; a third `Query<&mut TextColor>`; `ink.with_alpha(text_color.0.alpha())`. Without the alpha kept, a row's muted details would turn as dark as its name |
+| [x] | 3.5 `row_button` takes a fixed corner, 18 px, in place of the pill's | you | `border_radius: BorderRadius::all(px(..))` after `..button_frame()` cannot be written: a struct's fields come before its `..rest`. Put it with the row's other fields |
+| [x] | 3.6 `dialog()` in `panel.rs`: `JustifyContent::End` → `Center` | you | |
+| [x] | 3.7 `README.md` line 22 (no amber glow), `docs/flow.md` lines 527 and 541 (`ButtonKind`'s kinds), `ButtonKind`'s own doc comments | Claude | |
+| [x] | 3.8 `just run`: the pause menu, Credits, every dialog and the two save lists as they are today; a pointer down the pause menu leaves a trail; a pressed button; a row's details stay muted on white; review; sync | both | the pause menu, Credits and the dialogs are finished by this step |
 
 ## Step 4: `feat: draw the menu as words on a bar`
 

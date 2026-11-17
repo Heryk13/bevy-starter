@@ -126,7 +126,7 @@ pub(crate) fn dialog(
                 (label(question), TextLayout::justify(Justify::Center)),
                 (
                     Node {
-                        justify_content: JustifyContent::End,
+                        justify_content: JustifyContent::Center,
                         column_gap: px(BUTTON_GAP_PX),
                         ..default()
                     },

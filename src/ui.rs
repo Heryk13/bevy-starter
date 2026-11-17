@@ -19,6 +19,8 @@ pub(crate) const SURFACE: Color = Color::srgba_u8(0x2C, 0x2C, 0x32, 143);
 pub(crate) const BORDER: Color = Color::srgba(1.0, 1.0, 1.0, 0.16);
 // white, since a hue is lost over glass, whose color is whatever lies behind it
 pub(crate) const ACCENT: Color = Color::WHITE;
+// text on a fill of the accent, where white text would vanish
+pub(crate) const INK: Color = Color::srgb_u8(0x11, 0x11, 0x14);
 pub(crate) const DANGER: Color = Color::srgb_u8(0xFF, 0x5F, 0x57);
 // both texts are white let through in part, never a grey: a grey reads over one background
 // and vanishes over another, and a card's background is the game

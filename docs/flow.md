@@ -525,13 +525,17 @@ cards and dialogs, and `ui/blur.rs` the blur; callers import from `ui`, or `ui::
 `ACCENT`, `DANGER`, `TEXT`, `TEXT_MUTED`, ...) and the four type sizes, so a game made from the
 template recolors in one place. Muted text that stays light is `muted_text(size_px)`, never a
 bare `TextColor(TEXT_MUTED)`: it adds the soft `TextShadow` that keeps the faintest text
-readable over whatever the glass shows. It hands out three buttons, all pills with a thin border:
+readable over whatever the glass shows. It hands out three buttons, capsules with no border:
 `button(key, kind)` with its label centered, `menu_button(key)` for a column of choices, label to
-the left, and `row_button(content)` around any bundle, for a list row. `ButtonKind` is a component:
-`Primary`, `Quiet` (no border until hovered, for Close and No) or `Danger` (red when hovered).
-`paint_buttons` eases each button's `ButtonMotion` toward its `Hovered` and `Has<Pressed>` state
-with `approach`, on `Time<Real>`, and paints its fill, border and glow from the pure
-`button_colors(kind, hover, press)`. `floating_root(z)` and `card(width)` are what every panel is
+the left, and `row_button(content)` around any bundle, for a list row, with a fixed corner in
+place of the capsule's. `ButtonKind` is a component saying what a button is for: `Primary` (the
+main action, white already at rest), `Choice` (one among equals, white under the pointer: what
+`menu_button` and `row_button` are), `Quiet` (bare until hovered, for Close and No) or `Danger`
+(red ink, filled red when hovered). `paint_buttons` eases each button's `ButtonMotion` toward
+its `Hovered` and `Has<Pressed>` state with `approach`, on `Time<Real>`, and paints it from the
+pure `button_colors(kind, hover, press)`: a fill, and an ink, which it writes to every text
+under the button at that text's own alpha, so a label turns dark on a white fill and a row's
+muted details stay muted. A button resting where it was last painted is skipped. `floating_root(z)` and `card(width)` are what every panel is
 built from; `animate_entrances` brings each new root in, its glass and its card's fading in and
 the card rising 12 px and scaling up, by the `ENTRANCE` fade. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
 so there is no state to gate them on. `load_button_sounds` loads `ui/click.wav` and `ui/hover.wav`
