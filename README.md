@@ -19,8 +19,8 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   older one from the pause menu, and load or delete any of them from the menu or the pause
   menu, newest first, in a scrolling list
 - Autosave after every 5 minutes of unsaved play, each one kept as its own file
-- A dark, calm look in one palette: pill buttons that ease in an amber glow, glass panels that
-  rise in over a blur of everything behind them, other panels included
+- A dark, calm look in one palette: capsule buttons that ease to white under the pointer, glass
+  panels that rise in over a blur of everything behind them, other panels included
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies
 - FPS overlay, shown and hidden with F3, and asset hot reloading in dev builds
