@@ -24,7 +24,7 @@ Agreed on 2026-11-07.
 
 | #  | Item | Branch | Status | Spec / tasks | Notes |
 |----|------|--------|--------|--------------|-------|
-| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | glass built, regions put off to pieces; look designed, to build; pieces to design | `glass/design.md`, `glass-tasks.md`, `look/design.md`, `look-tasks.md` | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
+| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | glass built, regions put off to pieces; look built, keycaps put off to the first screen that shows a key; pieces to design | `glass/design.md`, `glass-tasks.md`, `look/design.md`, `look-tasks.md` | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
 | 1  | **Key bindings**: a Controls page in Settings to change the keys and gamepad buttons | base in `main`, then each branch registers its own actions | | | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
 | 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | designed; to revise for rows 0 and 1 before building | `dev-tools/design.md`, `dev-tools-tasks.md` | waits on rows 0 and 1 |
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | | | agreed so far: below |
@@ -199,9 +199,11 @@ names its roadmap row.
   - Not built: the Kawase itself and the panels reading the copy. Whether a UI material can
     read the blurred copy inside its own rectangle is the spec's first step.
 - **Icons: Lucide** (ISC), chosen over Phosphor side by side in the browser. Used as its icon
-  font: the `.ttf` goes in `assets/fonts/` with its license file, next to Noto Sans JP's
-  `OFL.txt`, and an icon is a `Text` with that font, sized by `TextFont` and coloured by
-  `TextColor`. No crate, sharp at any size. Icons are larger than the text beside them: 19 px
+  font: an icon is a `Text` with that font, sized by `TextFont` and coloured by `TextColor`,
+  sharp at any size. The font and every icon's name come from the `lucide-icons` crate since
+  the Look was built (2026-11-18): `icon(Icon::Trash2)` in `src/ui.rs`. The plan had been the
+  `.ttf` in `assets/fonts/` and no crate; the crate depends on nothing, tracks Lucide's own
+  version, and spares reading code points out of `lucide.css` by hand. Icons are larger than the text beside them: 19 px
   next to 13 px text, 32 px in a HUD (picked over 15 px, a thicker custom-built stroke, and
   Phosphor Bold), with the font's own stroke. Slow motion is `hourglass`, speed `sport-shoe`,
   which needs Lucide 1.70.0 or later (0.460 lacks it; every other icon used is in 1.70.0).

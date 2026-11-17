@@ -275,7 +275,7 @@ What `button_colors` returns from step 3 on, the fill first and the ink second:
 | [x] | 8.4 Both lists read each save's picture as they spawn | you | `ResMut<Assets<Image>>` in `spawn_save_game_overlay` and `spawn_load_game_overlay`; `Assets::add` returns the handle, and the `ImageNode` holding it is what keeps the picture alive until the overlay despawns. A row for a save that cannot be loaded stays the muted line it is |
 | [x] | 8.5 `SAVE_LIST_MAX_HEIGHT_PX` shows about four of the taller rows | you | derived from the frame's height, the row's padding and the gap between rows, not restated |
 | [x] | 8.6 The `ponytail:` comment on reading every picture on the main thread; `docs/flow.md`'s two lists | Claude | |
-| [ ] | 8.7 `just run`: each save beside its picture; a save from before this spec shows the empty frame; the corners are round; a row under the pointer turns white without hiding its picture; opening a list of many saves does not stall; review; sync | both | whether an `ImageNode` is clipped by its node's `border_radius` is looked at here; if not, the frame clips it with `Overflow::clip()` |
+| [x] | 8.7 `just run`: each save beside its picture; a save from before this spec shows the empty frame; the corners are round; a row under the pointer turns white without hiding its picture; opening a list of many saves does not stall; review; sync | both | whether an `ImageNode` is clipped by its node's `border_radius` is looked at here; if not, the frame clips it with `Overflow::clip()` |
 
 ## Review after step 8: `fix: mend what the look's review found`
 
@@ -298,5 +298,5 @@ wrong moment; what it did find is below, each with what was done.
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 9.1 The spec's status line and its "What changed while building it", from the departures above; the roadmap's row 0; `README.md`'s look sentence | Claude | |
-| [ ] | 9.2 Sync; `just check` on the four branches; `just run` on `main` and `2d/base`, where no step was tried; push | both | |
+| [x] | 9.1 The spec's status line and its "What changed while building it", from the departures above; the roadmap's row 0; `README.md`'s look sentence | Claude | |
+| [x] | 9.2 Sync; `just check` on the four branches; `just run` on `main` and `2d/base`, where no step was tried; push | both | |
