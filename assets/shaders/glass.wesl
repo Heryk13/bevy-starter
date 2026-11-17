@@ -1,7 +1,8 @@
 // The glass a floating root and its card are drawn with: `src/ui/blur.rs` blurs what the
 // layers below left into a copy that covers the screen at half its resolution, and this reads
-// the part of it right behind the node, lays the tint over it, fades the whole by the node's
-// alpha and cuts the node's rounded corners. Under Reduce Transparency it draws the tint alone.
+// the part of it right behind the node, lays the tint over it, darker toward the bottom of a
+// card, fades the whole by the node's alpha and cuts the node's rounded corners. Under Reduce
+// Transparency it draws the tint alone.
 //
 // Bind group 0 is Bevy's for every UI material (the view, then the globals); the material's
 // own bindings live in group 1, in the order of its fields in `GlassMaterial`.
@@ -13,7 +14,9 @@ struct GlassMaterial {
     tint: vec4<f32>,
     alpha: f32,
     // 1 under Reduce Transparency, 0 otherwise
-    flat: u32
+    flat: u32,
+    // how far the tint has darkened by the node's bottom edge: 0 for a backdrop
+    shade: f32
 }
 
 @group(0) @binding(0) var<uniform> view: View;
@@ -28,13 +31,16 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // screen's size finds the part of it behind the node
     let screen_uv = in.position.xy / view.viewport.zw;
     let blurred = textureSample(copy, copy_sampler, screen_uv);
+    // in.uv.y runs 0 at the node's top to 1 at its bottom, so the tint darkens on the way
+    // down, as a thick sheet lit from above. Darkened first, so glass and flat both read it
+    let tint = material.tint.rgb * (1.0 - material.shade * in.uv.y);
     // the tint's own alpha is how dark it lays over the blur; the material's alpha fades the
     // glass in and out with its root
-    let glass = mix(blurred.rgb, material.tint.rgb, material.tint.a);
+    let glass = mix(blurred.rgb, tint, material.tint.a);
     // flat, nothing was blurred and the copy holds nothing to read: the tint alone is drawn,
     // as opaque as its own alpha, so a backdrop dims the sharp screen and a card is solid
     let flat = material.flat == 1u;
-    let color = select(glass, material.tint.rgb, flat);
+    let color = select(glass, tint, flat);
     let opacity = select(1.0, material.tint.a, flat);
     // Bevy hands a material the whole rectangle of its node, so the rounded corners are cut
     // here: in.uv runs 0 to 1 across the node, which makes this the pixel counted from its center

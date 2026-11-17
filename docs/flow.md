@@ -430,7 +430,11 @@ card one too, reading the top of the cards' ascent and fading in with its root's
 replaces what is under it, the root's dim included, so the card's tint is `SURFACE` laid over
 `SCREEN_DIM`, made one colour by the pure `lay_over`. `assets/shaders/glass.wesl` reads the copy
 at the fragment's screen position, lays the tint over it, fades by that alpha and cuts the node's
-rounded corners, which Bevy leaves to the material, so the glass comes in with its panel. Which
+rounded corners, which Bevy leaves to the material, so the glass comes in with its panel. A
+card's tint darkens toward its bottom by `CARD_SHADE`, the material's `shade`, which is 0 for a
+backdrop; and the card carries a rim, a `BorderGradient` bright at its top left and dark at its
+bottom right (`CARD_RIM_*` in `panel.rs`). Bevy draws a material over its node's border, so
+`GlassMaterial` overrides `stack_z_offset()` to sit where a fill does, under the rim. Which
 image each reads is `GlassCopies::backdrop_copy` and `GlassCopies::card_copy`. A resize gives the
 cameras new copies, and the observer `retarget_open_glass`, on `Insert<GlassCopies>`, points
 every open root of that layer and its cards at them, so a panel left open through a resize reads
