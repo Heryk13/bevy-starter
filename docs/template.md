@@ -157,7 +157,7 @@ after `ScreensCoveredSystems` and before `CameraUpdateSystems` (see the same sec
 
 Every word the player reads is a key in `assets/locales/<code>/main.ftl`, in
 [Fluent](https://projectfluent.org/) syntax. Code names the key, never the words:
-`menu_button("menu-new-game")`, `Localized("pause-title")` (it brings its own `Text`),
+`menu_word("menu-new-game")`, `Localized("pause-title")` (it brings its own `Text`),
 `dialog("dialog-delete-save", ...)`. Text built from values, like a save's row, is formatted
 with `Translations::text_with`.
 
