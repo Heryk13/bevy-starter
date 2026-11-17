@@ -3,28 +3,32 @@ use bevy::prelude::*;
 use bevy::ui::Pressed;
 use bevy::ui_widgets::Button;
 
-use super::{ACCENT, BORDER, BORDER_PX, DANGER, label};
+use super::{ACCENT, DANGER, INK, TEXT, label};
 use crate::fade::approach;
 
 // ==== Config =================================================================
 
 // ---- colors: the palette lives in ui.rs, these only paint buttons -----------
-const BUTTON_FILL: Color = Color::srgba(1.0, 1.0, 1.0, 0.04);
-const BUTTON_FILL_HOVER: Color = Color::srgba(1.0, 1.0, 1.0, 0.09);
-const BUTTON_FILL_PRESSED: Color = Color::srgba(0.0, 0.0, 0.0, 0.2);
+// the faint fill of a button that waits for the pointer to light up
+const BUTTON_FILL: Color = Color::srgba(1.0, 1.0, 1.0, 0.10);
+const QUIET_FILL_HOVER: Color = Color::srgba(1.0, 1.0, 1.0, 0.18);
 // white rather than `Color::NONE`, so easing toward the hover fill never passes through grey
 const CLEAR: Color = Color::srgba(1.0, 1.0, 1.0, 0.0);
+// a Primary is the accent already at rest, so the pointer can only dim it
+const PRIMARY_HOVER_ALPHA: f32 = 0.84;
+// the ink on a fill of `DANGER`, where the dark ink of a white fill would not read
+const DANGER_INK: Color = Color::WHITE;
+// how far pressing darkens whatever fill a button has, 0.0 to 1.0
+const BUTTON_PRESS_SHADE: f32 = 0.18;
 
 // ---- size -------------------------------------------------------------------
 const BUTTON_HEIGHT_PX: f32 = 44.0;
 const BUTTON_MIN_WIDTH_PX: f32 = 120.0;
 const BUTTON_PADDING_PX: f32 = 20.0;
 const ROW_BUTTON_PADDING_PX: f32 = 8.0;
+const ROW_BUTTON_RADIUS_PX: f32 = 18.0;
 
-// ---- glow and easing --------------------------------------------------------
-// the glow is a shadow the color of the border, soft enough to read as light
-const BUTTON_GLOW_BLUR_PX: f32 = 18.0;
-const BUTTON_GLOW_ALPHA: f32 = 0.35;
+// ---- easing -----------------------------------------------------------------
 // how long a button takes to light up or go back, so a pointer passing over a column
 // leaves a short trail instead of flickering
 const BUTTON_EASE_SECS: f32 = 0.12;
@@ -55,8 +59,8 @@ pub(crate) fn button(key: &'static str, kind: ButtonKind) -> impl Bundle {
     )
 }
 
-/// Returns a Primary button for a column of choices, like the menu's: its label to the left,
-/// and as wide as the column it is in.
+/// Returns a Choice button for a column of choices, like the pause menu's: its label to the
+/// left, and as wide as the column it is in.
 pub(crate) fn menu_button(key: &'static str) -> impl Bundle {
     button_base(
         Node {
@@ -65,12 +69,12 @@ pub(crate) fn menu_button(key: &'static str) -> impl Bundle {
             justify_content: JustifyContent::Start,
             ..button_frame()
         },
-        ButtonKind::Primary,
+        ButtonKind::Choice,
         children![label(key)],
     )
 }
 
-/// Returns a Primary button around `content`, as tall as the content needs: a row of a list,
+/// Returns a Choice button around `content`, as tall as the content needs: a row of a list,
 /// such as a save with its name over its details.
 pub(crate) fn row_button(content: impl Bundle) -> impl Bundle {
     button_base(
@@ -78,23 +82,30 @@ pub(crate) fn row_button(content: impl Bundle) -> impl Bundle {
             flex_grow: 1.0,
             padding: UiRect::axes(px(BUTTON_PADDING_PX), px(ROW_BUTTON_PADDING_PX)),
             justify_content: JustifyContent::Start,
+            // a corner of its own: a row is tall, and a capsule's round ends would eat into
+            // what it holds
+            border_radius: BorderRadius::all(px(ROW_BUTTON_RADIUS_PX)),
             ..button_frame()
         },
-        ButtonKind::Primary,
+        ButtonKind::Choice,
         children![content],
     )
 }
 
 // ==== Components =============================================================
 
-/// How a button looks: which colors it lights up in.
+/// What a button is for, which decides the fill and the ink it is painted in.
 #[derive(Component, Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum ButtonKind {
-    /// Bordered at rest, amber under the pointer: the usual choice.
+    /// The main action, white already at rest: New Save, a Yes that destroys nothing.
     Primary,
-    /// Borderless until the pointer comes, for the way out: Close, No.
+    /// One among equals, faint at rest and white under the pointer: a row of the pause menu
+    /// or of a list.
+    Choice,
+    /// The way out, bare until the pointer comes: Close, No.
     Quiet,
-    /// Like Primary, but red under the pointer: Delete, and a Yes that destroys something.
+    /// What destroys, in red ink at rest and filled red under the pointer: Delete, and a Yes
+    /// that destroys something.
     Danger,
 }
 
@@ -126,32 +137,45 @@ fn load_button_sounds(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(button_sounds);
 }
 
-/// Eases every button toward its hover and press state and paints it from there. Counts
-/// real time, since the pause menu's buttons live while virtual time is frozen.
+/// Eases every button toward its hover and press state and paints it from there: its fill,
+/// and its ink on every text it holds. Counts real time, since the pause menu's buttons live
+/// while virtual time is frozen.
 fn paint_buttons(
     time: Res<Time<Real>>,
     mut buttons: Query<
         (
+            Entity,
             &ButtonKind,
             &Hovered,
             Has<Pressed>,
             &mut ButtonMotion,
             &mut BackgroundColor,
-            &mut BorderColor,
-            &mut BoxShadow,
         ),
         With<Button>,
     >,
+    children: Query<&Children>,
+    mut inks: Query<&mut TextColor>,
 ) {
     let step = time.delta_secs() / BUTTON_EASE_SECS;
-    for (kind, hovered, pressed, mut motion, mut fill, mut border, mut shadow) in &mut buttons {
-        motion.hover = approach(motion.hover, f32::from(u8::from(hovered.get())), step);
-        motion.press = approach(motion.press, f32::from(u8::from(pressed)), step);
+    for (entity, kind, hovered, pressed, mut motion, mut fill) in &mut buttons {
+        let hover_target = f32::from(u8::from(hovered.get()));
+        let press_target = f32::from(u8::from(pressed));
+        // a button resting where it was last painted is left alone: most buttons, most
+        // frames. a new one is painted once, since its texts spawn in a color of their own,
+        // whatever the ink of its kind
+        if !motion.is_added() && motion.hover == hover_target && motion.press == press_target {
+            continue;
+        }
+        motion.hover = approach(motion.hover, hover_target, step);
+        motion.press = approach(motion.press, press_target, step);
         let colors = button_colors(*kind, motion.hover, motion.press);
         fill.0 = colors.fill;
-        *border = BorderColor::all(colors.border);
-        if let Some(glow) = shadow.0.first_mut() {
-            glow.color = colors.glow;
+        for descendant in children.iter_descendants(entity) {
+            if let Ok(mut ink) = inks.get_mut(descendant) {
+                // the ink's color at the text's own alpha, so muted text stays muted
+                // whichever ink it is in
+                ink.0 = colors.ink.with_alpha(ink.0.alpha());
+            }
         }
     }
 }
@@ -184,59 +208,51 @@ fn play_button_sounds(
 
 // ==== Helpers ================================================================
 
-/// The colors a button is painted in at one moment.
+/// The colors a button is painted in at one moment: what fills it, and the ink of the texts
+/// it holds.
 #[derive(Debug, PartialEq)]
 struct ButtonColors {
     fill: Color,
-    border: Color,
-    glow: Color,
+    ink: Color,
 }
 
 /// Returns the colors of a button of `kind`, `hover` and `press` of the way (0.0 to 1.0)
-/// toward hovered and pressed. Pressing darkens the fill and puts the glow out, hovered or
-/// not.
+/// toward hovered and pressed. Pressing darkens the fill, whichever it is, and leaves it as
+/// see-through as it was.
 fn button_colors(kind: ButtonKind, hover: f32, press: f32) -> ButtonColors {
-    let (rest_fill, rest_border, hover_border) = match kind {
-        ButtonKind::Primary => (BUTTON_FILL, BORDER, ACCENT),
-        ButtonKind::Quiet => (CLEAR, CLEAR, BORDER),
-        ButtonKind::Danger => (BUTTON_FILL, BORDER, DANGER),
+    let (rest_fill, rest_ink, hover_fill, hover_ink) = match kind {
+        ButtonKind::Primary => (ACCENT, INK, ACCENT.with_alpha(PRIMARY_HOVER_ALPHA), INK),
+        ButtonKind::Choice => (BUTTON_FILL, TEXT, ACCENT, INK),
+        ButtonKind::Quiet => (CLEAR, TEXT, QUIET_FILL_HOVER, TEXT),
+        ButtonKind::Danger => (BUTTON_FILL, DANGER, DANGER, DANGER_INK),
     };
-    let glow = match kind {
-        ButtonKind::Quiet => CLEAR,
-        _ => hover_border.with_alpha(BUTTON_GLOW_ALPHA * hover * (1.0 - press)),
-    };
+    let fill = rest_fill.mix(&hover_fill, hover);
+    let pressed_fill = Color::BLACK.with_alpha(fill.alpha());
     ButtonColors {
-        fill: rest_fill
-            .mix(&BUTTON_FILL_HOVER, hover)
-            .mix(&BUTTON_FILL_PRESSED, press),
-        border: rest_border.mix(&hover_border, hover),
-        glow,
+        fill: fill.mix(&pressed_fill, BUTTON_PRESS_SHADE * press),
+        ink: rest_ink.mix(&hover_ink, hover),
     }
 }
 
-/// Returns the layout every button shares: a pill with a thin border, its label in the
-/// middle row. Each kind of button fills in its own size and alignment.
+/// Returns the layout every button shares: a capsule, its label in the middle row. Each kind
+/// of button fills in its own size and alignment.
 fn button_frame() -> Node {
     Node {
         align_items: AlignItems::Center,
-        border: UiRect::all(px(BORDER_PX)),
         border_radius: BorderRadius::MAX,
         ..default()
     }
 }
 
-/// Returns a button of `kind` with the given layout and children, painted at rest. Its glow
-/// starts out, and `paint_buttons` brings it up with the hover.
+/// Returns a button of `kind` with the given layout and children, its fill painted at rest.
+/// `paint_buttons` gives its texts their ink the first time it sees it.
 fn button_base(node: Node, kind: ButtonKind, children: impl Bundle) -> impl Bundle {
-    let rest = button_colors(kind, 0.0, 0.0);
     (
         node,
         Button,
         kind,
         ButtonMotion::default(),
-        BackgroundColor(rest.fill),
-        BorderColor::all(rest.border),
-        BoxShadow::new(rest.glow, px(0), px(0), px(0), px(BUTTON_GLOW_BLUR_PX)),
+        BackgroundColor(button_colors(kind, 0.0, 0.0).fill),
         Hovered::default(),
         children,
     )
@@ -249,6 +265,12 @@ mod tests {
     use super::*;
 
     const TOLERANCE: f32 = 1e-5;
+    const KINDS: [ButtonKind; 4] = [
+        ButtonKind::Primary,
+        ButtonKind::Choice,
+        ButtonKind::Quiet,
+        ButtonKind::Danger,
+    ];
 
     /// Returns whether two colors match channel by channel, within the tolerance.
     fn same_color(a: Color, b: Color) -> bool {
@@ -263,47 +285,65 @@ mod tests {
         .all(|difference| difference.abs() < TOLERANCE)
     }
 
+    /// Returns whether a fill is white and solid enough to need the dark ink over it.
+    fn is_white_fill(fill: Color) -> bool {
+        let fill = fill.to_srgba();
+        same_color(fill.with_alpha(1.0).into(), Color::WHITE) && fill.alpha > 0.5
+    }
+
     // ---- button_colors ------------------------------------------------------
 
     #[test]
-    fn primary_button_at_rest_has_a_thin_border_and_no_glow() {
+    fn primary_button_is_white_already_at_rest() {
         let colors = button_colors(ButtonKind::Primary, 0.0, 0.0);
-        assert!(same_color(colors.fill, BUTTON_FILL));
-        assert!(same_color(colors.border, BORDER));
-        assert!(colors.glow.alpha() < TOLERANCE);
+        assert!(same_color(colors.fill, ACCENT));
+        assert!(same_color(colors.ink, INK));
     }
 
     #[test]
-    fn primary_button_hovered_lights_up_in_the_accent() {
-        let colors = button_colors(ButtonKind::Primary, 1.0, 0.0);
-        assert!(same_color(colors.fill, BUTTON_FILL_HOVER));
-        assert!(same_color(colors.border, ACCENT));
-        assert!((colors.glow.alpha() - BUTTON_GLOW_ALPHA).abs() < TOLERANCE);
-    }
-
-    #[test]
-    fn pressed_button_darkens_and_puts_the_glow_out() {
-        let colors = button_colors(ButtonKind::Primary, 1.0, 1.0);
-        assert!(same_color(colors.fill, BUTTON_FILL_PRESSED));
-        assert!(colors.glow.alpha() < TOLERANCE);
+    fn choice_button_hovered_turns_white_with_dark_ink() {
+        let colors = button_colors(ButtonKind::Choice, 1.0, 0.0);
+        assert!(same_color(colors.fill, ACCENT));
+        assert!(same_color(colors.ink, INK));
     }
 
     #[test]
     fn quiet_button_at_rest_draws_nothing() {
         let colors = button_colors(ButtonKind::Quiet, 0.0, 0.0);
         assert!(colors.fill.alpha() < TOLERANCE);
-        assert!(colors.border.alpha() < TOLERANCE);
     }
 
     #[test]
-    fn quiet_button_never_glows() {
-        let colors = button_colors(ButtonKind::Quiet, 1.0, 0.0);
-        assert!(colors.glow.alpha() < TOLERANCE);
-    }
-
-    #[test]
-    fn danger_button_hovered_lights_up_red() {
+    fn danger_button_hovered_fills_red_with_white_ink() {
         let colors = button_colors(ButtonKind::Danger, 1.0, 0.0);
-        assert!(same_color(colors.border, DANGER));
+        assert!(same_color(colors.fill, DANGER));
+        assert!(same_color(colors.ink, DANGER_INK));
+    }
+
+    #[test]
+    fn pressed_button_darkens_its_fill_and_stays_as_see_through() {
+        for kind in KINDS {
+            let hovered = button_colors(kind, 1.0, 0.0).fill.to_srgba();
+            let pressed = button_colors(kind, 1.0, 1.0).fill.to_srgba();
+            assert!(pressed.red < hovered.red, "{kind:?}");
+            assert!(
+                (pressed.alpha - hovered.alpha).abs() < TOLERANCE,
+                "{kind:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn ink_is_dark_exactly_where_the_fill_is_white() {
+        for kind in KINDS {
+            for hover in [0.0, 1.0] {
+                let colors = button_colors(kind, hover, 0.0);
+                assert_eq!(
+                    is_white_fill(colors.fill),
+                    same_color(colors.ink, INK),
+                    "{kind:?} at hover {hover}"
+                );
+            }
+        }
     }
 }
