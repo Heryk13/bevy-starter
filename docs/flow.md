@@ -127,14 +127,25 @@ skipped rather than waited on.
 
 Five layers under one root, spawned back to front: the background image, a gradient scrim that is
 dark on the left and clear on the right, the column (`GAME_TITLE` from `main.rs` over the
-`menu_button`s), the version in the bottom-right corner from `CARGO_PKG_VERSION`, and a black veil.
+menu's words), the version in the bottom-right corner from `CARGO_PKG_VERSION`, and a black veil.
 `assets/menu/music.ogg` loops beside it with `DespawnOnExit(Screen::Menu)`, so the track's
 lifetime is the screen's.
 
-The buttons carry a `MenuAction` component, and the `activate_menu_button` observer reads it off
+The choices are words alone, with no card and no capsule: `menu_word(key)`, the menu's own
+widget, since nothing else looks like it. Each is a `Button` with `Hovered` and a `MenuWord`,
+and no `ButtonKind`: it is pressed and it sounds like any button, while `paint_buttons` leaves
+it alone. `paint_menu_words` eases `MenuWord::hover` as `paint_buttons` eases a button, over the
+same `BUTTON_EASE_SECS`, and paints from the pure `menu_word_paint(hover)`: a white bar behind
+the word, solid for `BAR_SOLID_PERCENT` of its width and fading out to the right
+(`bar_gradient`), the word from greyish to `INK`, and its shadow fading out as it darkens. The
+words touch, so a pointer going down the column is always over one and the bar never blinks,
+and they line up under the title: the column starts `WORD_PADDING_PX` to its left
+(`COLUMN_LEFT_PX`), where the bars begin.
+
+The words carry a `MenuAction` component, and the `activate_menu_word` observer reads it off
 `activate.entity`:
 
-| Button | What it does |
+| Word | What it does |
 | --- | --- |
 | New Game | triggers `StartGame` with a fresh `Session`, headed for the intro |
 | Continue | triggers `StartGame` with the newest save `newest_ready` finds, headed for gameplay |
@@ -143,9 +154,9 @@ The buttons carry a `MenuAction` component, and the `activate_menu_button` obser
 | Credits | sets `Overlay::Credits` |
 | Quit | writes `AppExit::Success` |
 
-Continue is only there when a save can be loaded: `update_continue_button`, chained after
+Continue is only there when a save can be loaded: `update_continue_word`, chained after
 `spawn_menu_screen`, sets its `Node::display` to `Display::None` otherwise, which takes it out of
-the column so the buttons below close the gap. Its click lists the saves again rather than trust
+the column so the words below close the gap. Its click lists the saves again rather than trust
 what the menu saw when it opened.
 
 `StartGame` reaches `start_game_from_menu`, which keeps the session and the destination as
@@ -367,7 +378,7 @@ pause card darkens under it instead of competing with it.
   `delete_save` removes the file and sets `Overlay::LoadGame` again. `set` re-enters a state it is
   already in, so `OnExit` despawns the panel and `OnEnter` reads the folder anew: the list loses
   the row with no code to rebuild it. A failed delete is logged with `error!` and the row stays.
-  That same `OnExit` runs the menu's `update_continue_button` again, so deleting the last save hides
+  That same `OnExit` runs the menu's `update_continue_word` again, so deleting the last save hides
   Continue without leaving the menu.
 
 **Closing.** No panel owns its Close button's behaviour. Each ends its card with
