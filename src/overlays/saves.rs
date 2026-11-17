@@ -16,8 +16,8 @@ use crate::save::{
 use crate::screens::{LoadingDestination, StartGame};
 use crate::ui::{
     ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, BUTTON_HEIGHT_PX, ButtonKind, FIELD_FILL, Icon,
-    ROW_BUTTON_PADDING_PX, SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, button, dialog, font, heading,
-    icon, icon_button, muted_text, row_button,
+    OwnColor, ROW_BUTTON_PADDING_PX, ROW_CONTENT_RADIUS_PX, SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED,
+    button, dialog, font, heading, icon, icon_button, muted_text, row_button,
 };
 
 // ==== Config =================================================================
@@ -37,11 +37,10 @@ const SAVE_ROW_LINE_GAP_PX: f32 = 2.0;
 
 // ---- a save's picture, at the start of its row ------------------------------
 const SAVE_PICTURE_WIDTH_PX: f32 = 112.0;
-const SAVE_PICTURE_RADIUS_PX: f32 = 10.0;
 // between the picture and the save's name
 const SAVE_PICTURE_GAP_PX: f32 = 14.0;
 // what stands where the picture would, for a save that has none: opaque, as a picture is,
-// and a grey that reads on a row at rest as on the white one under the pointer
+// so it looks the same on a row at rest and on the white one under the pointer
 const SAVE_PICTURE_EMPTY_FILL: Color = Color::srgb_u8(0x4A, 0x4A, 0x50);
 
 // ---- name field -------------------------------------------------------------
@@ -502,12 +501,14 @@ fn save_picture(picture: Option<Handle<Image>>) -> impl Bundle {
             align_items: AlignItems::Center,
             // a long name must not squeeze the picture out of its shape
             flex_shrink: 0.0,
-            border_radius: BorderRadius::all(px(SAVE_PICTURE_RADIUS_PX)),
+            border_radius: BorderRadius::all(px(ROW_CONTENT_RADIUS_PX)),
             ..default()
         },
         image,
         BackgroundColor(fill),
-        children![(icon(Icon::ImageOff), icon_visibility)],
+        // `OwnColor`: the icon lies on the frame's grey, not on the row, so the dark ink of
+        // a row under the pointer would be lost on it
+        children![(icon(Icon::ImageOff), OwnColor, icon_visibility)],
     )
 }
 

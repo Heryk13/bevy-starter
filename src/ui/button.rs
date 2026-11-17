@@ -26,12 +26,18 @@ pub(crate) const BUTTON_HEIGHT_PX: f32 = 44.0;
 const BUTTON_MIN_WIDTH_PX: f32 = 120.0;
 const BUTTON_PADDING_PX: f32 = 20.0;
 pub(crate) const ROW_BUTTON_PADDING_PX: f32 = 8.0;
-const ROW_BUTTON_RADIUS_PX: f32 = 18.0;
+// the corner of what a row starts with, such as a save's picture
+pub(crate) const ROW_CONTENT_RADIUS_PX: f32 = 10.0;
 
 // ---- easing -----------------------------------------------------------------
 // how long a button takes to light up or go back, so a pointer passing over a column
 // leaves a short trail instead of flickering
 pub(crate) const BUTTON_EASE_SECS: f32 = 0.12;
+
+// ---- derived ----------------------------------------------------------------
+// a row's corner runs around its content's at the padding's distance, so the two
+// curves stay parallel
+const ROW_BUTTON_RADIUS_PX: f32 = ROW_BUTTON_PADDING_PX + ROW_CONTENT_RADIUS_PX;
 
 // ==== Plugin =================================================================
 
@@ -132,6 +138,11 @@ pub(crate) enum ButtonKind {
     Danger,
 }
 
+/// Marks a text under a button that keeps its own color: one that lies on a surface of its
+/// own, not on the button's fill, so the ink that reads on the fill would not read on it.
+#[derive(Component)]
+pub(crate) struct OwnColor;
+
 /// How far a button has eased toward hovered and toward pressed, each 0.0 to 1.0.
 #[derive(Component, Default)]
 struct ButtonMotion {
@@ -177,7 +188,7 @@ fn paint_buttons(
         With<Button>,
     >,
     children: Query<&Children>,
-    mut inks: Query<&mut TextColor>,
+    mut inks: Query<&mut TextColor, Without<OwnColor>>,
 ) {
     let step = time.delta_secs() / BUTTON_EASE_SECS;
     for (entity, kind, hovered, pressed, mut motion, mut fill) in &mut buttons {
@@ -185,7 +196,8 @@ fn paint_buttons(
         let press_target = f32::from(u8::from(pressed));
         // a button resting where it was last painted is left alone: most buttons, most
         // frames. a new one is painted once, since its texts spawn in a color of their own,
-        // whatever the ink of its kind
+        // whatever the ink of its kind. so a text added under a button later would wait for
+        // the next hover to get its ink: nothing does that, every button spawns whole
         if !motion.is_added() && motion.hover == hover_target && motion.press == press_target {
             continue;
         }
