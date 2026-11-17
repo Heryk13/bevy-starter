@@ -115,6 +115,26 @@ approved are in `docs/roadmap/ui/look-screens.html`.
 - **The crop is a `URect`, and the encoder's test reads the file back** (7.4, 7.6): a named
   rectangle in place of a tuple of four numbers, and a test that a window of another shape
   comes out as a JPEG of the picture's size, which is what protects the format.
+- **The empty frame is an opaque grey, and it also stands for a picture that cannot be
+  read** (asked by the user before 8.3). The spec gave a save with no picture "an empty
+  frame"; the user asked for a grey fill with the missing-picture icon, for a picture that is
+  not there as for one that fails to load. `read_save_picture` gives `None` for both, and
+  `SAVE_PICTURE_EMPTY_FILL` is opaque, as a picture is, so it reads on a row at rest and on
+  the white one under the pointer.
+- **The frame always holds an image and an icon, and one of the two shows** (decided while
+  building 8.3). A function returns one bundle type, so a row with a picture and a row
+  without cannot be two different bundles: `ImageNode::default()` draws nothing, and the
+  icon is hidden under a picture.
+- **A row is padded as closely on its left as above and below** (decided while building 8.3,
+  from the mockup). `row_button` padded its sides as a button does, which would leave the
+  picture 20 px in and 8 px down; the row's corner (18) is now its padding (8) plus the
+  picture's corner (10), so the two curves run together.
+- **The pictures are read as the list spawns, not through the asset server** (checked while
+  building 8.1). Bevy can be given a second asset source, which would load them off the main
+  thread; it has to be registered before the default plugins, logs an error for every save
+  with no picture, and shows nothing while a picture loads, so the missing-picture icon would
+  need a system watching each load. Reading the file is a few lines and says at once whether
+  there is a picture; its ceiling is the `ponytail:` comment the spec asked for.
 
 ## The buttons at a glance
 
@@ -217,21 +237,21 @@ What `button_colors` returns from step 3 on, the fill first and the ink second:
 | [x] | 7.10 `apply_esc_action` in `src/overlays.rs` takes the screenshot when it asks for `Pause::On` | Claude hands the lines | `bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured}`; `commands.spawn(Screenshot::primary_window()).observe(..)`, the observer an `On<ScreenshotCaptured>` whose `image` is the capture. Spawned beside the `set`, it captures a frame with no card: `OnEnter(Pause::On)` runs a frame later |
 | [x] | 7.11 `write_new_save` and `overwrite_save` write the kept picture after the save; with none kept, an overwritten save loses its old one | you | the save is written first and marks the session saved; the picture's failure is only logged, with `error!` |
 | [x] | 7.12 `autosave_game` in `src/screens/gameplay.rs` spawns a screenshot whose observer writes the picture beside the autosave when it arrives | you | the path moves into the observer's closure: `.observe(move \|captured: On<ScreenshotCaptured>\| ..)` |
-| [ ] | 7.13 The first capture of a run, looked at: if the window blinks, a throwaway screenshot is taken under the loading screen | both | Bevy queues the screenshot's pipeline the frame it is first taken. Nothing is added unless the blink is seen |
+| [x] | 7.13 The first capture of a run, looked at: if the window blinks, a throwaway screenshot is taken under the loading screen | both | Bevy queues the screenshot's pipeline the frame it is first taken. Nothing is added unless the blink is seen |
 | [x] | 7.14 The cost of an autosave's picture, measured on `3d/player` with temporary lines never staged | both | `AUTOSAVE_INTERVAL_SECS` shortened for the run and `std::time::Instant` around 7.6's function; it moves to a task only if the frame feels it |
 | [x] | 7.15 `docs/flow.md` (saving, the pause, the autosave), `docs/template.md` (what the saves folder holds) | Claude | |
-| [ ] | 7.16 `just run`: New Save, an overwrite and an autosave each leave a `.jpg` beside their `.ron` in the data folder (`%APPDATA%\<game>\saves`); no picture shows the pause card or the blur; Esc then Save at once; deleting takes both files; review; sync | both | nothing in the game shows a picture yet: the files are opened by hand |
+| [x] | 7.16 `just run`: New Save, an overwrite and an autosave each leave a `.jpg` beside their `.ron` in the data folder (`%APPDATA%\<game>\saves`); no picture shows the pause card or the blur; Esc then Save at once; deleting takes both files; review; sync | both | nothing in the game shows a picture yet: the files are opened by hand |
 
 ## Step 8: `feat: show each save's picture in the lists`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 8.1 Reading a save's picture from disk into an `Image`, in `save.rs` | Claude hands the lines | `std::fs::read`, then `Image::from_buffer(&bytes, ImageType::Extension("jpg"), CompressedImageFormats::NONE, true, ImageSampler::Default, RenderAssetUsages::RENDER_WORLD)`: `bevy::image` for the first three types, `bevy::asset::RenderAssetUsages` for the last. The asset server reads only `assets/` |
-| [ ] | 8.2 The empty picture's icon, a named constant beside the trash | you | `image-off` in `lucide.css` |
-| [ ] | 8.3 `save_row` takes the picture: a 112 × 63 frame with a 10 px corner beside the name over the details; with no picture, the frame holds the icon | you | `ImageNode::new(handle)`; the frame's height is derived from its width and the picture's ratio; the row becomes a row (`FlexDirection::Row`) holding the frame and today's column |
-| [ ] | 8.4 Both lists read each save's picture as they spawn | you | `ResMut<Assets<Image>>` in `spawn_save_game_overlay` and `spawn_load_game_overlay`; `Assets::add` returns the handle, and the `ImageNode` holding it is what keeps the picture alive until the overlay despawns. A row for a save that cannot be loaded stays the muted line it is |
-| [ ] | 8.5 `SAVE_LIST_MAX_HEIGHT_PX` shows about four of the taller rows | you | derived from the frame's height, the row's padding and the gap between rows, not restated |
-| [ ] | 8.6 The `ponytail:` comment on reading every picture on the main thread; `docs/flow.md`'s two lists | Claude | |
+| [x] | 8.1 Reading a save's picture from disk into an `Image`, in `save.rs` | Claude hands the lines | `std::fs::read`, then `Image::from_buffer(&bytes, ImageType::Extension("jpg"), CompressedImageFormats::NONE, true, ImageSampler::Default, RenderAssetUsages::RENDER_WORLD)`: `bevy::image` for the first three types, `bevy::asset::RenderAssetUsages` for the last. The asset server reads only `assets/` |
+| [x] | 8.2 The empty picture's icon, a named constant beside the trash | you | `image-off` in `lucide.css` |
+| [x] | 8.3 `save_row` takes the picture: a 112 × 63 frame with a 10 px corner beside the name over the details; with no picture, the frame holds the icon | you | `ImageNode::new(handle)`; the frame's height is derived from its width and the picture's ratio; the row becomes a row (`FlexDirection::Row`) holding the frame and today's column |
+| [x] | 8.4 Both lists read each save's picture as they spawn | you | `ResMut<Assets<Image>>` in `spawn_save_game_overlay` and `spawn_load_game_overlay`; `Assets::add` returns the handle, and the `ImageNode` holding it is what keeps the picture alive until the overlay despawns. A row for a save that cannot be loaded stays the muted line it is |
+| [x] | 8.5 `SAVE_LIST_MAX_HEIGHT_PX` shows about four of the taller rows | you | derived from the frame's height, the row's padding and the gap between rows, not restated |
+| [x] | 8.6 The `ponytail:` comment on reading every picture on the main thread; `docs/flow.md`'s two lists | Claude | |
 | [ ] | 8.7 `just run`: each save beside its picture; a save from before this spec shows the empty frame; the corners are round; a row under the pointer turns white without hiding its picture; opening a list of many saves does not stall; review; sync | both | whether an `ImageNode` is clipped by its node's `border_radius` is looked at here; if not, the frame clips it with `Overflow::clip()` |
 
 ## Step 9: `docs: mark the look spec built`
