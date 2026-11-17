@@ -129,8 +129,10 @@ every word and every glyph exists from the first frame. Editing one needs a rebu
 The colors and type sizes of every screen, panel and button are the `Config` section of
 `src/ui.rs`: `ACCENT` is the white of hovered buttons and checked controls, `SURFACE` the tint
 of the panels over their glass, `TEXT` and `TEXT_MUTED` the two text colors, both a white let
-through in part, `DANGER` the red of Delete. Recoloring the game is editing those constants. The game's name on the menu and the window is `GAME_TITLE` in
-`src/main.rs`. Anything that should float over the screens with the blur behind it is built on
+through in part, `DANGER` the red of Delete. Recoloring the game is editing those constants.
+An icon is `icon(Icon::Trash2)`, any of [Lucide](https://lucide.dev)'s by its name: the
+`lucide-icons` crate builds the font and the names into the game, so there is no icon file to
+add. The game's name on the menu and the window is `GAME_TITLE` in `src/main.rs`. Anything that should float over the screens with the blur behind it is built on
 `floating_root()` and `card()` from `ui.rs`; the `Floating` marker they carry is all the blur needs.
 A panel on a layer that exists (`OVERLAY_Z_INDEX` for a new overlay) needs nothing else. A new
 layer is a new `*_Z_INDEX` pushed onto `GlassLayers` from its plugin, or it logs a warning and

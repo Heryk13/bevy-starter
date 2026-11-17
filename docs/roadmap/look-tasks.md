@@ -76,6 +76,20 @@ approved are in `docs/roadmap/ui/look-screens.html`.
 - **`OVERLAY_WIDTH_PX` is 580, not measured** (5.5). Claude cannot see the game: the width is
   worked out from the label column, the three names' lengths and the paddings, with some
   room to spare, and the user's `just run` in the three languages is what confirms it.
+  Confirmed in 5.7.
+- **The icons come from the `lucide-icons` crate, not from a font file in `assets/fonts/`**
+  (asked by the user before 6.1: "is there no library for it?"). The crate (1.74.0, Lucide's
+  own version number) holds the font's bytes, `LUCIDE_FONT_BYTES`, and every icon as a
+  variant of an `Icon` enum that turns into its character, so no file is fetched, no licence
+  is copied in, and no code point is read out of `lucide.css` by hand, where a wrong digit
+  draws another icon. It depends on nothing, Bevy included, so it holds no upgrade back; it
+  has no build script; its licence, `MIT AND ISC`, is two the `about.toml` already accepts,
+  and `just release` writes it into the notices with the rest. What it costs: it is a third
+  party's, not Lucide's own, and it builds all its icons into the game, about 1 MB, as the
+  file would have. An icon is therefore `icon(Icon::Trash2)`, not a constant in `ui.rs`.
+- **The name field is at least a button tall, not exactly** (decided while building 6.6). An
+  `EditableText` is its own text, so nothing centers it in a taller box: its padding does,
+  and `min_height: BUTTON_HEIGHT_PX` only holds the field to the New Save beside it.
 
 ## The buttons at a glance
 
@@ -153,13 +167,13 @@ What `button_colors` returns from step 3 on, the fill first and the ink second:
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 6.1 `assets/fonts/lucide.ttf` and its licence, the version written beside them | Claude | from the `lucide-static` package of a release at or after 1.70.0 (`font/lucide.ttf`, `font/lucide.css`, `LICENSE`), checked when fetched; ISC, so `README.md`'s credits and the Credits overlay gain a line if Noto Sans JP has one there |
-| [ ] | 6.2 The icon font built into the binary under a handle known at compile time, installed at `Startup` | Claude hands the lines | `uuid_handle!("..")` (`bevy::asset`) makes a `Handle<Font>` constant; `include_bytes!` and `Font::from_bytes(..)` then `fonts.insert(handle.id(), font)`, as `use_ui_font` does in `i18n.rs` with `AssetId::default()`. `ui.rs` gets its first system, so a `Systems` section |
-| [ ] | 6.3 `icon()` in `ui.rs`'s `Widgets`, and the trash as a named constant in its `Config` | you | a `Text` holding one code point: `TextFont { font: ICON_FONT.into(), font_size: .., ..default() }` (`TextFont::font` is a `FontSource`, which a handle converts into); 22 px beside 18 px text; the code point of `trash-2` is read in that release's `lucide.css` and written `"\u{....}"`. Claude writes beside them why they live in `ui.rs` with one user |
-| [ ] | 6.4 A round button holding one icon, 44 px across, of any `ButtonKind`, in `button.rs` | you | `button_base(node, kind, children![icon(..)])`; `BUTTON_HEIGHT_PX` is already 44; `paint_buttons` paints the icon since 3.4, an icon being a text |
-| [ ] | 6.5 Load Game's Delete becomes that button, `Danger`; `save-delete` leaves the three `main.ftl` | you | `saves.rs:327`; an icon says nothing to a screen reader, so the button takes `AccessibleLabel::new("Delete")`, as the Settings controls do. The translation test fails while one file keeps the key |
-| [ ] | 6.6 The name field becomes a capsule as tall as a button | you | `BUTTON_HEIGHT_PX` becomes `pub(crate)`, re-exported by `ui.rs`; `BorderRadius::MAX`; `SAVE_NAME_RADIUS_PX` goes, and the padding becomes horizontal only |
-| [ ] | 6.7 `docs/template.md` (line 55, the fonts), `docs/flow.md` (line 622's table, the shared-files row of `ui.rs`), `README.md` | Claude | |
+| [x] | 6.1 `assets/fonts/lucide.ttf` and its licence, the version written beside them | Claude | from the `lucide-static` package of a release at or after 1.70.0 (`font/lucide.ttf`, `font/lucide.css`, `LICENSE`), checked when fetched; ISC, so `README.md`'s credits and the Credits overlay gain a line if Noto Sans JP has one there |
+| [x] | 6.2 The icon font built into the binary under a handle known at compile time, installed at `Startup` | Claude hands the lines | `uuid_handle!("..")` (`bevy::asset`) makes a `Handle<Font>` constant; `include_bytes!` and `Font::from_bytes(..)` then `fonts.insert(handle.id(), font)`, as `use_ui_font` does in `i18n.rs` with `AssetId::default()`. `ui.rs` gets its first system, so a `Systems` section |
+| [x] | 6.3 `icon()` in `ui.rs`'s `Widgets`, and the trash as a named constant in its `Config` | you | a `Text` holding one code point: `TextFont { font: ICON_FONT.into(), font_size: .., ..default() }` (`TextFont::font` is a `FontSource`, which a handle converts into); 22 px beside 18 px text; the code point of `trash-2` is read in that release's `lucide.css` and written `"\u{....}"`. Claude writes beside them why they live in `ui.rs` with one user |
+| [x] | 6.4 A round button holding one icon, 44 px across, of any `ButtonKind`, in `button.rs` | you | `button_base(node, kind, children![icon(..)])`; `BUTTON_HEIGHT_PX` is already 44; `paint_buttons` paints the icon since 3.4, an icon being a text |
+| [x] | 6.5 Load Game's Delete becomes that button, `Danger`; `save-delete` leaves the three `main.ftl` | you | `saves.rs:327`; an icon says nothing to a screen reader, so the button takes `AccessibleLabel::new("Delete")`, as the Settings controls do. The translation test fails while one file keeps the key |
+| [x] | 6.6 The name field becomes a capsule as tall as a button | you | `BUTTON_HEIGHT_PX` becomes `pub(crate)`, re-exported by `ui.rs`; `BorderRadius::MAX`; `SAVE_NAME_RADIUS_PX` goes, and the padding becomes horizontal only |
+| [x] | 6.7 `docs/template.md` (line 55, the fonts), `docs/flow.md` (line 622's table, the shared-files row of `ui.rs`), `README.md` | Claude | |
 | [ ] | 6.8 `just run`: the trash is drawn, not an empty box; red ink, red fill with a white trash under the pointer; it still asks before deleting; the field's cursor and its outline when focused; `just release`'s licence check is not touched by a font; review; sync | both | |
 
 ## Step 7: `feat: keep a picture with every save`
