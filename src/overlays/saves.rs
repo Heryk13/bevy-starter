@@ -9,15 +9,15 @@ use std::path::{Path, PathBuf};
 use super::{OVERLAY_GAP_PX, Overlay, close_footer, overlay_card, overlay_root};
 use crate::i18n::{Language, Localized, Translations};
 use crate::save::{
-    PausePicture, SaveData, SaveEntry, SaveFinished, Session, delete_save_files, is_autosave,
-    loaded_session, new_save_path, read_save, save_pause_picture, saves_dir, saves_on_disk,
-    unix_now, write_save,
+    PICTURE_ASPECT_RATIO, PausePicture, SaveData, SaveEntry, SaveFinished, Session,
+    delete_save_files, is_autosave, loaded_session, new_save_path, read_save, read_save_picture,
+    save_pause_picture, saves_dir, saves_on_disk, unix_now, write_save,
 };
 use crate::screens::{LoadingDestination, StartGame};
 use crate::ui::{
     ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, BUTTON_HEIGHT_PX, ButtonKind, FIELD_FILL, Icon,
-    SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, button, dialog, font, heading, icon_button, muted_text,
-    row_button,
+    ROW_BUTTON_PADDING_PX, SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, button, dialog, font, heading,
+    icon, icon_button, muted_text, row_button,
 };
 
 // ==== Config =================================================================
@@ -30,9 +30,19 @@ const INCOMPATIBLE_SAVE_TEXT: &str = "save-incompatible";
 const UNREADABLE_SAVE_TEXT: &str = "save-unreadable";
 
 // ---- lists ------------------------------------------------------------------
-const SAVE_LIST_MAX_HEIGHT_PX: f32 = 300.0;
+// how many rows a list shows before it scrolls
+const SAVE_ROWS_SHOWN: f32 = 4.0;
 // a row's name and details sit close, so they read as one save
 const SAVE_ROW_LINE_GAP_PX: f32 = 2.0;
+
+// ---- a save's picture, at the start of its row ------------------------------
+const SAVE_PICTURE_WIDTH_PX: f32 = 112.0;
+const SAVE_PICTURE_RADIUS_PX: f32 = 10.0;
+// between the picture and the save's name
+const SAVE_PICTURE_GAP_PX: f32 = 14.0;
+// what stands where the picture would, for a save that has none: opaque, as a picture is,
+// and a grey that reads on a row at rest as on the white one under the pointer
+const SAVE_PICTURE_EMPTY_FILL: Color = Color::srgb_u8(0x4A, 0x4A, 0x50);
 
 // ---- name field -------------------------------------------------------------
 // `EditableText` draws no box, and no cursor without a `TextCursorStyle`, so these are what
@@ -44,6 +54,14 @@ const SAVE_NAME_PADDING_X_PX: f32 = 18.0;
 const SAVE_NAME_PADDING_Y_PX: f32 = 10.0;
 // a longer name pushes its row past the edge of the list
 const SAVE_NAME_MAX_CHARS: usize = 20;
+
+// ---- derived ----------------------------------------------------------------
+// the frame has the shape of the file it shows, so no picture is ever stretched
+const SAVE_PICTURE_HEIGHT_PX: f32 = SAVE_PICTURE_WIDTH_PX / PICTURE_ASPECT_RATIO;
+// a row is as tall as its picture and the padding a row button puts around it
+const SAVE_ROW_HEIGHT_PX: f32 = SAVE_PICTURE_HEIGHT_PX + 2.0 * ROW_BUTTON_PADDING_PX;
+const SAVE_LIST_MAX_HEIGHT_PX: f32 =
+    SAVE_ROW_HEIGHT_PX * SAVE_ROWS_SHOWN + OVERLAY_GAP_PX * (SAVE_ROWS_SHOWN - 1.0);
 
 // ==== Plugin =================================================================
 
@@ -103,6 +121,7 @@ fn spawn_save_game_overlay(
     mut commands: Commands,
     translations: Res<Translations>,
     language: Res<Language>,
+    mut images: ResMut<Assets<Image>>,
 ) {
     let saves = saves_on_disk();
     let root = commands
@@ -167,6 +186,7 @@ fn spawn_save_game_overlay(
             SaveEntry::Ready(path, save) => {
                 commands.spawn((
                     row_button(save_row(
+                        read_save_picture(path).map(|picture| images.add(picture)),
                         save_name(save, false, &translations, *language),
                         save_details(save, now_secs, &translations, *language),
                     )),
@@ -292,6 +312,7 @@ fn spawn_load_game_overlay(
     mut commands: Commands,
     translations: Res<Translations>,
     language: Res<Language>,
+    mut images: ResMut<Assets<Image>>,
 ) {
     let saves = saves_on_disk();
     let root = commands
@@ -324,6 +345,7 @@ fn spawn_load_game_overlay(
             SaveEntry::Ready(path, save) => {
                 commands.spawn((
                     row_button(save_row(
+                        read_save_picture(path).map(|picture| images.add(picture)),
                         save_name(save, is_autosave(path), &translations, *language),
                         save_details(save, now_secs, &translations, *language),
                     )),
@@ -426,24 +448,66 @@ fn save_list() -> impl Bundle {
     )
 }
 
-/// Returns a row's content: the save's name, its details in small muted text underneath.
-fn save_row(name: String, details: String) -> impl Bundle {
+/// Returns a row's content: the save's picture, then its name over its details in small
+/// muted text.
+fn save_row(picture: Option<Handle<Image>>, name: String, details: String) -> impl Bundle {
     (
         Node {
-            flex_direction: FlexDirection::Column,
-            row_gap: px(SAVE_ROW_LINE_GAP_PX),
+            align_items: AlignItems::Center,
+            column_gap: px(SAVE_PICTURE_GAP_PX),
             ..default()
         },
         children![
-            (Text::new(name), font(BODY_FONT_SIZE_PX), TextColor(TEXT)),
-            // muted by its alpha alone, not `muted_text`: under the pointer the row turns
-            // white and `paint_buttons` turns this dark, where a shadow would smear behind it
+            save_picture(picture),
             (
-                Text::new(details),
-                font(SMALL_FONT_SIZE_PX),
-                TextColor(TEXT_MUTED),
+                Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: px(SAVE_ROW_LINE_GAP_PX),
+                    ..default()
+                },
+                children![
+                    (Text::new(name), font(BODY_FONT_SIZE_PX), TextColor(TEXT)),
+                    // muted by its alpha alone, not `muted_text`: under the pointer the row
+                    // turns white and `paint_buttons` turns this dark, where a shadow would
+                    // smear behind it
+                    (
+                        Text::new(details),
+                        font(SMALL_FONT_SIZE_PX),
+                        TextColor(TEXT_MUTED),
+                    ),
+                ],
             ),
         ],
+    )
+}
+
+/// Returns the frame at the start of a row: the save's picture, or, for a save that has
+/// none or whose picture cannot be read, a grey fill holding the icon of a missing picture.
+fn save_picture(picture: Option<Handle<Image>>) -> impl Bundle {
+    // one bundle for both, since a function returns one type: the frame always holds an
+    // image and an icon, and only one of the two shows. `ImageNode::default()` draws nothing
+    let (image, fill, icon_visibility) = match picture {
+        Some(picture) => (ImageNode::new(picture), Color::NONE, Visibility::Hidden),
+        None => (
+            ImageNode::default(),
+            SAVE_PICTURE_EMPTY_FILL,
+            Visibility::Inherited,
+        ),
+    };
+    (
+        Node {
+            width: px(SAVE_PICTURE_WIDTH_PX),
+            height: px(SAVE_PICTURE_HEIGHT_PX),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            // a long name must not squeeze the picture out of its shape
+            flex_shrink: 0.0,
+            border_radius: BorderRadius::all(px(SAVE_PICTURE_RADIUS_PX)),
+            ..default()
+        },
+        image,
+        BackgroundColor(fill),
+        children![(icon(Icon::ImageOff), icon_visibility)],
     )
 }
 
