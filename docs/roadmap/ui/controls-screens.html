@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Key bindings: the Controls page</title>
+<style>
+  :root {
+    --accent: #FFFFFF; --ink: #111114; --danger: #FF5F57;
+    --text: rgba(255,255,255,.92); --muted: rgba(255,255,255,.74);
+    --hair: rgba(255,255,255,.16); --fill: rgba(255,255,255,.10); --fill-hover: rgba(255,255,255,.18);
+  }
+  body { background: #1c1c1f; color: #e8e8ea; margin: 0 auto; padding: 24px 24px 80px; max-width: 1100px;
+         font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  h2 { margin: 0 0 6px; } .subtitle { color: #a0a0a8; margin: 0 0 14px; font-size: 14px; line-height: 1.5; }
+  .sec { margin: 34px 0 10px; } .sec h3 { margin: 0 0 2px; } .sec p { margin: 0; color: #9a9aa2; font-size: 13px; line-height: 1.5; }
+  .call { color: #ffd98a; }
+  code { color: #c9c9d1; }
+
+  /* ---- the screen behind, and the card: as built by the Look ---- */
+  .scene { position: relative; width: 100%; height: 560px; border-radius: 10px; overflow: hidden; color: var(--text);
+           font-size: 18px; display: flex; align-items: center; justify-content: center; }
+  .scene.short { height: 420px; }
+  .scene.game { background:
+      radial-gradient(ellipse at 20% 30%, rgba(255,190,120,.9), transparent 40%),
+      radial-gradient(ellipse at 75% 20%, rgba(120,170,255,.9), transparent 45%),
+      radial-gradient(ellipse at 60% 80%, rgba(90,140,90,.95), transparent 50%),
+      linear-gradient(#5b86c9 0%, #a9c6e8 50%, #6f7f55 51%, #3e4a30 100%); }
+  .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.35); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .tag { position: absolute; bottom: 8px; left: 10px; font-size: 11px; color: #fff; background: rgba(0,0,0,.4); padding: 2px 8px; border-radius: 10px; }
+  .card { position: relative; z-index: 1; box-sizing: border-box; padding: 32px; border-radius: 26px;
+          display: flex; flex-direction: column; gap: 16px;
+          background: linear-gradient(to bottom, rgba(44,44,50,.56) 55%, rgba(26,26,30,.66));
+          backdrop-filter: blur(40px) saturate(125%); -webkit-backdrop-filter: blur(40px) saturate(125%);
+          box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  .rim::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+          background: linear-gradient(135deg, rgba(255,255,255,.62), rgba(255,255,255,.12) 38%, rgba(255,255,255,.03) 62%, rgba(0,0,0,.35));
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  .heading { font-size: 26px; padding-bottom: 12px; border-bottom: 1px solid var(--hair); }
+  .muted { color: var(--muted); text-shadow: 0 1px 2px rgba(0,0,0,.45); } .small { font-size: 14px; }
+  .btn { box-sizing: border-box; height: 44px; border-radius: 22px; padding: 0 20px; display: flex; align-items: center; justify-content: center;
+         min-width: 120px; cursor: default; white-space: nowrap; transition: background .12s, color .12s; user-select: none; }
+  .btn.quiet:hover { background: var(--fill-hover); }
+  .btn.danger { background: var(--fill); color: var(--danger); } .btn.danger:hover { background: var(--danger); color: #fff; }
+  .row { display: flex; align-items: center; gap: 12px; } .between { justify-content: space-between; } .end { justify-content: flex-end; }
+  .q { text-align: center; padding: 6px 0 2px; }
+
+  /* ---- settings controls, as built ---- */
+  .set, .act { display: flex; align-items: center; min-height: 32px; } .set .lab, .act .lab { width: 190px; flex: none; }
+  .switch { width: 46px; height: 26px; border-radius: 13px; background: rgba(255,255,255,.16); position: relative; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; }
+  .switch.on { background: var(--accent); } .switch.on::after { left: 23px; background: var(--ink); }
+  .slider { width: 220px; height: 18px; position: relative; }
+  .slider .track { position: absolute; left: 0; right: 0; top: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.16); }
+  .slider .fillbar { position: absolute; left: 0; top: 6px; height: 6px; width: 64%; border-radius: 3px; background: var(--accent); }
+  .slider .thumb { position: absolute; left: calc(64% - 9px); top: 0; width: 18px; height: 18px; border-radius: 50%; background: #fff; }
+  .seg { display: inline-flex; padding: 3px; border-radius: 19px; background: rgba(255,255,255,.10); font-size: 14px; align-self: flex-start; }
+  .seg span { height: 32px; padding: 0 14px; border-radius: 16px; display: flex; align-items: center; color: var(--muted); cursor: pointer; transition: background .12s, color .12s; }
+  .seg span.on { background: var(--accent); color: var(--ink); }
+
+  /* ---- NEW: the list of actions: the grid of the General page, a label and its control ---- */
+  .acts { display: flex; flex-direction: column; max-height: 260px; overflow-y: auto; margin-right: -10px; padding-right: 10px; }
+  .acts::-webkit-scrollbar { width: 6px; } .acts::-webkit-scrollbar-thumb { background: rgba(255,255,255,.22); border-radius: 3px; }
+  .act { min-height: 52px; }
+  /* a binding: a slot that lights up under the pointer and is clicked to listen */
+  .bind { box-sizing: border-box; min-width: 132px; height: 42px; padding: 0 12px; border-radius: 12px; display: flex; align-items: center; justify-content: flex-start;
+          cursor: pointer; transition: background .12s; user-select: none; margin-left: -12px; }
+  .bind:hover { background: var(--fill-hover); }
+  .bind.fixed { cursor: default; opacity: .55; } .bind.fixed:hover { background: none; }
+  .bind.listening { background: var(--accent); color: var(--ink); font-size: 14px; animation: pulse 1.1s ease-in-out infinite; }
+  .bind.listening .kc { display: none; }
+  .bind.listening::after { content: "Press a key…"; }
+  @keyframes pulse { 50% { background: rgba(255,255,255,.72); } }
+
+  /* ---- NEW: the keycap, variant 1 of the roadmap: a white face on a grey skirt ---- */
+  .kc { display: inline-block; box-sizing: border-box; font: 600 13px/1 system-ui, sans-serif; color: #1d1d1f; text-align: center;
+        min-width: 28px; padding: 7px 8px; border-radius: 6px; margin-bottom: 5px;
+        background: linear-gradient(#ffffff, #f3f3f6);
+        box-shadow: inset 0 1px 0 #fff, 0 5px 0 #c3c3cb, 0 5px 0 .5px rgba(0,0,0,.22), 0 9px 8px rgba(0,0,0,.35); }
+  /* held: the face sits down on its skirt */
+  .kc { transition: transform .06s, box-shadow .06s; }
+  .kc.down { transform: translateY(4px); box-shadow: inset 0 1px 0 #fff, 0 1px 0 #c3c3cb, 0 1px 0 .5px rgba(0,0,0,.22), 0 3px 4px rgba(0,0,0,.35); }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; padding: 22px 26px; background: #232327; border-radius: 10px; font-size: 13px; color: #b9b9c2; }
+  .swap { display: grid; grid-template-columns: 1fr 34px 1fr; gap: 12px; align-items: center; width: 640px; font-size: 16px; position: relative; z-index: 1; }
+  .swap .mini { background: rgba(255,255,255,.06); border-radius: 14px; padding: 6px 18px; }
+  .swap .act .lab { width: 150px; }
+</style>
+</head>
+<body>
+
+<h2>Key bindings: the Controls page</h2>
+<p class="subtitle">Roadmap row 1, proposed on 2026-11-18 for <code>docs/specs/key-bindings/design.md</code>. A browser mockup, not the game. The cards, switches, capsules and segments are the ones the Look built; what is new is the list of actions and the keycap.
+<b>Click a keycap, then press a key</b>: it listens, takes the key, and swaps when another action had it. Esc cancels. Keyboard and mouse only: <b>gamepads were left for later by the user</b>, so there is no gamepad column.
+In <span class="call">yellow</span>, what was Claude's call on top of what the roadmap had agreed.</p>
+
+<div class="sec"><h3>1 · Settings gains pages</h3>
+<p>A segmented control under the title, the one the language already uses. <span class="call">One level of pages (General, Controls, Dev) rather than a Controls page with two tabs inside it: one click reaches any of them.</span> General is today's Settings, untouched.</p></div>
+<div class="scene game short">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:580px">
+    <div class="heading">Settings</div>
+    <div class="seg"><span class="on">General</span><span>Controls</span><span>Dev</span></div>
+    <div class="set"><div class="lab">Fullscreen</div><div class="switch on"></div></div>
+    <div class="set"><div class="lab">Reduce Transparency</div><div class="switch"></div></div>
+    <div class="set"><div class="lab">Volume</div><div class="slider"><div class="track"></div><div class="fillbar"></div><div class="thumb"></div></div></div>
+    <div class="set"><div class="lab">Language</div><div class="seg"><span class="on">English</span><span>Português (Brasil)</span><span>日本語</span></div></div>
+    <div class="row end"><div class="btn quiet">Close</div></div>
+  </div>
+  <span class="tag">Settings · General</span>
+</div>
+
+<div class="sec"><h3>2 · Controls, on <code>3d/player</code></h3>
+<p>One row per action a feature registered, in the order it registered them, laid out as the General page is: the label in its column, then the key. Each action has one key or mouse button. The list scrolls when it grows.
+<b>Esc is not on the page</b>: it is the way out of every panel and of this list's own listening, so it cannot change, and what cannot change is not shown (the user's call). <span class="call">Looking around is the mouse and is not listed: there is nothing to rebind about it.</span> <span class="call">Hold a key down: its keycap goes down with it, so a binding can be tried before the panel closes.</span></p></div>
+<div class="scene game">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:580px">
+    <div class="heading">Settings</div>
+    <div class="seg"><span>General</span><span class="on">Controls</span><span>Dev</span></div>
+    <div class="acts" id="live">
+      <div class="act"><div class="lab">Move Forward</div><div class="bind k"><span class="kc">W</span></div></div>
+      <div class="act"><div class="lab">Move Back</div><div class="bind k"><span class="kc">S</span></div></div>
+      <div class="act"><div class="lab">Move Left</div><div class="bind k"><span class="kc">A</span></div></div>
+      <div class="act"><div class="lab">Move Right</div><div class="bind k"><span class="kc">D</span></div></div>
+    </div>
+    <div class="row between"><div class="btn quiet">Reset to Defaults</div><div class="btn quiet">Close</div></div>
+  </div>
+  <span class="tag">Settings · Controls · click a key and press another</span>
+</div>
+
+<div class="sec"><h3>3 · On <code>main</code></h3>
+<p>An empty game has no action a player can change, and a page with nothing on it is not offered. So on <code>main</code> a release build shows Settings as it is today, with no row of pages, and a dev build shows General and Dev. <span class="call">The first branch that registers an action brings the Controls page with it.</span></p></div>
+<div class="scene game short">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:580px">
+    <div class="heading">Settings</div>
+    <div class="seg"><span>General</span><span class="on">Dev</span></div>
+    <div class="acts">
+      <div class="act"><div class="lab">FPS Overlay</div><div class="bind"><span class="kc">F2</span></div></div>
+    </div>
+    <div class="row between"><div class="btn quiet">Reset to Defaults</div><div class="btn quiet">Close</div></div>
+  </div>
+  <span class="tag">Settings on main, dev build</span>
+</div>
+
+<div class="sec"><h3>4 · Listening</h3>
+<p>A click on a key turns its slot white and it waits for the next key or mouse button. Esc cancels and keeps what was there. <span class="call">While a slot listens, nothing else reads the keyboard: not the game, not Esc closing the panel.</span></p></div>
+<div class="scene game short">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:580px">
+    <div class="heading">Settings</div>
+    <div class="seg"><span>General</span><span class="on">Controls</span><span>Dev</span></div>
+    <div class="acts">
+      <div class="act"><div class="lab">Move Forward</div><div class="bind listening"></div></div>
+      <div class="act"><div class="lab">Move Back</div><div class="bind"><span class="kc">S</span></div></div>
+    </div>
+    <div class="muted small">Esc cancels</div>
+    <div class="row between"><div class="btn quiet">Reset to Defaults</div><div class="btn quiet">Close</div></div>
+  </div>
+  <span class="tag">a slot waiting for a key</span>
+</div>
+
+<div class="sec"><h3>5 · A key another action already has</h3>
+<p><span class="call">The two actions swap keys. No question is asked and no action is ever left without one.</span> Here Move Forward takes S, so Move Back gets the W it gave up.</p></div>
+<div class="scene game short" style="height:230px">
+  <div class="backdrop"></div>
+  <div class="swap">
+    <div class="mini"><div class="act"><div class="lab">Move Forward</div><div class="bind"><span class="kc">W</span></div></div><div class="act"><div class="lab">Move Back</div><div class="bind"><span class="kc">S</span></div></div></div>
+    <div style="text-align:center; font-size:22px">→</div>
+    <div class="mini"><div class="act"><div class="lab">Move Forward</div><div class="bind"><span class="kc">S</span></div></div><div class="act"><div class="lab">Move Back</div><div class="bind"><span class="kc">W</span></div></div></div>
+  </div>
+  <span class="tag">before and after pressing S for Move Forward</span>
+</div>
+
+<div class="sec"><h3>6 · Dev, only in dev builds</h3>
+<p>The dev tools' keys, changed the same way. English, like every dev tool, and absent from a release build. Today it holds one tool, the FPS overlay, <b>on F2 where it was F3</b> (the user's call; F3 is kept for photo mode); rows 2 to 13 of the roadmap add theirs.</p></div>
+<div class="scene game short">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:580px">
+    <div class="heading">Settings</div>
+    <div class="seg"><span>General</span><span>Controls</span><span class="on">Dev</span></div>
+    <div class="acts">
+      <div class="act"><div class="lab">FPS Overlay</div><div class="bind"><span class="kc">F2</span></div></div>
+    </div>
+    <div class="row between"><div class="btn quiet">Reset to Defaults</div><div class="btn quiet">Close</div></div>
+  </div>
+  <span class="tag">Settings · Dev</span>
+</div>
+
+<div class="sec"><h3>7 · Reset to Defaults</h3>
+<p>Asks first, with the dialog the game already has. <span class="call">It puts every key back, on both pages: resetting one page alone could leave two actions on one key.</span></p></div>
+<div class="scene game short" style="height:300px">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:400px">
+    <div class="q">Reset all controls to their defaults?</div>
+    <div class="row" style="justify-content:center"><div class="btn quiet">No</div><div class="btn danger">Yes</div></div>
+  </div>
+  <span class="tag">dialog over Settings</span>
+</div>
+
+<div class="sec"><h3>8 · The keycap</h3>
+<p>The roadmap's variant 1, two nodes in Bevy: a grey skirt and the white face inside it. <span class="call">A key's legend is never translated: it is what is printed on the key. A mouse button is a keycap too.</span></p></div>
+<div class="legend">
+  <span class="kc">W</span><span class="kc">Esc</span><span class="kc">Space</span><span class="kc">Shift</span><span class="kc">Ctrl</span><span class="kc">↑</span><span class="kc">F2</span><span class="kc">Mouse 1</span><span class="kc">Mouse 2</span>
+</div>
+
+<script>
+  // click a slot, press a key: it takes the key, and swaps with whoever had it
+  const live = document.getElementById('live');
+  let listening = null;
+  const label = e => ({' ': 'Space', 'Shift': 'Shift', 'Control': 'Ctrl', 'Alt': 'Alt', 'Enter': 'Enter', 'Tab': 'Tab',
+                       'ArrowUp': '↑', 'ArrowDown': '↓', 'ArrowLeft': '←', 'ArrowRight': '→'}[e.key] || (e.key.length === 1 ? e.key.toUpperCase() : e.key));
+  live.addEventListener('click', e => {
+    const slot = e.target.closest('.bind.k');
+    if (listening) listening.classList.remove('listening');
+    listening = slot && slot !== listening ? slot : null;
+    if (listening) listening.classList.add('listening');
+  });
+  document.addEventListener('keydown', e => {
+    if (!listening) return;
+    e.preventDefault();
+    const slot = listening; listening = null; slot.classList.remove('listening');
+    if (e.key === 'Escape') return;
+    const cap = slot.querySelector('.kc'), old = cap.textContent, now = label(e);
+    for (const other of live.querySelectorAll('.bind.k .kc')) if (other !== cap && other.textContent === now) other.textContent = old;
+    cap.textContent = now;
+  });
+  // a held key presses its keycap
+  const held = (e, down) => { if (listening) return; const now = label(e);
+    for (const cap of document.querySelectorAll('.kc')) if (cap.textContent === now) cap.classList.toggle('down', down); };
+  document.addEventListener('keydown', e => held(e, true));
+  document.addEventListener('keyup', e => held(e, false));
+</script>
+
+</body>
+</html>
