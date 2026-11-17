@@ -19,8 +19,10 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   older one from the pause menu, and load or delete any of them from the menu or the pause
   menu, newest first, in a scrolling list, each beside a picture of the moment it was saved
 - Autosave after every 5 minutes of unsaved play, each one kept as its own file
-- A dark, calm look in one palette: capsule buttons that ease to white under the pointer, glass
-  panels that rise in over a blur of everything behind them, other panels included
+- A glass look in one palette: panels that rise in over a blur of everything behind them,
+  other panels included, with a lit rim; capsule buttons that ease to white under the pointer,
+  switches and a segmented control in Settings, a menu of plain words on a bar of light, and
+  [Lucide](https://lucide.dev) icons by name
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies
 - FPS overlay, shown and hidden with F3, and asset hot reloading in dev builds

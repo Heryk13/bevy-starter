@@ -1,7 +1,9 @@
 # Look: every screen the template has, in Liquid Glass
 
-Status: **approved** — written 2026-11-17, approved 2026-11-18, not built yet. Its tasks are
-in `docs/roadmap/look-tasks.md`.
+Status: **built** — written 2026-11-17, approved and built on `main` on 2026-11-18, in the
+eight steps of `docs/roadmap/look-tasks.md` and the review that followed them. The keycaps were left for the first screen that
+shows a key (see "Out of scope"), and the icons come from a crate, not a font file (see "What
+changed while building it").
 Date: 2026-11-17
 Bevy: 0.20.0
 
@@ -342,4 +344,144 @@ step updates the docs it touches (`README.md`, `docs/flow.md`, `docs/template.md
 
 ## What changed while building it
 
-Nothing yet.
+Built on `main` in steps 1 to 8 of `docs/roadmap/look-tasks.md`, on 2026-11-18, one commit a
+step (`f032a72` to `bb91d9e`), each written and run on `3d/player` first. Claude wrote the
+steps and the user read and ran each one. The eight commits were then read again by a
+reviewer that had not written them, and what it found was mended in a ninth (`e3bfcd2`): its
+entries close this list. The task numbers below are that file's.
+
+- **No start value was changed by a `just run`.** The palette, the card's rim and shade, the
+  buttons' fills and the widths all stayed as first written: the mockup's numbers, and for
+  the two widths Claude could not measure (`OVERLAY_WIDTH_PX`, `LABEL_WIDTH_PX`), its estimate.
+- **The pause menu's status line is not muted text** (found while building 1.4). The spec
+  counts it among the users of `TEXT_MUTED`, but that colour is only what the line holds while
+  it is empty: `show_save_status` paints it in `ACCENT` or `DANGER` as it writes it, and
+  `fade_save_status` fades it by its alpha. A shadow there would stay behind as the words
+  fade, a ghost of them, so the line keeps its `TextColor` alone and `pause.rs` is untouched.
+- **The reason a save row's details carry no shadow is written in 3.4, not in 1.4** (decided
+  while building 1.4). The reason is that they turn dark under the pointer, which is only
+  true once `paint_buttons` paints a button's texts: a comment saying so two steps early
+  would describe code that is not there.
+- **Pressing darkens the fill a button has, in place of swapping it for a dark one** (found
+  while building 3.2). Task 3.2 kept the mix toward `BUTTON_FILL_PRESSED`, a black at 20%:
+  on a button that is white under the pointer, that would put the dark ink on a dark fill for
+  as long as the press lasts. `button_colors` now mixes the fill toward black at the fill's
+  own alpha, by `BUTTON_PRESS_SHADE`, the mockup's `brightness(.82)`.
+- **A button resting where it was last painted is skipped** (decided while building 3.4).
+  Painting now walks down to every text a button holds, so `paint_buttons` leaves alone a
+  button whose `ButtonMotion` already sits on its targets, and paints a new one once.
+- **The ink is written, not propagated** (checked while building 3.4). Bevy's own
+  `Propagate<TextColor>` (`bevy::app`, what `bevy_feathers` paints its labels with) replaces
+  the whole colour of every text below, the alpha that keeps a row's details muted included,
+  and goes through commands on each change, where the ink changes every frame of an ease.
+- **The menu's systems are named after its words** (decided while building 4.4). Once the menu
+  holds no `menu_button`, which is now the pause menu's alone, `activate_menu_button` and
+  `update_continue_button` would name a widget that file no longer has: they are
+  `activate_menu_word` and `update_continue_word`.
+- **A pressed word is painted as a hovered one** (decided while building 4.2). The mockup dims
+  the bar a little while a word is pressed; the spec's pure function takes the hover alone,
+  and a click leaves the menu or opens a card over it within a frame or two.
+- **The bar is built anew while it eases, not changed in place** (checked while building 4.5).
+  A `BackgroundGradient` is a list of gradients, each a list of stops, so changing it in place
+  means reaching for the first two stops by their position; `bar_gradient(color)` builds the
+  three stops again instead, the same function the word spawns with. A word resting is
+  skipped, as a button is, so it runs for the 0.12 s of an ease.
+- **A control already showing its state is left alone** (decided while building 5.1). The
+  checkboxes and the radios were checked and painted again every frame, a command each. The
+  switches and the segments spawn off, and their systems act only when `Has<Checked>`
+  disagrees with the window, the setting or the language, which is the frame one changes.
+- **The switch is announced as a checkbox** (checked while building 5.1). Bevy's `Checkbox`
+  asks a toggle switch to override its `AccessibilityNode` with `Role::Switch`, and its own
+  toggle switch does; but Bevy no longer re-exports `accesskit`, so the role would cost the
+  template a crate of its own, pinned to Bevy's version. A screen reader says "checkbox,
+  checked", which is true of it.
+- **The knob snaps** (decided while building 5.1). The spec gives the switch two states and
+  no ease, and a click on it is felt at once either way.
+- **The slider's track and a switch that is off share `CONTROL_TRACK`**, a colour of
+  `settings.rs` (decided while building 5.1). The spec's white at 16% is `BORDER`'s value,
+  but `BORDER` is the hairline, and a control's empty track is not one.
+- **`OVERLAY_WIDTH_PX` is 580, not measured** (5.5). Claude cannot see the game: the width is
+  worked out from the label column, the three names' lengths and the paddings, with some
+  room to spare, and the user's `just run` in the three languages is what confirms it.
+  Confirmed in 5.7.
+- **The icons come from the `lucide-icons` crate, not from a font file in `assets/fonts/`**
+  (asked by the user before 6.1: "is there no library for it?"). The crate (1.74.0, Lucide's
+  own version number) holds the font's bytes, `LUCIDE_FONT_BYTES`, and every icon as a
+  variant of an `Icon` enum that turns into its character, so no file is fetched, no licence
+  is copied in, and no code point is read out of `lucide.css` by hand, where a wrong digit
+  draws another icon. It depends on nothing, Bevy included, so it holds no upgrade back; it
+  has no build script; its licence, `MIT AND ISC`, is two the `about.toml` already accepts,
+  and `just release` writes it into the notices with the rest. What it costs: it is a third
+  party's, not Lucide's own, and it builds all its icons into the game, about 1 MB, as the
+  file would have. An icon is therefore `icon(Icon::Trash2)`, not a constant in `ui.rs`.
+- **The name field is at least a button tall, not exactly** (decided while building 6.6). An
+  `EditableText` is its own text, so nothing centers it in a taller box: its padding does,
+  and `min_height: BUTTON_HEIGHT_PX` only holds the field to the New Save beside it.
+- **The picture has a file of its own, `src/save/picture.rs`** (decided while building 7.3).
+  The spec put it in `save.rs`, which was already 580 lines, past where `CONTRIBUTING.md`
+  splits a file, and the picture reads on its own: taking it, encoding it, its file. `save.rs`
+  keeps `delete_save_files`, which is about the save, and re-exports what the other files call.
+- **`save.rs` has a plugin, added in `main.rs`** (decided while building 7.9). The kept
+  picture is a resource and is emptied on leaving gameplay, so the picture needs a plugin,
+  and `save.rs`, which had none, passes it on.
+- **A picture is never encoded on the main thread, so its cost was not measured** (decided
+  while building 7.6; task 7.14 is not done as written). The spec encoded in the observer and
+  moved to a task only if a `just run` felt it. Cropping and shrinking a 4K window is felt,
+  and under the pause menu it would land in the frames the card rises in; the task is a few
+  lines, so both observers hand the capture to the `AsyncComputeTaskPool` from the start.
+- **The kept picture is the encoded bytes behind a lock, one `PausePicture` per pause**
+  (decided while building 7.9). The task fills it when it is done, which is why it sits
+  behind an `Arc<Mutex<..>>`. Asking for a pause puts a new, empty `PausePicture` in place
+  rather than clearing the old one: a capture from an earlier pause that arrives late fills
+  the one it was taken for, which nobody reads any more, so it can never be taken for this
+  pause's. Keeping the bytes, not the captured image, is some tens of KB in place of the
+  whole window's pixels.
+- **`write_atomic` takes anything that reads as bytes** (7.1), so the text callers did not
+  change, except two tests in `save.rs` that passed `&format!(..)`, which clippy now calls a
+  needless borrow.
+- **The crop is a `URect`, and the encoder's test reads the file back** (7.4, 7.6): a named
+  rectangle in place of a tuple of four numbers, and a test that a window of another shape
+  comes out as a JPEG of the picture's size, which is what protects the format.
+- **The empty frame is an opaque grey, and it also stands for a picture that cannot be
+  read** (asked by the user before 8.3). The spec gave a save with no picture "an empty
+  frame"; the user asked for a grey fill with the missing-picture icon, for a picture that is
+  not there as for one that fails to load. `read_save_picture` gives `None` for both, and
+  `SAVE_PICTURE_EMPTY_FILL` is opaque, as a picture is, so it reads on a row at rest and on
+  the white one under the pointer.
+- **The frame always holds an image and an icon, and one of the two shows** (decided while
+  building 8.3). A function returns one bundle type, so a row with a picture and a row
+  without cannot be two different bundles: `ImageNode::default()` draws nothing, and the
+  icon is hidden under a picture.
+- **A row is padded as closely on its left as above and below** (decided while building 8.3,
+  from the mockup). `row_button` padded its sides as a button does, which would leave the
+  picture 20 px in and 8 px down; the row's corner (18) is now its padding (8) plus the
+  picture's corner (10), so the two curves run together.
+- **The pictures are read as the list spawns, not through the asset server** (checked while
+  building 8.1). Bevy can be given a second asset source, which would load them off the main
+  thread; it has to be registered before the default plugins, logs an error for every save
+  with no picture, and shows nothing while a picture loads, so the missing-picture icon would
+  need a system watching each load. Reading the file is a few lines and says at once whether
+  there is a picture; its ceiling is the `ponytail:` comment the spec asked for.
+- **A text can keep its own colour under a button: `OwnColor`** (found by the review after
+  step 8). The ink reaches every text a button holds, which is right for a text lying on the
+  button's fill and wrong for the icon of a save's empty frame: it lies on the frame's grey,
+  where the dark ink of a row under the pointer was lost. `paint_buttons` leaves a text
+  marked `OwnColor` alone.
+- **The first screenshot is warmed up after all** (found by the review, task 7.13). Nothing
+  was seen to blink in the user's runs, but the reason it can is in Bevy's source: the frame
+  of a run's first screenshot is not drawn to the window until its pipeline is built, and an
+  autosave takes that screenshot in the middle of play. `warm_up_screenshots` takes one
+  nobody keeps as the first loading screen opens, as the spec allowed.
+- **A capture is taken out of its event, not copied** (found by the review). The observers
+  cloned the captured image, every pixel of the window, on the main thread, which the
+  departure above about never encoding there had left behind. `encode_capture` takes it with
+  `On::event_mut()`, and logs a capture it cannot encode for the pause's picture as for the
+  autosave's.
+- **A row's corner is derived in `button.rs`** (found by the review). The 18 px of
+  `ROW_BUTTON_RADIUS_PX` were the padding plus the picture's corner, written as a third
+  number: `ROW_CONTENT_RADIUS_PX` now lives beside the padding, the row's corner is their sum,
+  and the picture's frame reads the same constant.
+- **The trash says "Delete" to a screen reader in every language** (found by the review,
+  left as it is by the user: accessibility is not being worked on for now). The key
+  `save-delete` left with the word, and the `AccessibleLabel` is English, as those of the
+  Settings controls already were.
