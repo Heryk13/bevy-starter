@@ -1,4 +1,6 @@
+use bevy::asset::uuid_handle;
 use bevy::prelude::*;
+use lucide_icons::LUCIDE_FONT_BYTES;
 
 use crate::i18n::Localized;
 
@@ -6,7 +8,11 @@ pub(crate) mod blur;
 mod button;
 mod panel;
 
-pub(crate) use button::{BUTTON_EASE_SECS, ButtonKind, button, menu_button, row_button};
+pub(crate) use button::{
+    BUTTON_EASE_SECS, BUTTON_HEIGHT_PX, ButtonKind, button, icon_button, menu_button, row_button,
+};
+// the icons by name, re-exported so this file is the only one that names the crate
+pub(crate) use lucide_icons::Icon;
 pub(crate) use panel::{Dialog, card, dialog, floating_root};
 
 // ==== Config =================================================================
@@ -42,6 +48,16 @@ const HEADING_GAP_PX: f32 = 12.0;
 pub(crate) const MUTED_SHADOW_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
 const MUTED_SHADOW_OFFSET_PX: f32 = 1.0;
 
+// ---- icons: Lucide's, drawn as text in its own font -------------------------
+// the font comes built into the binary with the `lucide-icons` crate, and sits behind a
+// handle known at compile time, so `icon()` is a plain function like `label()`, with no
+// asset server to ask. here, although Load Game is the only screen with an icon so far:
+// the icons are part of the look, and every tool to come draws from them
+const ICON_FONT: Handle<Font> = uuid_handle!("62d3686c-8ac2-4ff3-a801-d7263c00dc3e");
+// a little over the body text's size, which an icon sits beside: it has no letters'
+// ascenders and descenders to fill its line with
+const ICON_SIZE_PX: f32 = 22.0;
+
 // ---- borders and gaps, shared by text, buttons and panels -------------------
 // between buttons stacked in a column or set side by side: the menu, the pause menu, a dialog
 pub(crate) const BUTTON_GAP_PX: f32 = 10.0;
@@ -51,6 +67,7 @@ pub(crate) const BORDER_PX: f32 = 1.0;
 
 pub(super) fn plugin(app: &mut App) {
     app.add_plugins((blur::plugin, button::plugin, panel::plugin));
+    app.add_systems(Startup, register_icon_font);
 }
 
 // ==== Widgets ================================================================
@@ -78,6 +95,17 @@ pub(crate) fn muted_text(size_px: f32) -> impl Bundle {
     )
 }
 
+/// Returns an icon, sized to sit beside body text. It is a text of one character in the
+/// icon font, so whatever colors a text colors it: a button's ink reaches it as it reaches
+/// a label.
+pub(crate) fn icon(icon: Icon) -> impl Bundle {
+    (
+        Text::new(char::from(icon)),
+        TextFont::from_font_size(ICON_SIZE_PX).with_font(ICON_FONT),
+        TextColor(TEXT),
+    )
+}
+
 /// Returns a card's title over a thin divider.
 pub(crate) fn heading(key: &'static str) -> impl Bundle {
     (
@@ -97,4 +125,15 @@ pub(crate) fn heading(key: &'static str) -> impl Bundle {
             ),
         ],
     )
+}
+
+// ==== Systems ================================================================
+
+/// Puts the Lucide font behind `ICON_FONT`, from the bytes built into the binary, so every
+/// icon is there from the first frame.
+fn register_icon_font(mut fonts: ResMut<Assets<Font>>) {
+    let font = Font::from_bytes(LUCIDE_FONT_BYTES.to_vec());
+    if let Err(error) = fonts.insert(ICON_FONT.id(), font) {
+        error!("could not register the icon font: {error}");
+    }
 }
