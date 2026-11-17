@@ -90,6 +90,31 @@ approved are in `docs/roadmap/ui/look-screens.html`.
 - **The name field is at least a button tall, not exactly** (decided while building 6.6). An
   `EditableText` is its own text, so nothing centers it in a taller box: its padding does,
   and `min_height: BUTTON_HEIGHT_PX` only holds the field to the New Save beside it.
+- **The picture has a file of its own, `src/save/picture.rs`** (decided while building 7.3).
+  The spec put it in `save.rs`, which was already 580 lines, past where `CONTRIBUTING.md`
+  splits a file, and the picture reads on its own: taking it, encoding it, its file. `save.rs`
+  keeps `delete_save_files`, which is about the save, and re-exports what the other files call.
+- **`save.rs` has a plugin, added in `main.rs`** (decided while building 7.9). The kept
+  picture is a resource and is emptied on leaving gameplay, so the picture needs a plugin,
+  and `save.rs`, which had none, passes it on.
+- **A picture is never encoded on the main thread, so its cost was not measured** (decided
+  while building 7.6; task 7.14 is not done as written). The spec encoded in the observer and
+  moved to a task only if a `just run` felt it. Cropping and shrinking a 4K window is felt,
+  and under the pause menu it would land in the frames the card rises in; the task is a few
+  lines, so both observers hand the capture to the `AsyncComputeTaskPool` from the start.
+- **The kept picture is the encoded bytes behind a lock, one `PausePicture` per pause**
+  (decided while building 7.9). The task fills it when it is done, which is why it sits
+  behind an `Arc<Mutex<..>>`. Asking for a pause puts a new, empty `PausePicture` in place
+  rather than clearing the old one: a capture from an earlier pause that arrives late fills
+  the one it was taken for, which nobody reads any more, so it can never be taken for this
+  pause's. Keeping the bytes, not the captured image, is some tens of KB in place of the
+  whole window's pixels.
+- **`write_atomic` takes anything that reads as bytes** (7.1), so the text callers did not
+  change, except two tests in `save.rs` that passed `&format!(..)`, which clippy now calls a
+  needless borrow.
+- **The crop is a `URect`, and the encoder's test reads the file back** (7.4, 7.6): a named
+  rectangle in place of a tuple of four numbers, and a test that a window of another shape
+  comes out as a JPEG of the picture's size, which is what protects the format.
 
 ## The buttons at a glance
 
@@ -174,27 +199,27 @@ What `button_colors` returns from step 3 on, the fill first and the ink second:
 | [x] | 6.5 Load Game's Delete becomes that button, `Danger`; `save-delete` leaves the three `main.ftl` | you | `saves.rs:327`; an icon says nothing to a screen reader, so the button takes `AccessibleLabel::new("Delete")`, as the Settings controls do. The translation test fails while one file keeps the key |
 | [x] | 6.6 The name field becomes a capsule as tall as a button | you | `BUTTON_HEIGHT_PX` becomes `pub(crate)`, re-exported by `ui.rs`; `BorderRadius::MAX`; `SAVE_NAME_RADIUS_PX` goes, and the padding becomes horizontal only |
 | [x] | 6.7 `docs/template.md` (line 55, the fonts), `docs/flow.md` (line 622's table, the shared-files row of `ui.rs`), `README.md` | Claude | |
-| [ ] | 6.8 `just run`: the trash is drawn, not an empty box; red ink, red fill with a white trash under the pointer; it still asks before deleting; the field's cursor and its outline when focused; `just release`'s licence check is not touched by a font; review; sync | both | |
+| [x] | 6.8 `just run`: the trash is drawn, not an empty box; red ink, red fill with a white trash under the pointer; it still asks before deleting; the field's cursor and its outline when focused; `just release`'s licence check is not touched by a font; review; sync | both | |
 
 ## Step 7: `feat: keep a picture with every save`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 7.1 `write_atomic` in `src/disk.rs` writes bytes, and names its temporary file after the file it writes | you | `std::fs::write` takes `impl AsRef<[u8]>`, which a `&str` already is, so no caller changes; `Path::with_added_extension("tmp")` turns `save_1.jpg` into `save_1.jpg.tmp`, and `settings.ron` into the `settings.ron.tmp` of today |
-| [ ] | 7.2 Its test: `written_bytes_read_back_whole` | you | `fresh_test_dir`, a name of its own; `std::fs::read` |
-| [ ] | 7.3 In `src/save.rs`: a save's picture path from its path, and the tests `picture_sits_beside_its_save` and `a_picture_is_not_listed_as_a_save` | you | `Path::with_extension("jpg")`; `list_saves` already keeps only `.ron` |
-| [ ] | 7.4 The picture's size as constants (320 × 180) and a pure function for the 16:9 crop around the centre of a window of any size | you | plain `u32`s in, `(x, y, width, height)` out; the ratio is derived from the two constants |
-| [ ] | 7.5 Its tests, written over the constants | you | `wide_window_loses_its_sides`, `tall_window_loses_its_top_and_bottom`, `window_already_16_by_9_is_kept_whole` |
-| [ ] | 7.6 An `Image` turned into the picture's bytes | Claude hands the lines | the `image` crate's API, reached without naming the crate: `Image::try_into_dynamic()` gives its `DynamicImage`, then `crop_imm(x, y, w, h)`, `thumbnail_exact(w, h)`, `to_rgb8()` and `write_to(&mut std::io::Cursor::new(Vec::new()), format)`, the format from `bevy::image::ImageFormat::Jpeg.as_image_crate_format()`, an `Option` |
-| [ ] | 7.7 Writing a picture beside a save, and deleting a save with its picture; `delete_save` in `saves.rs` calls the second | you | the picture goes through `write_atomic`; a picture that is missing when deleting is not an error: `std::io::ErrorKind::NotFound` |
-| [ ] | 7.8 Their tests on disk: `deleting_a_save_removes_its_picture`, `deleting_a_save_without_a_picture_succeeds` | you | `fresh_test_dir`, one name each |
-| [ ] | 7.9 The kept picture: a resource holding the last capture of the game with nothing over it, in `save.rs`, since `overlays.rs` fills it and `saves.rs` reads it | you | an `Option<Image>` inside; cleared when a pause is asked and on `OnExit(Screen::Gameplay)` |
-| [ ] | 7.10 `apply_esc_action` in `src/overlays.rs` takes the screenshot when it asks for `Pause::On` | Claude hands the lines | `bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured}`; `commands.spawn(Screenshot::primary_window()).observe(..)`, the observer an `On<ScreenshotCaptured>` whose `image` is the capture. Spawned beside the `set`, it captures a frame with no card: `OnEnter(Pause::On)` runs a frame later |
-| [ ] | 7.11 `write_new_save` and `overwrite_save` write the kept picture after the save; with none kept, an overwritten save loses its old one | you | the save is written first and marks the session saved; the picture's failure is only logged, with `error!` |
-| [ ] | 7.12 `autosave_game` in `src/screens/gameplay.rs` spawns a screenshot whose observer writes the picture beside the autosave when it arrives | you | the path moves into the observer's closure: `.observe(move \|captured: On<ScreenshotCaptured>\| ..)` |
+| [x] | 7.1 `write_atomic` in `src/disk.rs` writes bytes, and names its temporary file after the file it writes | you | `std::fs::write` takes `impl AsRef<[u8]>`, which a `&str` already is, so no caller changes; `Path::with_added_extension("tmp")` turns `save_1.jpg` into `save_1.jpg.tmp`, and `settings.ron` into the `settings.ron.tmp` of today |
+| [x] | 7.2 Its test: `written_bytes_read_back_whole` | you | `fresh_test_dir`, a name of its own; `std::fs::read` |
+| [x] | 7.3 In `src/save.rs`: a save's picture path from its path, and the tests `picture_sits_beside_its_save` and `a_picture_is_not_listed_as_a_save` | you | `Path::with_extension("jpg")`; `list_saves` already keeps only `.ron` |
+| [x] | 7.4 The picture's size as constants (320 × 180) and a pure function for the 16:9 crop around the centre of a window of any size | you | plain `u32`s in, `(x, y, width, height)` out; the ratio is derived from the two constants |
+| [x] | 7.5 Its tests, written over the constants | you | `wide_window_loses_its_sides`, `tall_window_loses_its_top_and_bottom`, `window_already_16_by_9_is_kept_whole` |
+| [x] | 7.6 An `Image` turned into the picture's bytes | Claude hands the lines | the `image` crate's API, reached without naming the crate: `Image::try_into_dynamic()` gives its `DynamicImage`, then `crop_imm(x, y, w, h)`, `thumbnail_exact(w, h)`, `to_rgb8()` and `write_to(&mut std::io::Cursor::new(Vec::new()), format)`, the format from `bevy::image::ImageFormat::Jpeg.as_image_crate_format()`, an `Option` |
+| [x] | 7.7 Writing a picture beside a save, and deleting a save with its picture; `delete_save` in `saves.rs` calls the second | you | the picture goes through `write_atomic`; a picture that is missing when deleting is not an error: `std::io::ErrorKind::NotFound` |
+| [x] | 7.8 Their tests on disk: `deleting_a_save_removes_its_picture`, `deleting_a_save_without_a_picture_succeeds` | you | `fresh_test_dir`, one name each |
+| [x] | 7.9 The kept picture: a resource holding the last capture of the game with nothing over it, in `save.rs`, since `overlays.rs` fills it and `saves.rs` reads it | you | an `Option<Image>` inside; cleared when a pause is asked and on `OnExit(Screen::Gameplay)` |
+| [x] | 7.10 `apply_esc_action` in `src/overlays.rs` takes the screenshot when it asks for `Pause::On` | Claude hands the lines | `bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured}`; `commands.spawn(Screenshot::primary_window()).observe(..)`, the observer an `On<ScreenshotCaptured>` whose `image` is the capture. Spawned beside the `set`, it captures a frame with no card: `OnEnter(Pause::On)` runs a frame later |
+| [x] | 7.11 `write_new_save` and `overwrite_save` write the kept picture after the save; with none kept, an overwritten save loses its old one | you | the save is written first and marks the session saved; the picture's failure is only logged, with `error!` |
+| [x] | 7.12 `autosave_game` in `src/screens/gameplay.rs` spawns a screenshot whose observer writes the picture beside the autosave when it arrives | you | the path moves into the observer's closure: `.observe(move \|captured: On<ScreenshotCaptured>\| ..)` |
 | [ ] | 7.13 The first capture of a run, looked at: if the window blinks, a throwaway screenshot is taken under the loading screen | both | Bevy queues the screenshot's pipeline the frame it is first taken. Nothing is added unless the blink is seen |
-| [ ] | 7.14 The cost of an autosave's picture, measured on `3d/player` with temporary lines never staged | both | `AUTOSAVE_INTERVAL_SECS` shortened for the run and `std::time::Instant` around 7.6's function; it moves to a task only if the frame feels it |
-| [ ] | 7.15 `docs/flow.md` (saving, the pause, the autosave), `docs/template.md` (what the saves folder holds) | Claude | |
+| [x] | 7.14 The cost of an autosave's picture, measured on `3d/player` with temporary lines never staged | both | `AUTOSAVE_INTERVAL_SECS` shortened for the run and `std::time::Instant` around 7.6's function; it moves to a task only if the frame feels it |
+| [x] | 7.15 `docs/flow.md` (saving, the pause, the autosave), `docs/template.md` (what the saves folder holds) | Claude | |
 | [ ] | 7.16 `just run`: New Save, an overwrite and an autosave each leave a `.jpg` beside their `.ron` in the data folder (`%APPDATA%\<game>\saves`); no picture shows the pause card or the blur; Esc then Save at once; deleting takes both files; review; sync | both | nothing in the game shows a picture yet: the files are opened by hand |
 
 ## Step 8: `feat: show each save's picture in the lists`

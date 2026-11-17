@@ -9,8 +9,9 @@ use std::path::{Path, PathBuf};
 use super::{OVERLAY_GAP_PX, Overlay, close_footer, overlay_card, overlay_root};
 use crate::i18n::{Language, Localized, Translations};
 use crate::save::{
-    SaveData, SaveEntry, SaveFinished, Session, is_autosave, loaded_session, new_save_path,
-    read_save, saves_dir, saves_on_disk, unix_now, write_save,
+    PausePicture, SaveData, SaveEntry, SaveFinished, Session, delete_save_files, is_autosave,
+    loaded_session, new_save_path, read_save, save_pause_picture, saves_dir, saves_on_disk,
+    unix_now, write_save,
 };
 use crate::screens::{LoadingDestination, StartGame};
 use crate::ui::{
@@ -207,6 +208,7 @@ fn write_new_save(
     mut next_overlay: ResMut<NextState<Overlay>>,
     mut session: ResMut<Session>,
     names: Query<&EditableText, With<SaveName>>,
+    pause_picture: Res<PausePicture>,
 ) {
     if new_save_buttons.contains(activate.entity) {
         let name = names
@@ -216,7 +218,7 @@ fn write_new_save(
         let saved = match saves_dir() {
             Some(dir) => {
                 let path = new_save_path(&dir);
-                try_write_save(&path, &mut session, &name)
+                try_write_save(&path, &mut session, &name, &pause_picture)
             }
             None => false,
         };
@@ -253,20 +255,31 @@ fn overwrite_save(
     confirms: Query<&ConfirmOverwrite>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     mut session: ResMut<Session>,
+    pause_picture: Res<PausePicture>,
 ) {
     if let Ok(ConfirmOverwrite(path, name)) = confirms.get(activate.entity) {
-        let saved = try_write_save(path, &mut session, name);
+        let saved = try_write_save(path, &mut session, name, &pause_picture);
         commands.trigger(SaveFinished { saved });
         next_overlay.set(Overlay::None);
     }
 }
 
 /// Writes the session to `path` and returns whether it worked, logging the reason when it
-/// did not.
-fn try_write_save(path: &Path, session: &mut Session, name: &str) -> bool {
-    write_save(path, session, name)
+/// did not. A save that was written then gets the picture taken as the pause was asked
+/// for, second and apart: the save does not wait on its picture, nor fail with it.
+fn try_write_save(
+    path: &Path,
+    session: &mut Session,
+    name: &str,
+    pause_picture: &PausePicture,
+) -> bool {
+    let saved = write_save(path, session, name)
         .inspect_err(|err| error!("could not write the save: {err}"))
-        .is_ok()
+        .is_ok();
+    if saved {
+        save_pause_picture(path, pause_picture);
+    }
+    saved
 }
 
 // ---- load game --------------------------------------------------------------
@@ -389,7 +402,7 @@ fn delete_save(
     mut next_overlay: ResMut<NextState<Overlay>>,
 ) {
     if let Ok(ConfirmDelete(path)) = confirms.get(activate.entity) {
-        if let Err(err) = std::fs::remove_file(path) {
+        if let Err(err) = delete_save_files(path) {
             error!("could not delete the save at {}: {err}", path.display());
         }
         // `set`, not `set_if_different`: the same state runs `OnExit` and `OnEnter` again
