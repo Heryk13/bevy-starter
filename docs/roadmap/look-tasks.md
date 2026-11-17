@@ -26,7 +26,15 @@ approved are in `docs/roadmap/ui/look-screens.html`.
 
 ## Departures from the spec, to record in its "What changed while building it"
 
-None yet.
+- **The pause menu's status line is not muted text** (found while building 1.4). The spec
+  counts it among the users of `TEXT_MUTED`, but that colour is only what the line holds while
+  it is empty: `show_save_status` paints it in `ACCENT` or `DANGER` as it writes it, and
+  `fade_save_status` fades it by its alpha. A shadow there would stay behind as the words
+  fade, a ghost of them, so the line keeps its `TextColor` alone and `pause.rs` is untouched.
+- **The reason a save row's details carry no shadow is written in 3.4, not in 1.4** (decided
+  while building 1.4). The reason is that they turn dark under the pointer, which is only
+  true once `paint_buttons` paints a button's texts: a comment saying so two steps early
+  would describe code that is not there.
 
 ## The buttons at a glance
 
@@ -43,11 +51,11 @@ What `button_colors` returns from step 3 on, the fill first and the ink second:
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 1.1 The palette in `src/ui.rs`'s `Config`, by the spec's table: `ACCENT`, `DANGER`, `TEXT`, `TEXT_MUTED`, `BORDER`, `FIELD_FILL`, `SURFACE` | you | `Color::srgba(1.0, 1.0, 1.0, 0.92)` for a white at 92%; `SURFACE` is `Color::srgba_u8(0x2C, 0x2C, 0x32, 143)`, 143 being 56% of 255. `INK` waits for step 3: nothing reads it yet, and dead code fails `just check`. The tests of `card_tint` and `lay_over` in `blur.rs` are written over `SURFACE`, so they follow |
-| [ ] | 1.2 The muted text's shadow: its colour and its offset, as constants in the same `Config` | you | `TextShadow { offset: Vec2, color: Color }`, in `bevy::prelude`; the offset is in logical pixels and the shadow has no blur, so it stays small (1 px down) and soft (black at about 50%) |
-| [ ] | 1.3 One widget in `ui.rs`'s `Widgets` for what makes a text muted: its font at a size, `TEXT_MUTED` and the shadow. The caller adds the `Text` or the `Localized` | you | shaped like `label()`, which returns `impl Bundle`; `font(size_px)` is already there. Suggested name: `muted_text(size_px)` |
-| [ ] | 1.4 Its users take it: the menu's version (`menu.rs:163`), the pause menu's status line (`pause.rs:132`), Credits (`credits.rs:32`) and `muted_label` in `saves.rs` | you | `save_row`'s details keep `TextColor(TEXT_MUTED)` alone: from step 3 they turn dark under the pointer, where a shadow would smear. Claude writes that reason beside them |
-| [ ] | 1.5 `docs/template.md` line 151 stops calling `ACCENT` amber; the palette's comments in `ui.rs` | Claude | `README.md` line 22 ("an amber glow") waits for step 3, when the glow goes |
+| [x] | 1.1 The palette in `src/ui.rs`'s `Config`, by the spec's table: `ACCENT`, `DANGER`, `TEXT`, `TEXT_MUTED`, `BORDER`, `FIELD_FILL`, `SURFACE` | you | `Color::srgba(1.0, 1.0, 1.0, 0.92)` for a white at 92%; `SURFACE` is `Color::srgba_u8(0x2C, 0x2C, 0x32, 143)`, 143 being 56% of 255. `INK` waits for step 3: nothing reads it yet, and dead code fails `just check`. The tests of `card_tint` and `lay_over` in `blur.rs` are written over `SURFACE`, so they follow |
+| [x] | 1.2 The muted text's shadow: its colour and its offset, as constants in the same `Config` | you | `TextShadow { offset: Vec2, color: Color }`, in `bevy::prelude`; the offset is in logical pixels and the shadow has no blur, so it stays small (1 px down) and soft (black at about 50%) |
+| [x] | 1.3 One widget in `ui.rs`'s `Widgets` for what makes a text muted: its font at a size, `TEXT_MUTED` and the shadow. The caller adds the `Text` or the `Localized` | you | shaped like `label()`, which returns `impl Bundle`; `font(size_px)` is already there. Suggested name: `muted_text(size_px)` |
+| [x] | 1.4 Its users take it: the menu's version (`menu.rs:163`), the pause menu's status line (`pause.rs:132`), Credits (`credits.rs:32`) and `muted_label` in `saves.rs` | you | `save_row`'s details keep `TextColor(TEXT_MUTED)` alone: from step 3 they turn dark under the pointer, where a shadow would smear. Claude writes that reason beside them |
+| [x] | 1.5 `docs/template.md` line 151 stops calling `ACCENT` amber; the palette's comments in `ui.rs` | Claude | `README.md` line 22 ("an amber glow") waits for step 3, when the glow goes |
 | [ ] | 1.6 `just run` on `3d/player`: every card over the sky, the menu's version over its artwork, each again under Reduce Transparency; tune `SURFACE`'s alpha and the shadow by eye; review; sync | both | amber is gone from this step on, but the buttons keep their border and glow until step 3: a hovered button glows white for two commits |
 
 ## Step 2: `feat: round the cards and light their rim`

@@ -9,7 +9,7 @@ use crate::overlays::Overlay;
 use crate::save::{Session, loaded_session, newest_ready, saves_on_disk};
 use crate::ui::blur::{FrozenBackground, unfreeze_background};
 use crate::ui::{
-    BUTTON_GAP_PX, SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, TITLE_FONT_SIZE_PX, font, menu_button,
+    BUTTON_GAP_PX, SMALL_FONT_SIZE_PX, TEXT, TITLE_FONT_SIZE_PX, font, menu_button, muted_text,
 };
 use veil::{MenuTransition, VEIL_Z_INDEX, Veil, animate_veils, veil, veil_alpha};
 
@@ -159,8 +159,7 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 Text::new(VERSION_TEXT),
-                font(SMALL_FONT_SIZE_PX),
-                TextColor(TEXT_MUTED),
+                muted_text(SMALL_FONT_SIZE_PX),
             ),
             veil(MenuTransition::Opening),
         ],
