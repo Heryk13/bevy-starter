@@ -16,7 +16,8 @@ makes the first commit. The steps below are the manual path, and what is left af
 1. Rename the game in three places, keeping them in sync:
    - `name` in `Cargo.toml`, which also names the game's data folder (`%APPDATA%\<name>\` on
      Windows, `~/.local/share/<name>/` on Linux, `~/Library/Application Support/<name>/` on
-     macOS), where `settings.ron` and the `saves/` folder live. Renaming it leaves the old
+     macOS), where `settings.ron` and the `saves/` folder live, each save a `.ron` with its
+     picture, a `.jpg`, beside it. Renaming it leaves the old
      saves and settings behind, in the folder under the old name
    - `game` in `justfile`, which `just release` uses to find the executable
    - `GAME_TITLE` in `src/main.rs`, the name on the window and on the menu
@@ -92,6 +93,8 @@ src/
       playroom/
         sun_glare.rs  the glare drawn over the sun, as a camera sees it
   save.rs           the game in progress and the save files, shared
+  save/
+    picture.rs      the picture a save carries: taking it, encoding it, its file
   ui.rs             the look: palette, type and text, shared
   ui/
     button.rs       buttons, their paint and their sounds

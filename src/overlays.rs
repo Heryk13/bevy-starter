@@ -2,6 +2,7 @@ use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
+use crate::save::take_pause_picture;
 use crate::screens::Pause;
 use crate::ui::blur::GlassLayers;
 use crate::ui::{ButtonKind, Dialog, button, card, floating_root};
@@ -98,7 +99,8 @@ fn close_overlay(
 }
 
 /// Closes the topmost layer on Esc, one per press, or pauses running gameplay when nothing
-/// is open, as `esc_action` decides.
+/// is open, as `esc_action` decides. Pausing also takes the picture a save made under the
+/// pause menu will carry.
 fn apply_esc_action(
     mut commands: Commands,
     dialogs: Query<(), With<Dialog>>,
@@ -111,7 +113,14 @@ fn apply_esc_action(
     match esc_action(!dialogs.is_empty(), *overlay.get(), pause) {
         EscAction::CloseDialog => commands.despawn_all::<With<Dialog>>(),
         EscAction::CloseOverlay => next_overlay.set(Overlay::None),
-        EscAction::SetPause(pause) => next_pause.set(pause),
+        EscAction::SetPause(pause) => {
+            // now, not as the pause menu spawns: that is a frame from here, on entering
+            // `Pause::On`, and this frame is the last one that shows the game alone
+            if pause == Pause::On {
+                take_pause_picture(&mut commands);
+            }
+            next_pause.set(pause);
+        }
         EscAction::Nothing => {}
     }
 }
