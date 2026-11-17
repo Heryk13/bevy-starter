@@ -445,6 +445,7 @@ dependencies = [
  "fluent-bundle",
  "fluent-syntax",
  "icu_provider",
+ "lucide-icons",
  "rand",
  "ron",
  "serde",
@@ -3653,6 +3654,12 @@ checksum = "52d3a9855747c17eaf4383823f135220716ab49bea5fbea7dd42cc9a92f8aa31"
 dependencies = [
  "logos-codegen",
 ]
+
+[[package]]
+name = "lucide-icons"
+version = "1.74.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65836a9de485744e695ba0885d00a985e4c9f462dddd6ef4c8afde3109710151"
 
 [[package]]
 name = "mach2"

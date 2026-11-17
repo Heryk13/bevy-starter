@@ -44,7 +44,6 @@ settings-language = Language
 save-game-title = Save Game
 load-game-title = Load Game
 save-new = New Save
-save-delete = Delete
 saves-none = No saves yet
 save-incompatible = Incompatible Save
 save-unreadable = Unreadable Save

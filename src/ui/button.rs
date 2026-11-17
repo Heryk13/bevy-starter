@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy::ui::Pressed;
 use bevy::ui_widgets::Button;
 
-use super::{ACCENT, DANGER, INK, TEXT, label};
+use super::{ACCENT, DANGER, INK, Icon, TEXT, icon, label};
 use crate::fade::approach;
 
 // ==== Config =================================================================
@@ -22,7 +22,7 @@ const DANGER_INK: Color = Color::WHITE;
 const BUTTON_PRESS_SHADE: f32 = 0.18;
 
 // ---- size -------------------------------------------------------------------
-const BUTTON_HEIGHT_PX: f32 = 44.0;
+pub(crate) const BUTTON_HEIGHT_PX: f32 = 44.0;
 const BUTTON_MIN_WIDTH_PX: f32 = 120.0;
 const BUTTON_PADDING_PX: f32 = 20.0;
 const ROW_BUTTON_PADDING_PX: f32 = 8.0;
@@ -89,6 +89,24 @@ pub(crate) fn row_button(content: impl Bundle) -> impl Bundle {
         },
         ButtonKind::Choice,
         children![content],
+    )
+}
+
+/// Returns a round button holding one icon and no word, as wide as a button is tall: what
+/// stands in for a word a row has no room for, like a save's Delete. An icon says nothing to
+/// a screen reader, so its caller adds an `AccessibleLabel`.
+pub(crate) fn icon_button(symbol: Icon, kind: ButtonKind) -> impl Bundle {
+    button_base(
+        Node {
+            width: px(BUTTON_HEIGHT_PX),
+            height: px(BUTTON_HEIGHT_PX),
+            justify_content: JustifyContent::Center,
+            // beside a row that grows, it would be squeezed into an oval
+            flex_shrink: 0.0,
+            ..button_frame()
+        },
+        kind,
+        children![icon(symbol)],
     )
 }
 
