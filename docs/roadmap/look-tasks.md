@@ -47,6 +47,18 @@ approved are in `docs/roadmap/ui/look-screens.html`.
   `Propagate<TextColor>` (`bevy::app`, what `bevy_feathers` paints its labels with) replaces
   the whole colour of every text below, the alpha that keeps a row's details muted included,
   and goes through commands on each change, where the ink changes every frame of an ease.
+- **The menu's systems are named after its words** (decided while building 4.4). Once the menu
+  holds no `menu_button`, which is now the pause menu's alone, `activate_menu_button` and
+  `update_continue_button` would name a widget that file no longer has: they are
+  `activate_menu_word` and `update_continue_word`.
+- **A pressed word is painted as a hovered one** (decided while building 4.2). The mockup dims
+  the bar a little while a word is pressed; the spec's pure function takes the hover alone,
+  and a click leaves the menu or opens a card over it within a frame or two.
+- **The bar is built anew while it eases, not changed in place** (checked while building 4.5).
+  A `BackgroundGradient` is a list of gradients, each a list of stops, so changing it in place
+  means reaching for the first two stops by their position; `bar_gradient(color)` builds the
+  three stops again instead, the same function the word spawns with. A word resting is
+  skipped, as a button is, so it runs for the 0.12 s of an ease.
 
 ## The buttons at a glance
 
@@ -99,13 +111,13 @@ What `button_colors` returns from step 3 on, the fill first and the ink second:
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 4.1 `Config` in `src/screens/menu.rs`: the column 300 px wide, the word's padding (20), the title's left edge (80) and the column's own left derived from the two; the word's rest alpha (0.62); where the bar stops being solid (30%) | you | the column's left is derived, never restated (`CONTRIBUTING.md`, Bevy patterns). The title sits in the same padded parent as the column, so it needs the word's padding as its own left margin to stay at 80 |
-| [ ] | 4.2 A pure function: from how far a word is hovered (0.0 to 1.0), the bar's strength, the word's colour and its shadow's alpha | you | the colour goes from white at the rest alpha to `INK`: `Color::mix(&other, factor)`, as `button_colors` uses it. The shadow fades out as the word darkens |
-| [ ] | 4.3 Its tests | you | suggested: `word_at_rest_is_greyish_over_no_bar`, `hovered_word_is_dark_over_a_full_bar`, `word_loses_its_shadow_as_it_darkens` |
-| [ ] | 4.4 The menu's own widget, in `menu.rs`, replacing `menu_button` there: a `Button` with `Hovered`, a component holding how far it is hovered, a `BackgroundGradient`, and its word with a `TextShadow` | you | `bevy::ui_widgets::Button` and `bevy::picking::hover::Hovered`, as `button.rs` imports them; no `ButtonKind`, so `paint_buttons` leaves it alone, while `play_button_sounds` and `Activate` still reach it. `menu_button` stays in `ui.rs` for the pause menu |
-| [ ] | 4.5 The system that eases and paints the words, in `Update` under `in_state(Screen::Menu)` | you | `approach` from `crate::fade` and `Time<Real>`, as `paint_buttons`; `BUTTON_EASE_SECS` becomes `pub(crate)` and is re-exported by `ui.rs`, its second user. The bar is `LinearGradient::to_right` with three stops: white at the strength at 0% and at the solid stop, clear white at 100% (clear *white*, not `Color::NONE`, for the reason `CLEAR` gives in `button.rs`). The word's `TextColor` and `TextShadow` are on the child |
-| [ ] | 4.6 The column loses its `row_gap`, so the pointer never falls between two words | you | `BUTTON_GAP_PX` leaves `menu.rs`'s imports |
-| [ ] | 4.7 `docs/flow.md`'s menu section | Claude | |
+| [x] | 4.1 `Config` in `src/screens/menu.rs`: the column 300 px wide, the word's padding (20), the title's left edge (80) and the column's own left derived from the two; the word's rest alpha (0.62); where the bar stops being solid (30%) | you | the column's left is derived, never restated (`CONTRIBUTING.md`, Bevy patterns). The title sits in the same padded parent as the column, so it needs the word's padding as its own left margin to stay at 80 |
+| [x] | 4.2 A pure function: from how far a word is hovered (0.0 to 1.0), the bar's strength, the word's colour and its shadow's alpha | you | the colour goes from white at the rest alpha to `INK`: `Color::mix(&other, factor)`, as `button_colors` uses it. The shadow fades out as the word darkens |
+| [x] | 4.3 Its tests | you | suggested: `word_at_rest_is_greyish_over_no_bar`, `hovered_word_is_dark_over_a_full_bar`, `word_loses_its_shadow_as_it_darkens` |
+| [x] | 4.4 The menu's own widget, in `menu.rs`, replacing `menu_button` there: a `Button` with `Hovered`, a component holding how far it is hovered, a `BackgroundGradient`, and its word with a `TextShadow` | you | `bevy::ui_widgets::Button` and `bevy::picking::hover::Hovered`, as `button.rs` imports them; no `ButtonKind`, so `paint_buttons` leaves it alone, while `play_button_sounds` and `Activate` still reach it. `menu_button` stays in `ui.rs` for the pause menu |
+| [x] | 4.5 The system that eases and paints the words, in `Update` under `in_state(Screen::Menu)` | you | `approach` from `crate::fade` and `Time<Real>`, as `paint_buttons`; `BUTTON_EASE_SECS` becomes `pub(crate)` and is re-exported by `ui.rs`, its second user. The bar is `LinearGradient::to_right` with three stops: white at the strength at 0% and at the solid stop, clear white at 100% (clear *white*, not `Color::NONE`, for the reason `CLEAR` gives in `button.rs`). The word's `TextColor` and `TextShadow` are on the child |
+| [x] | 4.6 The column loses its `row_gap`, so the pointer never falls between two words | you | `BUTTON_GAP_PX` leaves `menu.rs`'s imports |
+| [x] | 4.7 `docs/flow.md`'s menu section | Claude | |
 | [ ] | 4.8 `just run`: the words line up under the title; the bar's trail down the column, never a blink; Continue hidden with no save leaves no hole; every word reads over the artwork; the opening veil; review; sync | both | `update_continue_button` finds the button by `MenuAction` and sets `Display::None`, so it needs no change |
 
 ## Step 5: `feat: turn the settings into switches and segments`

@@ -6,7 +6,7 @@ pub(crate) mod blur;
 mod button;
 mod panel;
 
-pub(crate) use button::{ButtonKind, button, menu_button, row_button};
+pub(crate) use button::{BUTTON_EASE_SECS, ButtonKind, button, menu_button, row_button};
 pub(crate) use panel::{Dialog, card, dialog, floating_root};
 
 // ==== Config =================================================================
@@ -39,7 +39,7 @@ const HEADING_GAP_PX: f32 = 12.0;
 // ---- muted text -------------------------------------------------------------
 // a shadow under it: it is the faintest text there is, and what it sits on is whatever the
 // game shows behind the glass. `TextShadow` has no blur, so it stays a pixel down and soft
-const MUTED_SHADOW_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
+pub(crate) const MUTED_SHADOW_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
 const MUTED_SHADOW_OFFSET_PX: f32 = 1.0;
 
 // ---- borders and gaps, shared by text, buttons and panels -------------------

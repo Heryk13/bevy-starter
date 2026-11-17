@@ -31,7 +31,7 @@ const ROW_BUTTON_RADIUS_PX: f32 = 18.0;
 // ---- easing -----------------------------------------------------------------
 // how long a button takes to light up or go back, so a pointer passing over a column
 // leaves a short trail instead of flickering
-const BUTTON_EASE_SECS: f32 = 0.12;
+pub(crate) const BUTTON_EASE_SECS: f32 = 0.12;
 
 // ==== Plugin =================================================================
 
