@@ -27,6 +27,12 @@ pub(crate) const PICTURE_ASPECT_RATIO: f32 = PICTURE_WIDTH_PX as f32 / PICTURE_H
 
 pub(super) fn plugin(app: &mut App) {
     app.init_resource::<PausePicture>();
+    // once in a run, under its first loading screen: every game passes through one
+    // before the first pause or autosave could take a picture
+    app.add_systems(
+        OnEnter(Screen::Loading),
+        warm_up_screenshots.run_if(run_once),
+    );
     app.add_systems(OnExit(Screen::Gameplay), forget_pause_picture);
 }
 
@@ -43,16 +49,12 @@ pub(crate) fn take_pause_picture(commands: &mut Commands) {
     commands.insert_resource(picture);
     commands.spawn(Screenshot::primary_window()).observe(
         move |captured: On<ScreenshotCaptured>| {
-            let image = captured.image.clone();
             let slot = Arc::clone(&slot);
-            AsyncComputeTaskPool::get()
-                .spawn(async move {
-                    let bytes = encode_picture(image);
-                    if let Ok(mut slot) = slot.lock() {
-                        *slot = bytes;
-                    }
-                })
-                .detach();
+            encode_capture(captured, move |bytes| {
+                if let Ok(mut slot) = slot.lock() {
+                    *slot = Some(bytes);
+                }
+            });
         },
     );
 }
@@ -63,19 +65,12 @@ pub(crate) fn take_pause_picture(commands: &mut Commands) {
 pub(crate) fn take_save_picture(commands: &mut Commands, save_path: PathBuf) {
     commands.spawn(Screenshot::primary_window()).observe(
         move |captured: On<ScreenshotCaptured>| {
-            let image = captured.image.clone();
             let picture_path = picture_path(&save_path);
-            AsyncComputeTaskPool::get()
-                .spawn(async move {
-                    let Some(bytes) = encode_picture(image) else {
-                        error!("could not encode the picture of a save");
-                        return;
-                    };
-                    if let Err(err) = write_atomic(&picture_path, bytes) {
-                        error!("could not write the picture of a save: {err}");
-                    }
-                })
-                .detach();
+            encode_capture(captured, move |bytes| {
+                if let Err(err) = write_atomic(&picture_path, bytes) {
+                    error!("could not write the picture of a save: {err}");
+                }
+            });
         },
     );
 }
@@ -137,6 +132,15 @@ impl PausePicture {
 
 // ==== Systems ================================================================
 
+/// Takes a screenshot nobody keeps. The first one of a run makes Bevy build the pipeline
+/// that draws a captured frame back to the window, and until it is built that frame is not
+/// drawn at all: taken here, the frame lost is the first of a loading screen, which comes in
+/// from black, and not the player's first pause or first autosave.
+fn warm_up_screenshots(mut commands: Commands) {
+    // with no observer, the capture is dropped as it arrives, and Bevy despawns the entity
+    commands.spawn(Screenshot::primary_window());
+}
+
 /// Lets go of the kept picture as gameplay is left, so a save in the next game never takes
 /// the picture of this one.
 fn forget_pause_picture(mut picture: ResMut<PausePicture>) {
@@ -144,6 +148,25 @@ fn forget_pause_picture(mut picture: ResMut<PausePicture>) {
 }
 
 // ==== Helpers ================================================================
+
+/// Encodes a captured window off the main thread and hands the picture's bytes to `then`,
+/// there too. A capture that cannot be encoded is logged, and `then` never runs.
+fn encode_capture(
+    mut captured: On<ScreenshotCaptured>,
+    then: impl FnOnce(Vec<u8>) + Send + 'static,
+) {
+    // taken out of the event, not cloned: it is every pixel of the window, and this is the
+    // only observer of its screenshot, so nobody reads the event after it
+    let image = std::mem::take(&mut captured.event_mut().image);
+    AsyncComputeTaskPool::get()
+        .spawn(async move {
+            match encode_picture(image) {
+                Some(bytes) => then(bytes),
+                None => error!("could not encode the picture of a save"),
+            }
+        })
+        .detach();
+}
 
 /// Returns the part of a window `width` by `height` that a picture keeps: the largest
 /// rectangle of the picture's shape, around the window's center.
@@ -262,7 +285,7 @@ mod tests {
     // ---- encode_picture and decode_picture: a window out, a picture back ----
 
     #[test]
-    fn a_window_of_any_shape_becomes_a_picture_of_one_size() {
+    fn a_captured_window_becomes_a_picture_of_the_pictures_size() {
         let bytes = encode_picture(captured_window()).unwrap();
         let picture = decode_picture(&bytes).unwrap();
         assert_eq!(picture.width(), PICTURE_WIDTH_PX);
@@ -299,10 +322,34 @@ mod tests {
         assert!(read_save_picture(&save_path).is_none());
     }
 
-    // ---- PausePicture -------------------------------------------------------
+    // ---- PausePicture and save_pause_picture --------------------------------
+
+    // the first bytes of a JPEG: what the picture holds does not matter to these tests
+    const PICTURE_BYTES: [u8; 2] = [0xFF, 0xD8];
 
     #[test]
     fn pause_picture_starts_with_nothing_to_give() {
         assert_eq!(PausePicture::default().bytes(), None);
+    }
+
+    #[test]
+    fn a_save_made_under_the_pause_gets_the_kept_picture() {
+        let save_path = fresh_test_dir("bevy-starter-save-pause-picture").join("save.ron");
+        let kept = PausePicture(Arc::new(Mutex::new(Some(PICTURE_BYTES.to_vec()))));
+
+        save_pause_picture(&save_path, &kept);
+        assert_eq!(
+            std::fs::read(picture_path(&save_path)).unwrap(),
+            PICTURE_BYTES
+        );
+    }
+
+    #[test]
+    fn a_save_with_no_kept_picture_loses_its_old_one() {
+        let save_path = fresh_test_dir("bevy-starter-save-no-pause-picture").join("save.ron");
+        write_atomic(&picture_path(&save_path), PICTURE_BYTES).unwrap();
+
+        save_pause_picture(&save_path, &PausePicture::default());
+        assert!(!picture_path(&save_path).exists());
     }
 }
