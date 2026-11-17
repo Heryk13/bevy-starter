@@ -23,7 +23,7 @@ use bevy::render::texture::GpuImage;
 use bevy::render::view::ViewTarget;
 use bevy::render::{RenderApp, RenderStartup};
 use bevy::shader::ShaderRef;
-use bevy::ui_render::ui_pass;
+use bevy::ui_render::{stack_z_offsets, ui_pass};
 use bevy::window::{PrimaryWindow, WindowResized};
 
 use super::SURFACE;
@@ -47,6 +47,11 @@ const GLASS_SHADER_PATH: &str = "shaders/glass.wesl";
 // the copies' format, which both pipelines must write: a 16-bit float keeps the colours of an
 // sRGB camera and an HDR one alike, so the copies outlive gameplay switching the cameras to HDR
 const GLASS_COPY_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
+
+// ---- cards ------------------------------------------------------------------
+// how far a card's tint darkens from its top edge to its bottom one, 0.0 to 1.0: a thick
+// sheet lit from above, the other half of what the card's rim says
+const CARD_SHADE: f32 = 0.4;
 
 // ==== Plugin =================================================================
 
@@ -217,8 +222,9 @@ struct KawasePipelines {
 // ==== Assets =================================================================
 
 /// The glass a floating root and its card are drawn with: one of its layer's blurred copies,
-/// read where the node sits on screen, under a tint, all faded by the node's alpha. Flat, it
-/// draws the tint alone, as opaque as the tint's own alpha: what Reduce Transparency asks for.
+/// read where the node sits on screen, under a tint that may darken toward the node's bottom,
+/// all faded by the node's alpha. Flat, it draws the tint alone, as opaque as the tint's own
+/// alpha: what Reduce Transparency asks for.
 #[derive(AsBindGroup, Asset, TypePath, Clone)]
 pub(super) struct GlassMaterial {
     #[uniform(0)]
@@ -228,6 +234,9 @@ pub(super) struct GlassMaterial {
     // 1 while Reduce Transparency is on, 0 otherwise: a shader's uniform cannot hold a `bool`
     #[uniform(0)]
     flat: u32,
+    // how far the tint has darkened by the node's bottom edge, 0.0 for none
+    #[uniform(0)]
+    shade: f32,
     #[texture(1)]
     #[sampler(2)]
     copy: Handle<Image>,
@@ -241,6 +250,7 @@ impl GlassMaterial {
             tint: SCREEN_DIM.into(),
             alpha: 0.0,
             flat: u32::from(flat),
+            shade: 0.0,
             copy,
         }
     }
@@ -252,6 +262,7 @@ impl GlassMaterial {
             tint: card_tint(flat),
             alpha: 0.0,
             flat: u32::from(flat),
+            shade: CARD_SHADE,
             copy,
         }
     }
@@ -260,6 +271,13 @@ impl GlassMaterial {
 impl UiMaterial for GlassMaterial {
     fn fragment_shader() -> ShaderRef {
         GLASS_SHADER_PATH.into()
+    }
+
+    // where a fill goes: over the node's shadow and under its border. Bevy draws a material
+    // over the border by default, and the glass covers its whole node, so a card's rim
+    // would never show
+    fn stack_z_offset() -> f32 {
+        stack_z_offsets::BACKGROUND_COLOR
     }
 }
 

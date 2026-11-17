@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
 use super::blur::{Floating, GlassLayers, GlassMaterial};
-use super::{BORDER, BORDER_PX, BUTTON_GAP_PX, ButtonKind, button, label};
+use super::{BORDER_PX, BUTTON_GAP_PX, ButtonKind, button, label};
 use crate::fade::Fade;
 
 // ==== Config =================================================================
@@ -13,10 +13,20 @@ pub(super) const SCREEN_DIM: Color = Color::srgba(0.0, 0.0, 0.0, 0.35);
 // ---- cards ------------------------------------------------------------------
 const CARD_PADDING_PX: f32 = 32.0;
 const CARD_GAP_PX: f32 = 16.0;
-const CARD_RADIUS_PX: f32 = 16.0;
+const CARD_RADIUS_PX: f32 = 26.0;
 const CARD_SHADOW_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
 const CARD_SHADOW_OFFSET_PX: f32 = 12.0;
 const CARD_SHADOW_BLUR_PX: f32 = 40.0;
+
+// ---- card rim: light on its top left edge, shade on its bottom right --------
+// what makes a flat sheet read as glass with a thickness. Four stops, since the light dies
+// out well before the middle and the shade only comes at the far corner
+const CARD_RIM_LIGHT: Color = Color::srgba(1.0, 1.0, 1.0, 0.62);
+const CARD_RIM_FADING: Color = Color::srgba(1.0, 1.0, 1.0, 0.12);
+const CARD_RIM_FAINT: Color = Color::srgba(1.0, 1.0, 1.0, 0.03);
+const CARD_RIM_SHADE: Color = Color::srgba(0.0, 0.0, 0.0, 0.35);
+const CARD_RIM_FADING_STOP_PERCENT: f32 = 38.0;
+const CARD_RIM_FAINT_STOP_PERCENT: f32 = 62.0;
 
 // ---- entrance: a card rises into place as its glass comes in ----------------
 // held forever once in, so it is a fade that only ever comes in
@@ -80,7 +90,12 @@ pub(crate) fn card(width_px: f32) -> impl Bundle {
             border_radius: BorderRadius::all(px(CARD_RADIUS_PX)),
             ..default()
         },
-        BorderColor::all(BORDER),
+        BorderGradient::from(LinearGradient::to_bottom_right(vec![
+            ColorStop::new(CARD_RIM_LIGHT, percent(0)),
+            ColorStop::new(CARD_RIM_FADING, percent(CARD_RIM_FADING_STOP_PERCENT)),
+            ColorStop::new(CARD_RIM_FAINT, percent(CARD_RIM_FAINT_STOP_PERCENT)),
+            ColorStop::new(CARD_RIM_SHADE, percent(100)),
+        ])),
         BoxShadow::new(
             CARD_SHADOW_COLOR,
             px(0),
