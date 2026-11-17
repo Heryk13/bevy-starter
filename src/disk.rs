@@ -30,12 +30,14 @@ pub(crate) fn game_data_dir() -> Option<PathBuf> {
 /// needs no setup.
 // ponytail: read and written on the main thread; move to IoTaskPool when saves grow
 // past a few KB
-pub(crate) fn write_atomic(path: &Path, text: &str) -> std::io::Result<()> {
+pub(crate) fn write_atomic(path: &Path, contents: impl AsRef<[u8]>) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let tmp = path.with_extension("ron.tmp");
-    std::fs::write(&tmp, text)?;
+    // the file's whole name with `.tmp` after it, so two files that differ only in their
+    // extension, a save and its picture, never write through the same temporary one
+    let tmp = path.with_added_extension("tmp");
+    std::fs::write(&tmp, contents)?;
     std::fs::rename(tmp, path)
 }
 
@@ -125,6 +127,18 @@ mod tests {
 
         write_atomic(&path, "(volume: 0.5)").unwrap();
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "(volume: 0.5)");
-        assert!(!path.with_extension("ron.tmp").exists());
+        assert!(!path.with_added_extension("tmp").exists());
+    }
+
+    #[test]
+    fn written_bytes_read_back_whole() {
+        let dir = fresh_test_dir("bevy-starter-write-atomic-bytes");
+        let path = dir.join("picture.jpg");
+        // not valid UTF-8, as a picture's bytes are not
+        let bytes = [0xFF, 0xD8, 0x00, 0x9F];
+
+        write_atomic(&path, bytes).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        assert!(!path.with_added_extension("tmp").exists());
     }
 }

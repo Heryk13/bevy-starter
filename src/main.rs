@@ -67,6 +67,7 @@ fn main() {
 
     // ---- game ---------------------------------------------------------------
     app.add_plugins(i18n::plugin);
+    app.add_plugins(save::plugin);
     app.add_plugins(screens::plugin);
     app.add_plugins(ui::plugin);
     app.add_plugins(overlays::plugin);
