@@ -24,7 +24,7 @@ Agreed on 2026-11-07.
 
 | #  | Item | Branch | Status | Spec / tasks | Notes |
 |----|------|--------|--------|--------------|-------|
-| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | glass built, regions put off to pieces; look and pieces to design | `glass/design.md`, `glass-tasks.md` | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
+| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | glass built, regions put off to pieces; look designed, to build; pieces to design | `glass/design.md`, `glass-tasks.md`, `look/design.md`, `look-tasks.md` | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
 | 1  | **Key bindings**: a Controls page in Settings to change the keys and gamepad buttons | base in `main`, then each branch registers its own actions | | | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
 | 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | designed; to revise for rows 0 and 1 before building | `dev-tools/design.md`, `dev-tools-tasks.md` | waits on rows 0 and 1 |
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | | | agreed so far: below |
@@ -210,8 +210,10 @@ names its roadmap row.
   commit per step. In this order:
   1. **Glass**: the technique (the per-layer copies, the Kawase, the material panels read it
      with), proven on one plain panel.
-  2. **Look**: the colours, the Lucide font, keycaps and capsules, and every existing screen,
-     overlay and dialog redone in it.
+  2. **Look**: the colours, the Lucide font, capsules, and every existing screen, overlay and
+     dialog redone in it, plus a picture with every save. The keycaps were left out on
+     2026-11-17: no existing screen shows a key, so they come with the first one that does
+     (row 1's Controls page, or the keys panel of Pieces).
   3. **Pieces**: what only the dev tools use (popover, HUD, bar, list, alert), and the
      regions, which only a panel smaller than the screen needs (put off from Glass on
      2026-11-16).
