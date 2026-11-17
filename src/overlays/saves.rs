@@ -14,8 +14,9 @@ use crate::save::{
 };
 use crate::screens::{LoadingDestination, StartGame};
 use crate::ui::{
-    ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, ButtonKind, FIELD_FILL, SMALL_FONT_SIZE_PX, TEXT,
-    TEXT_MUTED, button, dialog, font, heading, muted_text, row_button,
+    ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, BUTTON_HEIGHT_PX, ButtonKind, FIELD_FILL, Icon,
+    SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED, button, dialog, font, heading, icon_button, muted_text,
+    row_button,
 };
 
 // ==== Config =================================================================
@@ -36,8 +37,10 @@ const SAVE_ROW_LINE_GAP_PX: f32 = 2.0;
 // `EditableText` draws no box, and no cursor without a `TextCursorStyle`, so these are what
 // show where to click and where the next letter goes; the default cursor is a dark grey that
 // vanishes on the card
-const SAVE_NAME_PADDING_PX: f32 = 10.0;
-const SAVE_NAME_RADIUS_PX: f32 = 8.0;
+// a capsule as tall as the New Save beside it: the sides are padded past its round ends,
+// and the top by what centers one line of body text in that height
+const SAVE_NAME_PADDING_X_PX: f32 = 18.0;
+const SAVE_NAME_PADDING_Y_PX: f32 = 10.0;
 // a longer name pushes its row past the edge of the list
 const SAVE_NAME_MAX_CHARS: usize = 20;
 
@@ -135,9 +138,13 @@ fn spawn_save_game_overlay(
                             TextColor(TEXT),
                             Node {
                                 flex_grow: 1.0,
-                                padding: UiRect::all(px(SAVE_NAME_PADDING_PX)),
+                                min_height: px(BUTTON_HEIGHT_PX),
+                                padding: UiRect::axes(
+                                    px(SAVE_NAME_PADDING_X_PX),
+                                    px(SAVE_NAME_PADDING_Y_PX),
+                                ),
                                 border: UiRect::all(px(BORDER_PX)),
-                                border_radius: BorderRadius::all(px(SAVE_NAME_RADIUS_PX)),
+                                border_radius: BorderRadius::MAX,
                                 ..default()
                             },
                             BackgroundColor(FIELD_FILL),
@@ -324,7 +331,8 @@ fn spawn_load_game_overlay(
             }
         }
         commands.spawn((
-            button("save-delete", ButtonKind::Danger),
+            icon_button(Icon::Trash2, ButtonKind::Danger),
+            AccessibleLabel::new("Delete"),
             DeleteSave(entry.path().to_path_buf()),
             ChildOf(row),
         ));

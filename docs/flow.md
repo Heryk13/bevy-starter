@@ -378,7 +378,8 @@ pause card darkens under it instead of competing with it.
   panel does not outlive the screen it was opened over. A file that no longer reads is logged
   with `error!` and the player stays on the list.
 
-  Every row also has a Delete button carrying `DeleteSave(path)`, the files the game cannot load
+  Every row also has a Delete carrying `DeleteSave(path)`, a round `icon_button` holding
+  `Icon::Trash2` in `ButtonKind::Danger` with an `AccessibleLabel`, the files the game cannot load
   included, since this is the only way they leave the list. `ask_to_delete_save` spawns "Delete
   this save?" with `DespawnOnExit(Overlay::LoadGame)`, its Yes carrying `ConfirmDelete(path)`, and
   `delete_save` removes the file and sets `Overlay::LoadGame` again. `set` re-enters a state it is
@@ -545,7 +546,7 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
-| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `muted_text()`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
+| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `muted_text()`, `icon()` and `Icon`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `icon_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
 | `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()`, `ReduceTransparency`, `ScreensCovered` with `ScreensCoveredSystems` | the pause menu, every overlay and every dialog float |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
@@ -559,10 +560,15 @@ cards and dialogs, and `ui/blur.rs` the blur; callers import from `ui`, or `ui::
 `ACCENT`, `DANGER`, `TEXT`, `TEXT_MUTED`, ...) and the four type sizes, so a game made from the
 template recolors in one place. Muted text that stays light is `muted_text(size_px)`, never a
 bare `TextColor(TEXT_MUTED)`: it adds the soft `TextShadow` that keeps the faintest text
-readable over whatever the glass shows. It hands out three buttons, capsules with no border:
+readable over whatever the glass shows. An icon is `icon(Icon::Trash2)`: a text of one character
+in Lucide's font, which the `lucide-icons` crate brings built into the binary with every icon's
+name (`Icon`, re-exported so no other file names the crate). `register_icon_font` puts the font
+behind `ICON_FONT`, a handle known at compile time, at `Startup`, so `icon()` asks no asset
+server. Being text, an icon takes a button's ink like a label. It hands out four buttons,
+capsules with no border:
 `button(key, kind)` with its label centered, `menu_button(key)` for a column of choices, label to
-the left, and `row_button(content)` around any bundle, for a list row, with a fixed corner in
-place of the capsule's. `ButtonKind` is a component saying what a button is for: `Primary` (the
+the left, `row_button(content)` around any bundle, for a list row, with a fixed corner in
+place of the capsule's, and `icon_button(icon, kind)`, round, holding one icon and no word. `ButtonKind` is a component saying what a button is for: `Primary` (the
 main action, white already at rest), `Choice` (one among equals, white under the pointer: what
 `menu_button` and `row_button` are), `Quiet` (bare until hovered, for Close and No) or `Danger`
 (red ink, filled red when hovered). `paint_buttons` eases each button's `ButtonMotion` toward

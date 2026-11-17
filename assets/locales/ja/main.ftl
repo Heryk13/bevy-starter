@@ -44,7 +44,6 @@ settings-language = 言語
 save-game-title = セーブ
 load-game-title = ロード
 save-new = 新規セーブ
-save-delete = 削除
 saves-none = セーブデータがありません
 save-incompatible = 互換性のないデータ
 save-unreadable = 読み込めないデータ

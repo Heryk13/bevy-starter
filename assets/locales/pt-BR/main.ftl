@@ -43,7 +43,6 @@ settings-language = Idioma
 save-game-title = Salvar Jogo
 load-game-title = Carregar Jogo
 save-new = Novo Salvamento
-save-delete = Apagar
 saves-none = Nenhum jogo salvo
 save-incompatible = Jogo Salvo Incompatível
 save-unreadable = Jogo Salvo Ilegível
