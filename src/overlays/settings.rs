@@ -55,9 +55,10 @@ const SETTINGS_VERSION: u32 = 1;
 const SETTINGS_FILE_NAME: &str = "settings.ron";
 
 // ---- derived: where a switch's knob rests -----------------------------------
-// the same gap on every side of the knob, whichever end it is at
+// the same gap on every side of the knob, whichever end it is at: the inset is how far
+// from the track's left edge the knob rests when off, the offset when on
 const SWITCH_KNOB_INSET_PX: f32 = (SWITCH_HEIGHT_PX - SWITCH_KNOB_SIZE_PX) / 2.0;
-const SWITCH_KNOB_ON_LEFT_PX: f32 = SWITCH_WIDTH_PX - SWITCH_KNOB_SIZE_PX - SWITCH_KNOB_INSET_PX;
+const SWITCH_KNOB_ON_OFFSET_PX: f32 = SWITCH_WIDTH_PX - SWITCH_KNOB_SIZE_PX - SWITCH_KNOB_INSET_PX;
 
 // ==== Plugin =================================================================
 
@@ -465,7 +466,7 @@ fn set_switch(
     }
     let (track_color, knob_color, knob_left_px) = if on {
         commands.entity(entity).insert(Checked);
-        (ACCENT, INK, SWITCH_KNOB_ON_LEFT_PX)
+        (ACCENT, INK, SWITCH_KNOB_ON_OFFSET_PX)
     } else {
         commands.entity(entity).remove::<Checked>();
         (CONTROL_TRACK, ACCENT, SWITCH_KNOB_INSET_PX)
