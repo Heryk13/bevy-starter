@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Look: the game's screens</title>
+<link rel="stylesheet" href="https://unpkg.com/lucide-static@1.70.0/font/lucide.css">
+<style>
+  :root {
+    --accent: #FFFFFF; --ink: #111114; --danger: #FF5F57;
+    --text: rgba(255,255,255,.92); --muted: rgba(255,255,255,.74);
+    --hair: rgba(255,255,255,.16); --fill: rgba(255,255,255,.10); --fill-hover: rgba(255,255,255,.18);
+  }
+  body { background: #1c1c1f; color: #e8e8ea; margin: 0 auto; padding: 24px 24px 80px; max-width: 1100px;
+         font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  h2 { margin: 0 0 6px; } .subtitle { color: #a0a0a8; margin: 0 0 14px; font-size: 14px; line-height: 1.5; }
+  .sec { margin: 34px 0 10px; } .sec h3 { margin: 0 0 2px; } .sec p { margin: 0; color: #9a9aa2; font-size: 13px; line-height: 1.5; }
+  .tools { position: sticky; top: 0; z-index: 9; background: #1c1c1fee; padding: 10px 0; display: flex; gap: 10px; align-items: center; font-size: 13px; color: #a0a0a8; }
+  .tools button { font: inherit; color: #e8e8ea; background: #2c2c31; border: 1px solid #44444b; border-radius: 999px; padding: 5px 14px; cursor: pointer; }
+  .call { color: #ffd98a; }
+
+  /* ---- the screen behind ---- */
+  .scene { position: relative; width: 100%; height: 620px; border-radius: 10px; overflow: hidden; color: var(--text);
+           font-size: 18px; display: flex; align-items: center; justify-content: center; }
+  .scene.game { background:
+      radial-gradient(ellipse at 20% 30%, rgba(255,190,120,.9), transparent 40%),
+      radial-gradient(ellipse at 75% 20%, rgba(120,170,255,.9), transparent 45%),
+      radial-gradient(ellipse at 60% 80%, rgba(90,140,90,.95), transparent 50%),
+      linear-gradient(#5b86c9 0%, #a9c6e8 50%, #6f7f55 51%, #3e4a30 100%); }
+  .scene.menu { background: url(../../../assets/menu/background.jpg) center / 100% 100%; justify-content: flex-start; }
+  .scrim { position: absolute; inset: 0; background: linear-gradient(to right, rgba(0,0,0,.85), transparent 65%); }
+  .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.35); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .tag { position: absolute; bottom: 8px; left: 10px; font-size: 11px; color: #fff; background: rgba(0,0,0,.4); padding: 2px 8px; border-radius: 10px; }
+
+  /* ---- card: the thicker, colourless glass of a modal ---- */
+  .card { position: relative; z-index: 1; box-sizing: border-box; padding: 32px; border-radius: 26px;
+          display: flex; flex-direction: column; gap: 16px;
+          background: linear-gradient(to bottom, rgba(44,44,50,.56) 55%, rgba(26,26,30,.66));
+          backdrop-filter: blur(40px) saturate(125%); -webkit-backdrop-filter: blur(40px) saturate(125%);
+          box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  .card.over { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); z-index: 3; }
+  /* the specular rim: bright at the top-left, dark at the bottom-right */
+  .rim::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+          background: linear-gradient(135deg, rgba(255,255,255,.62), rgba(255,255,255,.12) 38%, rgba(255,255,255,.03) 62%, rgba(0,0,0,.35));
+          -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+  .heading { font-size: 26px; padding-bottom: 12px; border-bottom: 1px solid var(--hair); }
+  .muted { color: var(--muted); text-shadow: 0 1px 2px rgba(0,0,0,.45); }
+  .small { font-size: 14px; }
+
+  /* ---- icons ---- */
+  .lic { font-size: 22px; line-height: 1; flex: none; }
+  body.noicons .lic.opt { display: none; }
+
+  /* ---- buttons: every one a capsule ---- */
+  .btn { position: relative; box-sizing: border-box; height: 44px; border-radius: 22px; padding: 0 20px; display: flex; align-items: center; gap: 12px;
+         cursor: default; white-space: nowrap; transition: background .12s, color .12s; user-select: none; }
+  .btn:active { filter: brightness(.82); }
+  /* menu button: glass at rest, the white fill when the pointer (or the gamepad) is on it */
+  .btn.menu { background: var(--fill); justify-content: flex-start; }
+  .btn.menu:hover { background: var(--accent); color: var(--ink); }
+  /* primary: the white fill at rest, as the alert's default button */
+  .btn.primary { background: var(--accent); color: var(--ink); justify-content: center; min-width: 120px; }
+  .btn.primary:hover { background: rgba(255,255,255,.84); }
+  /* quiet: bare until the pointer comes */
+  .btn.quiet { justify-content: center; min-width: 120px; }
+  .btn.quiet:hover { background: var(--fill-hover); }
+  /* danger: red ink at rest, red fill under the pointer */
+  .btn.danger { background: var(--fill); color: var(--danger); justify-content: center; min-width: 120px; }
+  .btn.danger:hover { background: var(--danger); color: #fff; }
+  /* main menu item: letters only, a white bar that fades to the right under the pointer */
+  .mitem { height: 44px; padding: 0 20px; display: flex; align-items: center; cursor: default; user-select: none;
+           color: rgba(255,255,255,.62); text-shadow: 0 1px 2px rgba(0,0,0,.45); transition: color .12s; position: relative; }
+  .mitem::before { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity .12s; z-index: -1;
+           background: linear-gradient(to right, #fff 0%, #fff 30%, rgba(255,255,255,0) 100%); }
+  .mitem:hover { color: var(--ink); text-shadow: none; } .mitem:hover::before { opacity: 1; }
+  .mitem:active::before { opacity: .8; }
+  /* a save's picture, taken when it was saved */
+  .shot { flex: none; width: 112px; height: 63px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.14);
+          background: linear-gradient(#7fa9db, #c9dcef 55%, #6d7b5c 56%, #46553a); }
+  .shot.b { background: linear-gradient(#e59a62, #f3cf9e 50%, #5d6a4a 51%, #333d28); }
+  .shot.none { background: rgba(255,255,255,.07); display: flex; align-items: center; justify-content: center; color: var(--muted); }
+  .save.pic { flex-direction: row; align-items: center; gap: 14px; padding: 8px 20px 8px 8px; }
+  .save.pic .t { display: flex; flex-direction: column; gap: 2px; }
+  /* a round button holding one icon */
+  .btn.icon { width: 44px; min-width: 0; padding: 0; flex: none; }
+  .col { display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; align-items: center; gap: 12px; }
+  .end { justify-content: flex-end; }
+
+  /* ---- settings controls ---- */
+  .set { display: flex; align-items: center; min-height: 32px; }
+  .set .lab { width: 190px; display: flex; align-items: center; gap: 10px; }
+  .switch { width: 46px; height: 26px; border-radius: 13px; background: rgba(255,255,255,.16); position: relative; cursor: pointer; transition: background .12s; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: left .12s, background .12s; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+  .switch.on { background: var(--accent); } .switch.on::after { left: 23px; background: var(--ink); }
+  .slider { width: 220px; height: 18px; position: relative; }
+  .slider .track { position: absolute; left: 0; right: 0; top: 6px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.16); }
+  .slider .fillbar { position: absolute; left: 0; top: 6px; height: 6px; width: 64%; border-radius: 3px; background: var(--accent); }
+  .slider .thumb { position: absolute; left: calc(64% - 9px); top: 0; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+  .seg { display: inline-flex; padding: 3px; border-radius: 19px; background: rgba(255,255,255,.10); font-size: 15px; }
+  .seg span { height: 32px; padding: 0 14px; border-radius: 16px; display: flex; align-items: center; color: var(--muted); cursor: pointer; transition: background .12s, color .12s; }
+  .seg span.on { background: var(--accent); color: var(--ink); }
+
+  /* ---- saves ---- */
+  .field { flex: 1; height: 44px; border-radius: 22px; box-sizing: border-box; padding: 0 18px; display: flex; align-items: center;
+           background: rgba(255,255,255,.08); box-shadow: inset 0 0 0 1px var(--hair); color: var(--muted); }
+  .save { flex: 1; border-radius: 18px; padding: 8px 20px; background: var(--fill); display: flex; flex-direction: column; gap: 2px;
+          transition: background .12s, color .12s; cursor: default; }
+  .save .d { font-size: 14px; color: var(--muted); }
+  .save:hover { background: var(--accent); color: var(--ink); } .save:hover .d { color: rgba(17,17,20,.62); }
+  .q { text-align: center; padding: 6px 0 2px; }
+</style>
+</head>
+<body class="noicons">
+
+<h2>Look: the game's screens in Liquid Glass</h2>
+<p class="subtitle">The look approved for the second spec of roadmap row 0 on 2026-11-17 (<code>docs/specs/look/design.md</code>). A browser mockup, not the game. Each screen holds what it holds today; only its face changes. Real sizes in px (cards of 340, 520 and 400, buttons of 44).
+Move the pointer over the buttons and the rows, click the switches and the language. In <span class="call">yellow</span>, what was Claude's call rather than the roadmap's.</p>
+
+<div class="tools">
+  <button onclick="document.body.classList.toggle('noicons')">Icons: on / off</button>
+  <span>icons beside the words were tried and turned down; this shows them again</span>
+</div>
+
+<div class="sec"><h3>1 · Menu</h3>
+<p>No icons and no capsules. The words alone, greyish; under the pointer, a white bar, solid on the left and fading out to the right, and the word turns dark.
+<span class="call">The bar is 300 px wide and solid over its first 30%; the items touch, with no gap between them.</span></p></div>
+<div class="scene menu">
+  <div class="scrim"></div>
+  <div style="position:relative; z-index:0; padding-left:60px; display:flex; flex-direction:column; gap:28px;">
+    <div style="font-size:44px; padding-left:20px">Bevy Starter</div>
+    <div style="width:300px; display:flex; flex-direction:column">
+      <div class="mitem">New Game</div>
+      <div class="mitem">Continue</div>
+      <div class="mitem">Load Game</div>
+      <div class="mitem">Settings</div>
+      <div class="mitem">Credits</div>
+      <div class="mitem">Quit</div>
+    </div>
+  </div>
+  <div class="muted small" style="position:absolute; right:20px; bottom:20px;">v1.0.0</div>
+</div>
+
+<div class="sec"><h3>2 · Pause</h3>
+<p>The game blurred and dimmed, the card a thicker, colourless glass: a 26 px corner, a bright rim at the top left, a darker fill toward the bottom.</p></div>
+<div class="scene game">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:340px">
+    <div class="heading">Paused</div>
+    <div class="col">
+      <div class="btn menu"><i class="icon-play lic opt"></i>Resume</div>
+      <div class="btn menu"><i class="icon-save lic opt"></i>Save</div>
+      <div class="btn menu"><i class="icon-folder-open lic opt"></i>Load Game</div>
+      <div class="btn menu"><i class="icon-settings lic opt"></i>Settings</div>
+      <div class="btn menu"><i class="icon-house lic opt"></i>Quit to Menu</div>
+      <div class="btn menu"><i class="icon-power lic opt"></i>Quit to Desktop</div>
+    </div>
+    <div class="muted small">Saved successfully.</div>
+  </div>
+  <span class="tag">gameplay, paused</span>
+</div>
+
+<div class="sec"><h3>3 · Settings</h3>
+<p><span class="call">The checkbox becomes a switch, the three language radios a segmented control, and the label column grows from 140 to 190 px (so "Reduce Transparency" fits on one line).</span> The volume stays a bar, now white.</p></div>
+<div class="scene game">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:520px">
+    <div class="heading">Settings</div>
+    <div class="set"><div class="lab"><i class="icon-maximize lic opt"></i>Fullscreen</div><div class="switch on" onclick="this.classList.toggle('on')"></div></div>
+    <div class="set"><div class="lab"><i class="icon-blend lic opt"></i>Reduce Transparency</div><div class="switch" onclick="this.classList.toggle('on')"></div></div>
+    <div class="set"><div class="lab"><i class="icon-volume-2 lic opt"></i>Volume</div><div class="slider"><div class="track"></div><div class="fillbar"></div><div class="thumb"></div></div></div>
+    <div class="set"><div class="lab"><i class="icon-languages lic opt"></i>Language</div>
+      <div class="seg" onclick="if(event.target.tagName==='SPAN'){this.querySelectorAll('span').forEach(s=>s.classList.remove('on'));event.target.classList.add('on')}">
+        <span class="on">English</span><span>Português (Brasil)</span><span>日本語</span></div></div>
+    <div class="row end"><div class="btn quiet">Close</div></div>
+  </div>
+  <span class="tag">overlay over the game</span>
+</div>
+
+<div class="sec"><h3>4 · Save Game</h3>
+<p>Each save shows a picture of the screen at the moment it was saved (112 × 63 px). <span class="call">A save with none (older, or unreadable) shows an empty frame.</span>
+The name field is a capsule; <span class="call">New Save is the main action, white already at rest.</span></p></div>
+<div class="scene game">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:520px">
+    <div class="heading">Save Game</div>
+    <div class="row"><div class="field">Unnamed</div><div class="btn primary">New Save</div></div>
+    <div class="col" style="gap:12px">
+      <div class="save pic"><div class="shot"></div><div class="t"><span>Bridge at sunset</span><span class="d">1h 01m played · 3d ago</span></div></div>
+      <div class="save pic"><div class="shot b"></div><div class="t"><span>Autosave</span><span class="d">0h 42m played · 5h ago</span></div></div>
+      <div class="save pic"><div class="shot none"><i class="icon-image-off lic"></i></div><div class="t"><span>Old save</span><span class="d">2h 10m played · 40d ago</span></div></div>
+    </div>
+    <div class="row end"><div class="btn quiet">Close</div></div>
+  </div>
+</div>
+
+<div class="sec"><h3>5 · Load Game</h3>
+<p>Delete is a trash icon in a round button: red at rest, filled red under the pointer. Clicking it still asks "Delete this save?", as today.</p></div>
+<div class="scene game">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:520px">
+    <div class="heading">Load Game</div>
+    <div class="col" style="gap:12px">
+      <div class="row"><div class="save pic"><div class="shot"></div><div class="t"><span>Bridge at sunset</span><span class="d">1h 01m played · 3d ago</span></div></div><div class="btn danger icon"><i class="icon-trash-2 lic"></i></div></div>
+      <div class="row"><div class="save pic"><div class="shot b"></div><div class="t"><span>Autosave</span><span class="d">0h 42m played · 5h ago</span></div></div><div class="btn danger icon"><i class="icon-trash-2 lic"></i></div></div>
+      <div class="muted">Incompatible Save</div>
+    </div>
+    <div class="row end"><div class="btn quiet">Close</div></div>
+  </div>
+</div>
+
+<div class="sec"><h3>6 · A dialog over the pause menu</h3>
+<p>The two answers centred under the question. The dialog blurs the pause menu under it, as the glass already does. No is the quiet button; a Yes that destroys is red, a plain Yes would be white.</p></div>
+<div class="scene game">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:340px">
+    <div class="heading">Paused</div>
+    <div class="col">
+      <div class="btn menu"><i class="icon-play lic opt"></i>Resume</div>
+      <div class="btn menu"><i class="icon-save lic opt"></i>Save</div>
+      <div class="btn menu"><i class="icon-folder-open lic opt"></i>Load Game</div>
+      <div class="btn menu"><i class="icon-settings lic opt"></i>Settings</div>
+      <div class="btn menu"><i class="icon-house lic opt"></i>Quit to Menu</div>
+      <div class="btn menu"><i class="icon-power lic opt"></i>Quit to Desktop</div>
+    </div>
+  </div>
+  <div class="backdrop" style="z-index:2"></div>
+  <div class="card rim over" style="width:400px">
+    <div class="q">Quit without saving?</div>
+    <div class="row" style="gap:10px; justify-content:center"><div class="btn quiet">No</div><div class="btn danger">Yes</div></div>
+  </div>
+</div>
+
+<div class="sec"><h3>7 · Overwriting a save</h3>
+<p>Already in the game: clicking a save in Save Game's list asks "Overwrite this save?" before writing over it. Here it is in the new look, over the blurred Save Game card.</p></div>
+<div class="scene game">
+  <div class="backdrop"></div>
+  <div class="card rim" style="width:520px">
+    <div class="heading">Save Game</div>
+    <div class="row"><div class="field">Unnamed</div><div class="btn primary">New Save</div></div>
+    <div class="col" style="gap:12px">
+      <div class="save pic"><div class="shot"></div><div class="t"><span>Bridge at sunset</span><span class="d">1h 01m played · 3d ago</span></div></div>
+      <div class="save pic"><div class="shot b"></div><div class="t"><span>Autosave</span><span class="d">0h 42m played · 5h ago</span></div></div>
+    </div>
+    <div class="row end"><div class="btn quiet">Close</div></div>
+  </div>
+  <div class="backdrop" style="z-index:2"></div>
+  <div class="card rim over" style="width:400px">
+    <div class="q">Overwrite this save?</div>
+    <div class="row" style="gap:10px; justify-content:center"><div class="btn quiet">No</div><div class="btn danger">Yes</div></div>
+  </div>
+</div>
+
+</body>
+</html>
