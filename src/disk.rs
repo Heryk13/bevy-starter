@@ -28,8 +28,9 @@ pub(crate) fn game_data_dir() -> Option<PathBuf> {
 /// Writes a file through a temporary one and a rename, so a crash mid-write leaves the
 /// old file whole. Creates the folder when it is missing, so the first write on a machine
 /// needs no setup.
-// ponytail: read and written on the main thread; move to IoTaskPool when saves grow
-// past a few KB
+// ponytail: saves and settings are read and written on the main thread, as is the picture
+// of a save made under the pause menu; only an autosave's picture is written from a task.
+// move the rest to one when a save grows past a few KB
 pub(crate) fn write_atomic(path: &Path, contents: impl AsRef<[u8]>) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;

@@ -135,6 +135,29 @@ approved are in `docs/roadmap/ui/look-screens.html`.
   with no picture, and shows nothing while a picture loads, so the missing-picture icon would
   need a system watching each load. Reading the file is a few lines and says at once whether
   there is a picture; its ceiling is the `ponytail:` comment the spec asked for.
+- **A text can keep its own colour under a button: `OwnColor`** (found by the review after
+  step 8). The ink reaches every text a button holds, which is right for a text lying on the
+  button's fill and wrong for the icon of a save's empty frame: it lies on the frame's grey,
+  where the dark ink of a row under the pointer was lost. `paint_buttons` leaves a text
+  marked `OwnColor` alone.
+- **The first screenshot is warmed up after all** (found by the review, task 7.13). Nothing
+  was seen to blink in the user's runs, but the reason it can is in Bevy's source: the frame
+  of a run's first screenshot is not drawn to the window until its pipeline is built, and an
+  autosave takes that screenshot in the middle of play. `warm_up_screenshots` takes one
+  nobody keeps as the first loading screen opens, as the spec allowed.
+- **A capture is taken out of its event, not copied** (found by the review). The observers
+  cloned the captured image, every pixel of the window, on the main thread, which the
+  departure above about never encoding there had left behind. `encode_capture` takes it with
+  `On::event_mut()`, and logs a capture it cannot encode for the pause's picture as for the
+  autosave's.
+- **A row's corner is derived in `button.rs`** (found by the review). The 18 px of
+  `ROW_BUTTON_RADIUS_PX` were the padding plus the picture's corner, written as a third
+  number: `ROW_CONTENT_RADIUS_PX` now lives beside the padding, the row's corner is their sum,
+  and the picture's frame reads the same constant.
+- **The trash says "Delete" to a screen reader in every language** (found by the review,
+  left as it is by the user: accessibility is not being worked on for now). The key
+  `save-delete` left with the word, and the `AccessibleLabel` is English, as those of the
+  Settings controls already were.
 
 ## The buttons at a glance
 
@@ -253,6 +276,23 @@ What `button_colors` returns from step 3 on, the fill first and the ink second:
 | [x] | 8.5 `SAVE_LIST_MAX_HEIGHT_PX` shows about four of the taller rows | you | derived from the frame's height, the row's padding and the gap between rows, not restated |
 | [x] | 8.6 The `ponytail:` comment on reading every picture on the main thread; `docs/flow.md`'s two lists | Claude | |
 | [ ] | 8.7 `just run`: each save beside its picture; a save from before this spec shows the empty frame; the corners are round; a row under the pointer turns white without hiding its picture; opening a list of many saves does not stall; review; sync | both | whether an `ImageNode` is clipped by its node's `border_radius` is looked at here; if not, the frame clips it with `Overflow::clip()` |
+
+## Review after step 8: `fix: mend what the look's review found`
+
+The eight commits read again by a reviewer that had not written them, against the rules of
+`CONTRIBUTING.md` and the Bevy 0.20.0 source. It found no save lost and no picture of the
+wrong moment; what it did find is below, each with what was done.
+
+| | Task | Who | Facts |
+|---|------|-----|-------|
+| [x] | R.1 The icon of a save's empty frame keeps its colour when its row turns white | Claude | `OwnColor`, a marker in `button.rs`; `paint_buttons` asks for `Query<&mut TextColor, Without<OwnColor>>`. Under the pointer the icon had gone from about 8:1 against the frame's grey to about 2:1 |
+| [x] | R.2 A screenshot nobody keeps, the first time a loading screen opens | Claude | `warm_up_screenshots` on `OnEnter(Screen::Loading)` with `.run_if(run_once)`; a `Screenshot` spawned with no observer is dropped as it arrives, and Bevy despawns its entity |
+| [x] | R.3 The captured image is taken out of its event instead of cloned, and a failed encode is logged on both paths | Claude | `encode_capture(captured, then)`: `std::mem::take(&mut captured.event_mut().image)`; an `Image` has a `Default`. A clone was 8 MB at 1080p and 33 MB at 4K, on the main thread |
+| [x] | R.4 Tests for the two branches of `save_pause_picture` | Claude | `a_save_made_under_the_pause_gets_the_kept_picture`, `a_save_with_no_kept_picture_loses_its_old_one`; a `PausePicture` already holding bytes is built by hand in the test |
+| [x] | R.5 `ROW_BUTTON_RADIUS_PX` is derived | Claude | `ROW_BUTTON_PADDING_PX + ROW_CONTENT_RADIUS_PX`, in a derived group of `button.rs`; `saves.rs` loses `SAVE_PICTURE_RADIUS_PX` |
+| [x] | R.6 Names and comments that no longer said what is there | Claude | `SWITCH_KNOB_ON_LEFT_PX` → `SWITCH_KNOB_ON_OFFSET_PX`; the comments of `FIELD_FILL`, `BUTTON_GAP_PX` and `write_atomic`'s `ponytail:` note; the limit of the early `continue` in `paint_buttons`; the test `a_window_of_any_shape_becomes_a_picture_of_one_size` → `a_captured_window_becomes_a_picture_of_the_pictures_size` |
+| [x] | R.7 `docs/flow.md`: `OwnColor`, the derived corner, `encode_capture` and the warm-up | Claude | |
+| [x] | R.8 `just run`: the icon of a save with no picture stays light under the pointer; the corners of a row and of its picture as before; a New Save still gets its picture; sync | both | not fixed, by the user's decision: the trash's `AccessibleLabel` stays English (see the departures) |
 
 ## Step 9: `docs: mark the look spec built`
 

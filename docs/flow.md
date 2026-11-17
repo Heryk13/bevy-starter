@@ -337,7 +337,8 @@ pause card darkens under it instead of competing with it.
   (`read_save_picture`) and added to `Assets<Image>`; the `ImageNode` holding its handle is what
   keeps it alive, so it goes with the overlay. A save that has no picture, one from before
   pictures existed or one whose file cannot be read, shows a grey frame holding
-  `Icon::ImageOff` in its place, and loads all the same. The frame is `SAVE_PICTURE_WIDTH_PX`
+  `Icon::ImageOff` in its place, marked `OwnColor` so it stays light on the grey when the row
+  turns white, and loads all the same. The frame is `SAVE_PICTURE_WIDTH_PX`
   wide and as tall as the file's own shape makes it (`PICTURE_ASPECT_RATIO`).
 
   The folder is read once, on `OnEnter(Overlay::SaveGame)`. The rows are spawned in a `for`
@@ -570,7 +571,10 @@ main action, white already at rest), `Choice` (one among equals, white under the
 its `Hovered` and `Has<Pressed>` state with `approach`, on `Time<Real>`, and paints it from the
 pure `button_colors(kind, hover, press)`: a fill, and an ink, which it writes to every text
 under the button at that text's own alpha, so a label turns dark on a white fill and a row's
-muted details stay muted. A button resting where it was last painted is skipped. `floating_root(z)` and `card(width)` are what every panel is
+muted details stay muted. A text marked `OwnColor` is left out: it lies on a surface of its
+own, like the icon of a save's empty frame. A button resting where it was last painted is
+skipped. A row's corner is derived, `ROW_BUTTON_PADDING_PX` plus `ROW_CONTENT_RADIUS_PX`, the
+corner of what the row starts with, so the two curves stay parallel. `floating_root(z)` and `card(width)` are what every panel is
 built from; `animate_entrances` brings each new root in, its glass and its card's fading in and
 the card rising 12 px and scaling up, by the `ENTRANCE` fade. Its systems carry no `run_if`: a button lives on any screen and inside any overlay,
 so there is no state to gate them on. `load_button_sounds` loads `ui/click.wav` and `ui/hover.wav`
@@ -629,8 +633,12 @@ whose observer gets the image a few frames later), so it shows what the player s
 the genre draws. The pure `picture_crop` keeps the largest 16:9 part around the window's
 center, and `encode_picture` crops, shrinks and encodes it through the `image` crate Bevy
 already brings, reached through `Image::try_into_dynamic`, so `Cargo.toml` names no new crate.
-That work never runs on the main thread: each observer hands the capture to a task on the
-`AsyncComputeTaskPool`.
+That work never runs on the main thread: each observer hands the capture to `encode_capture`,
+which takes the image out of the event, without copying it, and encodes it in a task on the
+`AsyncComputeTaskPool`. The first screenshot of a run makes Bevy build the pipeline that draws
+a captured frame back to the window, and that frame is not drawn until it is built, so
+`warm_up_screenshots` takes one nobody keeps as the first loading screen opens, where the
+frame lost comes in from black.
 
 A picture is taken at two moments. While the game runs, `take_save_picture(path)` writes it
 beside the save at `path` when it is done: the autosave's. Under the pause menu the window

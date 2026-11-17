@@ -9,8 +9,8 @@ mod button;
 mod panel;
 
 pub(crate) use button::{
-    BUTTON_EASE_SECS, BUTTON_HEIGHT_PX, ButtonKind, ROW_BUTTON_PADDING_PX, button, icon_button,
-    menu_button, row_button,
+    BUTTON_EASE_SECS, BUTTON_HEIGHT_PX, ButtonKind, OwnColor, ROW_BUTTON_PADDING_PX,
+    ROW_CONTENT_RADIUS_PX, button, icon_button, menu_button, row_button,
 };
 // the icons by name, re-exported so this file is the only one that names the crate
 pub(crate) use lucide_icons::Icon;
@@ -33,7 +33,7 @@ pub(crate) const DANGER: Color = Color::srgb_u8(0xFF, 0x5F, 0x57);
 // and vanishes over another, and a card's background is the game
 pub(crate) const TEXT: Color = Color::srgba(1.0, 1.0, 1.0, 0.92);
 pub(crate) const TEXT_MUTED: Color = Color::srgba(1.0, 1.0, 1.0, 0.74);
-// a field the player types in, and a control that is off
+// a field the player types in, and the track the choices of a control sit in
 pub(crate) const FIELD_FILL: Color = Color::srgba(1.0, 1.0, 1.0, 0.08);
 
 // ---- type -------------------------------------------------------------------
@@ -60,7 +60,7 @@ const ICON_FONT: Handle<Font> = uuid_handle!("62d3686c-8ac2-4ff3-a801-d7263c00dc
 const ICON_SIZE_PX: f32 = 22.0;
 
 // ---- borders and gaps, shared by text, buttons and panels -------------------
-// between buttons stacked in a column or set side by side: the menu, the pause menu, a dialog
+// between buttons stacked in a column or set side by side: the pause menu, a dialog
 pub(crate) const BUTTON_GAP_PX: f32 = 10.0;
 pub(crate) const BORDER_PX: f32 = 1.0;
 
