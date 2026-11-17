@@ -15,8 +15,9 @@ mod settings;
 // room left above it on purpose, for anything that must draw over an overlay
 const OVERLAY_Z_INDEX: GlobalZIndex = GlobalZIndex(100);
 
-// wide enough for the Settings grid and a save's row with its Delete beside it
-const OVERLAY_WIDTH_PX: f32 = 520.0;
+// wide enough for the Settings grid, whose language names sit side by side beside their
+// label, and for a save's row with its Delete beside it
+const OVERLAY_WIDTH_PX: f32 = 580.0;
 // between the saves in a list, and between controls side by side: the name field and its
 // New Save, a save and its Delete
 const OVERLAY_GAP_PX: f32 = 12.0;

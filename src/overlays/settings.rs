@@ -12,43 +12,52 @@ use super::{Overlay, close_footer, overlay_card, overlay_root};
 use crate::disk::{game_data_dir, write_atomic};
 use crate::i18n::{Language, language_from_locale};
 use crate::ui::blur::ReduceTransparency;
-use crate::ui::{
-    ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, FIELD_FILL, TEXT, TEXT_MUTED, font, heading,
-    label,
-};
+use crate::ui::{ACCENT, FIELD_FILL, INK, SMALL_FONT_SIZE_PX, TEXT_MUTED, font, heading, label};
 
 // ==== Config =================================================================
 
 // ---- layout: a grid, the labels in a column of their own --------------------
-const LABEL_WIDTH_PX: f32 = 140.0;
-const CONTROL_GAP_PX: f32 = 12.0;
+// wide enough for the longest label, Reduce Transparency, to stay on one line
+const LABEL_WIDTH_PX: f32 = 190.0;
+
+// ---- colors: the palette lives in ui.rs, this only paints the controls ------
+// the empty part of a control: a switch that is off, a slider's track past its thumb
+const CONTROL_TRACK: Color = Color::srgba(1.0, 1.0, 1.0, 0.16);
 
 // ---- fullscreen -------------------------------------------------------------
 // borderless, on the monitor the window is on: it switches instantly and never
 // changes the desktop resolution
 const FULLSCREEN_MODE: WindowMode = WindowMode::BorderlessFullscreen(MonitorSelection::Current);
 
-// ---- checkboxes: fullscreen and reduce transparency -------------------------
-const CHECKBOX_SIZE_PX: f32 = 22.0;
-const CHECKBOX_RADIUS_PX: f32 = 4.0;
+// ---- switches: fullscreen and reduce transparency ---------------------------
+const SWITCH_WIDTH_PX: f32 = 46.0;
+const SWITCH_HEIGHT_PX: f32 = 26.0;
+const SWITCH_KNOB_SIZE_PX: f32 = 20.0;
 
 // ---- volume slider: the thumb travels the track minus its own width ---------
 // the slider is as tall as its thumb, so the whole height takes a click; the track is a
 // thin line through its middle
 const SLIDER_WIDTH_PX: f32 = 220.0;
-const SLIDER_THUMB_SIZE_PX: f32 = 16.0;
-const SLIDER_TRACK_HEIGHT_PX: f32 = 4.0;
+const SLIDER_THUMB_SIZE_PX: f32 = 18.0;
+const SLIDER_TRACK_HEIGHT_PX: f32 = 6.0;
 // 100 and not 1.0: `SliderStep` defaults to 1.0, so each arrow key moves the slider
 // by a hundredth of its range instead of across all of it
 const SLIDER_MAX: f32 = 100.0;
 
-// ---- language radios: an empty ring until chosen, then filled ---------------
-const RADIO_SIZE_PX: f32 = 16.0;
-const RADIO_RING_PX: f32 = 2.0;
+// ---- language segments: one capsule track, the chosen language filled -------
+const SEGMENT_HEIGHT_PX: f32 = 32.0;
+const SEGMENT_PADDING_PX: f32 = 14.0;
+// between the track's edge and its segments, so the chosen one floats inside it
+const SEGMENT_INSET_PX: f32 = 3.0;
 
 // ---- file: a different version is ignored and the defaults are kept ---------
 const SETTINGS_VERSION: u32 = 1;
 const SETTINGS_FILE_NAME: &str = "settings.ron";
+
+// ---- derived: where a switch's knob rests -----------------------------------
+// the same gap on every side of the knob, whichever end it is at
+const SWITCH_KNOB_INSET_PX: f32 = (SWITCH_HEIGHT_PX - SWITCH_KNOB_SIZE_PX) / 2.0;
+const SWITCH_KNOB_ON_LEFT_PX: f32 = SWITCH_WIDTH_PX - SWITCH_KNOB_SIZE_PX - SWITCH_KNOB_INSET_PX;
 
 // ==== Plugin =================================================================
 
@@ -62,10 +71,10 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(
         Update,
         (
-            update_fullscreen_checkbox,
-            update_reduce_transparency_checkbox,
+            update_fullscreen_switch,
+            update_reduce_transparency_switch,
             update_volume_slider,
-            update_language_radios,
+            update_language_segments,
         )
             .run_if(in_state(Overlay::Settings)),
     );
@@ -74,13 +83,17 @@ pub(super) fn plugin(app: &mut App) {
 
 // ==== Components =============================================================
 
-/// Marks the checkbox that switches the window in and out of fullscreen.
+/// Marks the switch that puts the window in and out of fullscreen.
 #[derive(Component)]
 struct FullscreenToggle;
 
-/// Marks the checkbox that turns the glass into flat fills, with no blur behind them.
+/// Marks the switch that turns the glass into flat fills, with no blur behind them.
 #[derive(Component)]
 struct ReduceTransparencyToggle;
+
+/// Marks the knob of a switch, which rests at its left end when off and at its right when on.
+#[derive(Component)]
+struct SwitchKnob;
 
 /// Marks the slider that sets the game's volume.
 #[derive(Component)]
@@ -90,13 +103,9 @@ struct VolumeSlider;
 #[derive(Component)]
 struct VolumeFill;
 
-/// Marks a language radio button with the language it chooses.
+/// Marks a segment of the language control with the language it chooses.
 #[derive(Component)]
 struct LanguageOption(Language);
-
-/// Marks the ring inside a language radio button, filled to show it is chosen.
-#[derive(Component)]
-struct RadioMark;
 
 // ==== Settings File ==========================================================
 
@@ -158,7 +167,7 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
                 setting_row(
                     "settings-fullscreen",
                     (
-                        checkbox(),
+                        switch(),
                         FullscreenToggle,
                         AccessibleLabel::new("Fullscreen"),
                     ),
@@ -166,7 +175,7 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
                 setting_row(
                     "settings-reduce-transparency",
                     (
-                        checkbox(),
+                        switch(),
                         ReduceTransparencyToggle,
                         AccessibleLabel::new("Reduce Transparency"),
                     ),
@@ -188,7 +197,7 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
                         AccessibleLabel::new("Volume"),
                         VolumeSlider,
                         children![
-                            (slider_track(percent(100)), BackgroundColor(BORDER)),
+                            (slider_track(percent(100)), BackgroundColor(CONTROL_TRACK)),
                             (slider_track(px(0)), BackgroundColor(ACCENT), VolumeFill),
                             (
                                 Node {
@@ -198,7 +207,7 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
                                     border_radius: BorderRadius::MAX,
                                     ..default()
                                 },
-                                BackgroundColor(TEXT),
+                                BackgroundColor(ACCENT),
                                 SliderThumb,
                             ),
                         ],
@@ -206,13 +215,17 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
                 ),
                 setting_row(
                     "settings-language",
+                    // ponytail: a segment per language, side by side, fits three or four
+                    // names in the card's width. a game with more needs a list in its place
                     (
                         Node {
-                            column_gap: px(CONTROL_GAP_PX),
+                            padding: UiRect::all(px(SEGMENT_INSET_PX)),
+                            border_radius: BorderRadius::MAX,
                             ..default()
                         },
+                        BackgroundColor(FIELD_FILL),
                         RadioGroup,
-                        Children::spawn(SpawnIter(Language::ALL.into_iter().map(language_radio))),
+                        Children::spawn(SpawnIter(Language::ALL.into_iter().map(language_segment))),
                     ),
                 ),
                 close_footer(),
@@ -222,7 +235,7 @@ fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolum
     ));
 }
 
-/// Switches the window in or out of fullscreen when the fullscreen checkbox is clicked.
+/// Puts the window in or out of fullscreen when the fullscreen switch is clicked.
 fn toggle_fullscreen(
     value_change: On<ValueChange<bool>>,
     fullscreen_toggles: Query<(), With<FullscreenToggle>>,
@@ -233,7 +246,7 @@ fn toggle_fullscreen(
     }
 }
 
-/// Turns Reduce Transparency on or off when its checkbox is clicked. The glass follows at
+/// Turns Reduce Transparency on or off when its switch is clicked. The glass follows at
 /// once, this panel's own included.
 fn toggle_reduce_transparency(
     value_change: On<ValueChange<bool>>,
@@ -245,32 +258,28 @@ fn toggle_reduce_transparency(
     }
 }
 
-/// Checks and paints the fullscreen checkbox from the window mode.
-fn update_fullscreen_checkbox(
+/// Keeps the fullscreen switch on while the window is fullscreen, and off otherwise.
+fn update_fullscreen_switch(
     mut commands: Commands,
-    checkbox: Single<(Entity, &mut BackgroundColor, &mut BorderColor), With<FullscreenToggle>>,
+    switch: Single<SwitchParts, (With<FullscreenToggle>, Without<SwitchKnob>)>,
+    mut knobs: Query<(&mut Node, &mut BackgroundColor), With<SwitchKnob>>,
     window: Single<&Window>,
 ) {
-    let (entity, mut fill, mut border) = checkbox.into_inner();
-    let checked = window.mode != WindowMode::Windowed;
-    set_checkbox(&mut commands, entity, &mut fill, &mut border, checked);
+    let on = window.mode != WindowMode::Windowed;
+    set_switch(&mut commands, switch.into_inner(), &mut knobs, on);
 }
 
-/// Checks and paints the Reduce Transparency checkbox from the setting.
-fn update_reduce_transparency_checkbox(
+/// Keeps the Reduce Transparency switch on while the setting is, and off otherwise.
+fn update_reduce_transparency_switch(
     mut commands: Commands,
-    checkbox: Single<
-        (Entity, &mut BackgroundColor, &mut BorderColor),
-        With<ReduceTransparencyToggle>,
-    >,
+    switch: Single<SwitchParts, (With<ReduceTransparencyToggle>, Without<SwitchKnob>)>,
+    mut knobs: Query<(&mut Node, &mut BackgroundColor), With<SwitchKnob>>,
     reduce_transparency: Res<ReduceTransparency>,
 ) {
-    let (entity, mut fill, mut border) = checkbox.into_inner();
-    set_checkbox(
+    set_switch(
         &mut commands,
-        entity,
-        &mut fill,
-        &mut border,
+        switch.into_inner(),
+        &mut knobs,
         reduce_transparency.0,
     );
 }
@@ -306,8 +315,8 @@ fn update_volume_slider(
     fill.width = px(thumb_position * distance + SLIDER_THUMB_SIZE_PX / 2.0);
 }
 
-/// Switches the game to the language whose radio button was clicked. Every `Localized`
-/// text follows on its own, the panel's own labels and the menu behind it included.
+/// Switches the game to the language whose segment was clicked. Every `Localized` text
+/// follows on its own, the panel's own labels and the menu behind it included.
 fn choose_language(
     value_change: On<ValueChange<Entity>>,
     options: Query<&LanguageOption>,
@@ -319,30 +328,37 @@ fn choose_language(
     }
 }
 
-/// Checks the language radio button that matches the current language and fills its ring,
-/// unchecking and emptying the others, since the radio group leaves that to the app.
-fn update_language_radios(
+/// Checks the segment of the current language and fills it, unchecking and emptying the
+/// others, since the radio group leaves that to the app.
+fn update_language_segments(
     mut commands: Commands,
     language: Res<Language>,
-    radios: Query<(Entity, &LanguageOption, &Children)>,
-    mut marks: Query<(&mut BackgroundColor, &mut BorderColor), With<RadioMark>>,
+    mut segments: Query<(
+        Entity,
+        &LanguageOption,
+        Has<Checked>,
+        &mut BackgroundColor,
+        &Children,
+    )>,
+    mut names: Query<&mut TextColor>,
 ) {
-    for (entity, LanguageOption(option), children) in &radios {
+    for (entity, LanguageOption(option), checked, mut fill, children) in &mut segments {
         let chosen = *option == *language;
-        if chosen {
+        // already as it should be, which is most frames: a segment spawns unchosen
+        if checked == chosen {
+            continue;
+        }
+        let (fill_color, ink) = if chosen {
             commands.entity(entity).insert(Checked);
+            (ACCENT, INK)
         } else {
             commands.entity(entity).remove::<Checked>();
-        }
+            (Color::NONE, TEXT_MUTED)
+        };
+        fill.0 = fill_color;
         for child in children {
-            if let Ok((mut fill, mut ring)) = marks.get_mut(*child) {
-                let (fill_color, ring_color) = if chosen {
-                    (ACCENT, ACCENT)
-                } else {
-                    (Color::NONE, TEXT_MUTED)
-                };
-                fill.0 = fill_color;
-                *ring = BorderColor::all(ring_color);
+            if let Ok(mut name) = names.get_mut(*child) {
+                name.0 = ink;
             }
         }
     }
@@ -397,40 +413,69 @@ fn setting_row(key: &'static str, control: impl Bundle) -> impl Bundle {
     )
 }
 
-/// Returns an empty checkbox, for its marker and its accessible label to be added to. Its
-/// `update_*_checkbox` system checks and paints it every frame, since the widget does neither.
-fn checkbox() -> impl Bundle {
+/// Returns a switch that is off, for its marker and its accessible label to be added to. It
+/// is a `Checkbox` drawn as a track and a knob, as Bevy's own toggle switch is. Its
+/// `update_*_switch` system turns it on and paints it, since the widget does neither.
+fn switch() -> impl Bundle {
     (
         Node {
-            width: px(CHECKBOX_SIZE_PX),
-            height: px(CHECKBOX_SIZE_PX),
-            border: UiRect::all(px(BORDER_PX)),
-            border_radius: BorderRadius::all(px(CHECKBOX_RADIUS_PX)),
+            width: px(SWITCH_WIDTH_PX),
+            height: px(SWITCH_HEIGHT_PX),
+            border_radius: BorderRadius::MAX,
             ..default()
         },
         Checkbox,
-        BackgroundColor(FIELD_FILL),
-        BorderColor::all(BORDER),
+        BackgroundColor(CONTROL_TRACK),
+        children![(
+            Node {
+                width: px(SWITCH_KNOB_SIZE_PX),
+                height: px(SWITCH_KNOB_SIZE_PX),
+                position_type: PositionType::Absolute,
+                left: px(SWITCH_KNOB_INSET_PX),
+                top: px(SWITCH_KNOB_INSET_PX),
+                border_radius: BorderRadius::MAX,
+                ..default()
+            },
+            BackgroundColor(ACCENT),
+            SwitchKnob,
+        )],
     )
 }
 
-/// Checks or unchecks a checkbox and paints it to match: filled with the accent when on, an
-/// empty box when off.
-fn set_checkbox(
+/// What a switch's system reads of it: the switch, whether it is on, its track and its
+/// children, the knob among them.
+type SwitchParts = (
+    Entity,
+    Has<Checked>,
+    &'static mut BackgroundColor,
+    &'static Children,
+);
+
+/// Turns a switch on or off and paints it to match: the accent with a dark knob at the right
+/// when on, an empty track with a white knob at the left when off. Does nothing to a switch
+/// that is already there, which is most frames.
+fn set_switch(
     commands: &mut Commands,
-    entity: Entity,
-    fill: &mut BackgroundColor,
-    border: &mut BorderColor,
-    checked: bool,
+    (entity, checked, mut track, children): (Entity, bool, Mut<BackgroundColor>, &Children),
+    knobs: &mut Query<(&mut Node, &mut BackgroundColor), With<SwitchKnob>>,
+    on: bool,
 ) {
-    if checked {
+    if checked == on {
+        return;
+    }
+    let (track_color, knob_color, knob_left_px) = if on {
         commands.entity(entity).insert(Checked);
-        fill.0 = ACCENT;
-        *border = BorderColor::all(ACCENT);
+        (ACCENT, INK, SWITCH_KNOB_ON_LEFT_PX)
     } else {
         commands.entity(entity).remove::<Checked>();
-        fill.0 = FIELD_FILL;
-        *border = BorderColor::all(BORDER);
+        (CONTROL_TRACK, ACCENT, SWITCH_KNOB_INSET_PX)
+    };
+    track.0 = track_color;
+    for child in children {
+        if let Ok((mut knob, mut fill)) = knobs.get_mut(*child) {
+            knob.left = px(knob_left_px);
+            fill.0 = knob_color;
+        }
     }
 }
 
@@ -447,35 +492,26 @@ fn slider_track(width: Val) -> impl Bundle {
     }
 }
 
-/// Returns the radio button that chooses `language`: a dot, then the language's name in
-/// itself.
-fn language_radio(language: Language) -> impl Bundle {
+/// Returns the segment that chooses `language`, unchosen: the language's name in itself. It
+/// is a `RadioButton`, so its group reports a click on it and the arrow keys move between
+/// the segments.
+fn language_segment(language: Language) -> impl Bundle {
     (
         Node {
-            column_gap: px(CONTROL_GAP_PX / 2.0),
+            height: px(SEGMENT_HEIGHT_PX),
+            padding: UiRect::horizontal(px(SEGMENT_PADDING_PX)),
             align_items: AlignItems::Center,
+            border_radius: BorderRadius::MAX,
             ..default()
         },
         RadioButton,
         LanguageOption(language),
-        children![
-            (
-                Node {
-                    width: px(RADIO_SIZE_PX),
-                    height: px(RADIO_SIZE_PX),
-                    border: UiRect::all(px(RADIO_RING_PX)),
-                    border_radius: BorderRadius::MAX,
-                    ..default()
-                },
-                BorderColor::all(TEXT_MUTED),
-                RadioMark,
-            ),
-            (
-                Text::new(language.native_name()),
-                font(BODY_FONT_SIZE_PX),
-                TextColor(TEXT),
-            ),
-        ],
+        BackgroundColor(Color::NONE),
+        children![(
+            Text::new(language.native_name()),
+            font(SMALL_FONT_SIZE_PX),
+            TextColor(TEXT_MUTED),
+        )],
     )
 }
 

@@ -308,13 +308,15 @@ pause card darkens under it instead of competing with it.
 - **Credits** (`src/overlays/credits.rs`): a translated line, the names as plain text, and a Close
   button.
 - **Settings** (`src/overlays/settings.rs`): a grid of `setting_row`s, each a label in a column of
-  its own beside its control: a fullscreen checkbox, a Reduce Transparency checkbox and a 0–100
-  volume slider, all from `bevy_ui_widgets`, and the language radios. The two checkboxes are
-  the same `checkbox()`, checked and painted by `set_checkbox`. The slider is as tall as its
-  thumb, with a thin track through it and a `VolumeFill` up to the thumb, in the accent. Its
-  `update_fullscreen_checkbox`, `update_reduce_transparency_checkbox`, `update_volume_slider`
-  and `update_language_radios` are gated with `.run_if(in_state(Overlay::Settings))`; the
-  widgets are headless, so those systems are what actually draw the state.
+  its own beside its control: a fullscreen switch, a Reduce Transparency switch and a 0–100
+  volume slider, all from `bevy_ui_widgets`, and the language segments. The two switches are
+  the same `switch()`, a `Checkbox` drawn as a capsule track with a `SwitchKnob`, turned on
+  and painted by `set_switch`: the accent with a dark knob at the right when on. The slider is
+  as tall as its thumb, with a thin track through it and a `VolumeFill` up to the thumb, in
+  the accent. Its `update_fullscreen_switch`, `update_reduce_transparency_switch`,
+  `update_volume_slider` and `update_language_segments` are gated with
+  `.run_if(in_state(Overlay::Settings))`; the widgets are headless, so those systems are what
+  actually draw the state, and a control already showing its state is left alone.
   `toggle_reduce_transparency` flips `ReduceTransparency`, a resource of `ui/blur.rs`, and the
   glass follows at once, the Settings panel's own included (see "The cameras and the blur").
   All four choices are remembered in `settings.ron` in the
@@ -324,9 +326,13 @@ pause card darkens under it instead of competing with it.
   is read from them and written back to them. A missing, unreadable or other-version file keeps
   the defaults silently, since `parse_settings` returns `None` for all of them; a failed write
   is logged with `error!`. A file from before Reduce Transparency existed loads with it off.
-  A third row picks the language: a `RadioGroup` of one `RadioButton` per `Language::ALL`, each
-  named in its own language. `choose_language` observes the group's `ValueChange<Entity>` and sets
-  the `Language` resource; `update_language_radios` checks and paints the one that matches it.
+  The last row picks the language with a segmented control: a `RadioGroup` drawn as one
+  capsule track, holding a `language_segment` (a `RadioButton`) per `Language::ALL`, each named
+  in its own language. `choose_language` observes the group's `ValueChange<Entity>` and sets
+  the `Language` resource; `update_language_segments` checks the one that matches it and fills
+  it with the accent. Side by side, the segments fit three or four names: a game with more
+  languages needs a list there. `OVERLAY_WIDTH_PX` is what the label column and the three
+  names need together.
   The language goes into `settings.ron` with the rest, as `Some(language)`; a file without one,
   or no file, follows the OS through `sys_locale` and `language_from_locale`.
 - **Save Game** (`src/overlays/saves.rs`): a name field, a New Save button, then one row per file
