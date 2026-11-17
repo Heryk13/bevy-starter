@@ -513,7 +513,7 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
-| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
+| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `muted_text()`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
 | `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()`, `ReduceTransparency`, `ScreensCovered` with `ScreensCoveredSystems` | the pause menu, every overlay and every dialog float |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
@@ -525,7 +525,9 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 the type and the text widgets, `ui/button.rs` the buttons, `ui/panel.rs` the floating roots,
 cards and dialogs, and `ui/blur.rs` the blur; callers import from `ui`, or `ui::blur` for the blur. Its `Config` holds the palette (`SURFACE`, `BORDER`,
 `ACCENT`, `DANGER`, `TEXT`, `TEXT_MUTED`, ...) and the four type sizes, so a game made from the
-template recolors in one place. It hands out three buttons, all pills with a thin border:
+template recolors in one place. Muted text that stays light is `muted_text(size_px)`, never a
+bare `TextColor(TEXT_MUTED)`: it adds the soft `TextShadow` that keeps the faintest text
+readable over whatever the glass shows. It hands out three buttons, all pills with a thin border:
 `button(key, kind)` with its label centered, `menu_button(key)` for a column of choices, label to
 the left, and `row_button(content)` around any bundle, for a list row. `ButtonKind` is a component:
 `Primary`, `Quiet` (no border until hovered, for Close and No) or `Danger` (red when hovered).

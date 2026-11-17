@@ -141,9 +141,9 @@ every word and every glyph exists from the first frame. Editing one needs a rebu
 ### The look
 
 The colors and type sizes of every screen, panel and button are the `Config` section of
-`src/ui.rs`: `ACCENT` is the amber of hovered buttons and checked controls, `SURFACE` the panels,
-`TEXT` and `TEXT_MUTED` the two text colors, `DANGER` the red of Delete. Recoloring the game is
-editing those constants. The game's name on the menu and the window is `GAME_TITLE` in
+`src/ui.rs`: `ACCENT` is the white of hovered buttons and checked controls, `SURFACE` the tint
+of the panels over their glass, `TEXT` and `TEXT_MUTED` the two text colors, both a white let
+through in part, `DANGER` the red of Delete. Recoloring the game is editing those constants. The game's name on the menu and the window is `GAME_TITLE` in
 `src/main.rs`. Anything that should float over the screens with the blur behind it is built on
 `floating_root()` and `card()` from `ui.rs`; the `Floating` marker they carry is all the blur needs.
 A panel on a layer that exists (`OVERLAY_Z_INDEX` for a new overlay) needs nothing else. A new

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use super::Overlay;
 use super::{close_footer, overlay_card, overlay_root};
-use crate::ui::{BODY_FONT_SIZE_PX, TEXT_MUTED, font, heading, label};
+use crate::ui::{BODY_FONT_SIZE_PX, heading, label, muted_text};
 
 // ==== Config =================================================================
 
@@ -26,11 +26,7 @@ fn spawn_credits_overlay(mut commands: Commands) {
             children![
                 heading("credits-title"),
                 label("credits-made-with"),
-                (
-                    Text::new(CREDITS_NAMES),
-                    font(BODY_FONT_SIZE_PX),
-                    TextColor(TEXT_MUTED),
-                ),
+                (Text::new(CREDITS_NAMES), muted_text(BODY_FONT_SIZE_PX)),
                 close_footer(),
             ],
         )],
