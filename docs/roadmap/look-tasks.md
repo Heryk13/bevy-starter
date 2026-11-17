@@ -59,6 +59,23 @@ approved are in `docs/roadmap/ui/look-screens.html`.
   means reaching for the first two stops by their position; `bar_gradient(color)` builds the
   three stops again instead, the same function the word spawns with. A word resting is
   skipped, as a button is, so it runs for the 0.12 s of an ease.
+- **A control already showing its state is left alone** (decided while building 5.1). The
+  checkboxes and the radios were checked and painted again every frame, a command each. The
+  switches and the segments spawn off, and their systems act only when `Has<Checked>`
+  disagrees with the window, the setting or the language, which is the frame one changes.
+- **The switch is announced as a checkbox** (checked while building 5.1). Bevy's `Checkbox`
+  asks a toggle switch to override its `AccessibilityNode` with `Role::Switch`, and its own
+  toggle switch does; but Bevy no longer re-exports `accesskit`, so the role would cost the
+  template a crate of its own, pinned to Bevy's version. A screen reader says "checkbox,
+  checked", which is true of it.
+- **The knob snaps** (decided while building 5.1). The spec gives the switch two states and
+  no ease, and a click on it is felt at once either way.
+- **The slider's track and a switch that is off share `CONTROL_TRACK`**, a colour of
+  `settings.rs` (decided while building 5.1). The spec's white at 16% is `BORDER`'s value,
+  but `BORDER` is the hairline, and a control's empty track is not one.
+- **`OVERLAY_WIDTH_PX` is 580, not measured** (5.5). Claude cannot see the game: the width is
+  worked out from the label column, the three names' lengths and the paddings, with some
+  room to spare, and the user's `just run` in the three languages is what confirms it.
 
 ## The buttons at a glance
 
@@ -118,19 +135,19 @@ What `button_colors` returns from step 3 on, the fill first and the ink second:
 | [x] | 4.5 The system that eases and paints the words, in `Update` under `in_state(Screen::Menu)` | you | `approach` from `crate::fade` and `Time<Real>`, as `paint_buttons`; `BUTTON_EASE_SECS` becomes `pub(crate)` and is re-exported by `ui.rs`, its second user. The bar is `LinearGradient::to_right` with three stops: white at the strength at 0% and at the solid stop, clear white at 100% (clear *white*, not `Color::NONE`, for the reason `CLEAR` gives in `button.rs`). The word's `TextColor` and `TextShadow` are on the child |
 | [x] | 4.6 The column loses its `row_gap`, so the pointer never falls between two words | you | `BUTTON_GAP_PX` leaves `menu.rs`'s imports |
 | [x] | 4.7 `docs/flow.md`'s menu section | Claude | |
-| [ ] | 4.8 `just run`: the words line up under the title; the bar's trail down the column, never a blink; Continue hidden with no save leaves no hole; every word reads over the artwork; the opening veil; review; sync | both | `update_continue_button` finds the button by `MenuAction` and sets `Display::None`, so it needs no change |
+| [x] | 4.8 `just run`: the words line up under the title; the bar's trail down the column, never a blink; Continue hidden with no save leaves no hole; every word reads over the artwork; the opening veil; review; sync | both | `update_continue_button` finds the button by `MenuAction` and sets `Display::None`, so it needs no change |
 
 ## Step 5: `feat: turn the settings into switches and segments`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 5.1 The switch, replacing `checkbox()` and `set_checkbox` in `src/overlays/settings.rs`: a 46 × 26 capsule and a 20 px knob | you | still a `Checkbox` (`bevy::ui_widgets`) with `Checked`, so `ValueChange<bool>` and the two toggle observers stay as they are. The knob is a child with a marker, `PositionType::Absolute`; its inset and its two `left` values are derived from the three sizes. Off: track white at 16%, knob white. On: track `ACCENT`, knob `INK` |
-| [ ] | 5.2 The renames the switch brings: `update_fullscreen_checkbox`, `update_reduce_transparency_checkbox`, the checkboxes' `Config` group, the markers' doc comments | Claude | |
-| [ ] | 5.3 The segmented control, replacing `language_radio` and `RadioMark`: one capsule track, one segment per `Language::ALL` | you | `RadioGroup` and `RadioButton` stay, so `ValueChange<Entity>` and `choose_language` do not change; `update_language_radios` paints the segment's `BackgroundColor` and its text's `TextColor` in place of the ring: chosen `ACCENT` with `INK`, the others clear with `TEXT_MUTED`; `SMALL_FONT_SIZE_PX`. `RADIO_*` go |
-| [ ] | 5.4 The slider: a 6 px track, an 18 px thumb, the thumb white | you | `SLIDER_TRACK_HEIGHT_PX`, `SLIDER_THUMB_SIZE_PX`; `update_volume_slider` reads both, so it follows |
-| [ ] | 5.5 `LABEL_WIDTH_PX` 140 → 190; then `OVERLAY_WIDTH_PX` in `src/overlays.rs` widened to what the three language names need beside it | you | measured in the game in English, pt-BR and Japanese, not guessed: about 560. Save Game and Load Game share the constant, and its comment names what it must hold |
-| [ ] | 5.6 The `ponytail:` comment where the segmented control is built (three or four names; more needs a list); `docs/flow.md`'s Settings section | Claude | |
-| [ ] | 5.7 `just run` in the three languages: no label or name wraps; both switches save and come back after a restart; the arrow keys still move the slider; Reduce Transparency flips this panel's own glass; review; sync | both | |
+| [x] | 5.1 The switch, replacing `checkbox()` and `set_checkbox` in `src/overlays/settings.rs`: a 46 × 26 capsule and a 20 px knob | you | still a `Checkbox` (`bevy::ui_widgets`) with `Checked`, so `ValueChange<bool>` and the two toggle observers stay as they are. The knob is a child with a marker, `PositionType::Absolute`; its inset and its two `left` values are derived from the three sizes. Off: track white at 16%, knob white. On: track `ACCENT`, knob `INK` |
+| [x] | 5.2 The renames the switch brings: `update_fullscreen_checkbox`, `update_reduce_transparency_checkbox`, the checkboxes' `Config` group, the markers' doc comments | Claude | |
+| [x] | 5.3 The segmented control, replacing `language_radio` and `RadioMark`: one capsule track, one segment per `Language::ALL` | you | `RadioGroup` and `RadioButton` stay, so `ValueChange<Entity>` and `choose_language` do not change; `update_language_radios` paints the segment's `BackgroundColor` and its text's `TextColor` in place of the ring: chosen `ACCENT` with `INK`, the others clear with `TEXT_MUTED`; `SMALL_FONT_SIZE_PX`. `RADIO_*` go |
+| [x] | 5.4 The slider: a 6 px track, an 18 px thumb, the thumb white | you | `SLIDER_TRACK_HEIGHT_PX`, `SLIDER_THUMB_SIZE_PX`; `update_volume_slider` reads both, so it follows |
+| [x] | 5.5 `LABEL_WIDTH_PX` 140 → 190; then `OVERLAY_WIDTH_PX` in `src/overlays.rs` widened to what the three language names need beside it | you | measured in the game in English, pt-BR and Japanese, not guessed: about 560. Save Game and Load Game share the constant, and its comment names what it must hold |
+| [x] | 5.6 The `ponytail:` comment where the segmented control is built (three or four names; more needs a list); `docs/flow.md`'s Settings section | Claude | |
+| [x] | 5.7 `just run` in the three languages: no label or name wraps; both switches save and come back after a restart; the arrow keys still move the slider; Reduce Transparency flips this panel's own glass; review; sync | both | |
 
 ## Step 6: `feat: add the icon font and the trash button`
 
