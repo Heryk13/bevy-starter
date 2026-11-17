@@ -15,7 +15,7 @@ use crate::save::{
 use crate::screens::{LoadingDestination, StartGame};
 use crate::ui::{
     ACCENT, BODY_FONT_SIZE_PX, BORDER, BORDER_PX, ButtonKind, FIELD_FILL, SMALL_FONT_SIZE_PX, TEXT,
-    TEXT_MUTED, button, dialog, font, heading, row_button,
+    TEXT_MUTED, button, dialog, font, heading, muted_text, row_button,
 };
 
 // ==== Config =================================================================
@@ -426,11 +426,7 @@ fn save_row(name: String, details: String) -> impl Bundle {
 
 /// Returns muted body text showing a translation key: what a list says in place of a save.
 fn muted_label(key: &'static str) -> impl Bundle {
-    (
-        Localized(key),
-        font(BODY_FONT_SIZE_PX),
-        TextColor(TEXT_MUTED),
-    )
+    (Localized(key), muted_text(BODY_FONT_SIZE_PX))
 }
 
 /// Returns the key a list shows in place of a save it cannot load: one from another version
