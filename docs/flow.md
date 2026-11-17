@@ -239,7 +239,9 @@ pause menu's Load Game list: it keeps the session and the destination as resourc
 file name's prefix (`is_autosave`); every autosave is kept. It first sets
 `autosave_tried_secs`, and the interval counts from that or the last save, whichever is later,
 so a failed autosave is logged once and tried again a full interval later instead of every
-frame. An autosave counts as a save, so quitting right after one asks nothing.
+frame. An autosave counts as a save, so quitting right after one asks nothing. Once the file is
+written, `take_save_picture` asks for a picture of the window, which is written beside the
+autosave when it arrives, off the main thread.
 
 **The pause menu** (`src/screens/gameplay/pause.rs`, registered by `gameplay.rs`'s plugin).
 `OnEnter(Pause::On)` spawns the panel with `DespawnOnExit(Pause::On)`: a `floating_root` holding a
@@ -334,7 +336,8 @@ pause card darkens under it instead of competing with it.
 
   Both writes go through `try_write_save`, which calls `write_save` and returns whether it
   worked, logging the reason with `error!` on a failure; no data folder at all counts as a
-  failure too. Either way the overlay triggers `SaveFinished { saved }` (in `save.rs`) and
+  failure too. A save that was written then gets its picture, `save_pause_picture`: the one
+  taken as this pause was asked for (see `src/save.rs` below). Either way the overlay triggers `SaveFinished { saved }` (in `save.rs`) and
   closes, and never touches the pause menu's widgets: `show_save_status` in `pause.rs` answers
   the event, writing `SAVED_TEXT` in the accent or `SAVE_FAILED_TEXT` in red on the status line,
   a `Text` marked `SaveStatus` that `pause.rs` spawns empty. It also sets the line's
@@ -353,7 +356,8 @@ pause card darkens under it instead of competing with it.
   `Icon::Trash2` in `ButtonKind::Danger` with an `AccessibleLabel`, the files the game cannot load
   included, since this is the only way they leave the list. `ask_to_delete_save` spawns "Delete
   this save?" with `DespawnOnExit(Overlay::LoadGame)`, its Yes carrying `ConfirmDelete(path)`, and
-  `delete_save` removes the file and sets `Overlay::LoadGame` again. `set` re-enters a state it is
+  `delete_save` removes the save and its picture (`delete_save_files`) and sets
+  `Overlay::LoadGame` again. `set` re-enters a state it is
   already in, so `OnExit` despawns the panel and `OnEnter` reads the folder anew: the list loses
   the row with no code to rebuild it. A failed delete is logged with `error!` and the row stays.
   That same `OnExit` runs the menu's `update_continue_word` again, so deleting the last save hides
@@ -364,7 +368,8 @@ pause card darkens under it instead of competing with it.
 the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None` when the activated
 entity carries the marker. `apply_esc_action` is the second way out, run only on the frame Esc is
 pressed (`input_just_pressed`); with nothing open during running gameplay, the same press pauses
-instead. The whole Esc rule lives in one pure function beside it,
+instead, and calls `take_pause_picture` on that frame, the last one that shows the game with no
+menu over it. The whole Esc rule lives in one pure function beside it,
 `esc_action`, which returns an `EscAction` and has a test per line, first match wins:
 
 1. a dialog is open → close it
@@ -515,8 +520,8 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
-| `src/save.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `is_autosave()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read and write saves |
-| `src/disk.rs` | `game_data_dir()`, `write_atomic()` | saves and settings both live in the data folder and are written atomically |
+| `src/save.rs`, with `save/picture.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `delete_save_files()`, `is_autosave()`; re-exported from picture.rs: `PausePicture`, `take_pause_picture()`, `take_save_picture()`, `save_pause_picture()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read, write and delete saves, Esc takes the picture a save carries |
+| `src/disk.rs` | `game_data_dir()`, `write_atomic()` | saves, their pictures and settings all live in the data folder and are written atomically |
 
 **`src/ui.rs`** is the look of the whole game, split the usual way: `ui.rs` keeps the palette,
 the type and the text widgets, `ui/button.rs` the buttons, `ui/panel.rs` the floating roots,
@@ -569,7 +574,7 @@ music's volume, the loading screen to the current slide.
 images sorted by file path, leaving anything that is not an image out. Zero-padded file names are
 what keep a sequence in step, which is why the intro's frames sort correctly.
 
-**`src/save.rs`** has no plugin yet. `Session` holds `play_secs` and `saved_play_secs`, and
+**`src/save.rs`** is plain functions, and its plugin only adds its picture's. `Session` holds `play_secs` and `saved_play_secs`, and
 `has_unsaved_progress` is a pure function over it, tested at the bottom of the file.
 `loaded_session` turns a save into a session with all its play time counted as saved, so a game
 just loaded neither asks before quitting nor autosaves at once. `newest_ready` picks what
@@ -588,13 +593,37 @@ first and the files without a date, the ones it cannot load, last; both lists sh
 `read_save` reads one file back, `None` when it is gone, unreadable or from another version.
 `write_save` is the one way a save reaches the disk: it writes through `write_atomic`, which
 creates the folder when it is missing, and only then sets `saved_play_secs`, so a failed write still
-counts as unsaved progress.
+counts as unsaved progress. `delete_save_files` removes a save and its picture, and a save that
+has no picture is deleted all the same.
+
+**`src/save/picture.rs`** is the picture a save carries: a 320 × 180 JPEG beside it, under its
+name (`save_1.ron`, `save_1.jpg`; `picture_path`), which `list_saves` never takes for a save,
+since it reads only `.ron`. It is a screenshot of the window (`Screenshot::primary_window()`,
+whose observer gets the image a few frames later), so it shows what the player saw, whatever
+the genre draws. The pure `picture_crop` keeps the largest 16:9 part around the window's
+center, and `encode_picture` crops, shrinks and encodes it through the `image` crate Bevy
+already brings, reached through `Image::try_into_dynamic`, so `Cargo.toml` names no new crate.
+That work never runs on the main thread: each observer hands the capture to a task on the
+`AsyncComputeTaskPool`.
+
+A picture is taken at two moments. While the game runs, `take_save_picture(path)` writes it
+beside the save at `path` when it is done: the autosave's. Under the pause menu the window
+shows the menu, so the picture is taken before: `take_pause_picture`, on the frame Esc asks
+for the pause, keeps the encoded bytes in the `PausePicture` resource, and
+`save_pause_picture(path, picture)` writes them beside each save made under that pause. Each
+pause gets a `PausePicture` of its own, so a capture that arrives late fills one nobody reads
+any more, and `forget_pause_picture` empties it on leaving gameplay: a save never carries the
+picture of an earlier pause or of another game. A save made before its capture is ready has
+no picture, and an overwritten save then loses the one it had, which would show another
+moment. The save is always written first, and its picture's failure is only logged: a save
+with no picture is a save.
 
 **`src/disk.rs`** is where files live and how they are written. `data_dir(os, var)` picks the
 per-user data folder of each OS plus the package name, and takes the environment as a function
 so the tests can hand it Windows, Linux and macOS on any machine; `game_data_dir()` calls it
-with the real ones. `write_atomic` writes to a `.tmp` beside the target and renames it over, so
-a crash mid-write leaves the old file whole, and it is tested against a real temporary folder.
+with the real ones. `write_atomic` writes text or bytes to the target's own name plus `.tmp`
+and renames it over, so a crash mid-write leaves the old file whole, and a save and its picture
+never share a temporary file; it is tested against a real temporary folder.
 
 **The dialog** in `src/ui/panel.rs` answers "Yes or No?" for any feature without knowing what it asks.
 `dialog(question, yes_kind, on_yes)` returns the bundle: a `floating_root` with a small card,

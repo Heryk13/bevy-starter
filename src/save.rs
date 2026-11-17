@@ -5,6 +5,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::disk::{game_data_dir, write_atomic};
 
+mod picture;
+
+pub(crate) use picture::{PausePicture, save_pause_picture, take_pause_picture, take_save_picture};
+
 // ==== Config =================================================================
 
 // play since the last save that quitting may lose without asking, so leaving
@@ -20,6 +24,14 @@ const SAVES_DIR_NAME: &str = "saves";
 // every autosave is a new file, kept like the player's own; the prefix is what tells the
 // two apart, so the Save list can leave autosaves out
 const AUTOSAVE_FILE_PREFIX: &str = "autosave_";
+
+// ==== Plugin =================================================================
+
+pub(super) fn plugin(app: &mut App) {
+    // the rest of this file is plain functions and needs no plugin: only the picture kept
+    // for the saves made under the pause menu lives in the app
+    app.add_plugins(picture::plugin);
+}
 
 // ==== Session ================================================================
 
@@ -226,6 +238,13 @@ pub(crate) fn write_save(path: &Path, session: &mut Session, name: &str) -> std:
     write_atomic(path, &text)?;
     session.saved_play_secs = session.play_secs;
     Ok(())
+}
+
+/// Deletes the save at `path`, and its picture with it. A save that has no picture, an
+/// older one or one whose capture never arrived, is deleted all the same.
+pub(crate) fn delete_save_files(path: &Path) -> std::io::Result<()> {
+    std::fs::remove_file(path)?;
+    picture::remove_if_there(&picture::picture_path(path))
 }
 
 // ==== Helpers ================================================================
@@ -468,14 +487,14 @@ mod tests {
         let ready_path = dir.join("ready.ron");
         write_atomic(
             &ready_path,
-            &format!("(version: {SAVE_VERSION}, saved_at_secs: 0, play_secs: 0.0, name: \"test\")"),
+            format!("(version: {SAVE_VERSION}, saved_at_secs: 0, play_secs: 0.0, name: \"test\")"),
         )
         .unwrap();
 
         let incompatible_path = dir.join("incompatible.ron");
         write_atomic(
             &incompatible_path,
-            &format!(
+            format!(
                 "(version: {}, saved_at_secs: 0, play_secs: 0.0, name: \"test\")",
                 SAVE_VERSION + 1
             ),
@@ -572,5 +591,43 @@ mod tests {
         };
         assert!((save.play_secs - session.play_secs).abs() < 0.001);
         assert_eq!(save.name, name);
+    }
+
+    // ---- a save's picture: a file beside it, never a save of its own --------
+
+    // the first bytes of a JPEG: what the picture holds does not matter to these tests
+    const PICTURE_BYTES: [u8; 2] = [0xFF, 0xD8];
+
+    #[test]
+    fn a_picture_is_not_listed_as_a_save() {
+        let dir = fresh_test_dir("bevy-starter-picture-not-listed");
+        let save_path = dir.join("ready.ron");
+        write_save(&save_path, &mut Session::default(), "save").unwrap();
+        write_atomic(&picture::picture_path(&save_path), PICTURE_BYTES).unwrap();
+
+        assert_eq!(list_saves(&dir).len(), 1);
+    }
+
+    #[test]
+    fn deleting_a_save_removes_its_picture() {
+        let dir = fresh_test_dir("bevy-starter-delete-save-with-picture");
+        let save_path = dir.join("ready.ron");
+        let picture_path = picture::picture_path(&save_path);
+        write_save(&save_path, &mut Session::default(), "save").unwrap();
+        write_atomic(&picture_path, PICTURE_BYTES).unwrap();
+
+        delete_save_files(&save_path).unwrap();
+        assert!(!save_path.exists());
+        assert!(!picture_path.exists());
+    }
+
+    #[test]
+    fn deleting_a_save_without_a_picture_succeeds() {
+        let dir = fresh_test_dir("bevy-starter-delete-save-without-picture");
+        let save_path = dir.join("ready.ron");
+        write_save(&save_path, &mut Session::default(), "save").unwrap();
+
+        delete_save_files(&save_path).unwrap();
+        assert!(!save_path.exists());
     }
 }

@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 
 use super::{Screen, StartGame};
-use crate::save::{Session, autosave_is_due, new_autosave_path, saves_dir, write_save};
+use crate::save::{
+    Session, autosave_is_due, new_autosave_path, saves_dir, take_save_picture, write_save,
+};
 
 pub(crate) mod pause;
 
@@ -52,9 +54,10 @@ fn count_play_time(mut session: ResMut<Session>, time: Res<Time>) {
     session.play_secs += time.delta_secs();
 }
 
-/// Writes the session to a new autosave file once enough play has gone unsaved. A failure is
-/// only logged: the player did not ask for this save and is in the middle of playing.
-fn autosave_game(mut session: ResMut<Session>) {
+/// Writes the session to a new autosave file once enough play has gone unsaved, and asks for
+/// a picture of this moment to go beside it. A failure is only logged: the player did not
+/// ask for this save and is in the middle of playing.
+fn autosave_game(mut commands: Commands, mut session: ResMut<Session>) {
     if !autosave_is_due(&session) {
         return;
     }
@@ -62,8 +65,10 @@ fn autosave_game(mut session: ResMut<Session>) {
     let Some(dir) = saves_dir() else {
         return;
     };
-    if let Err(err) = write_save(&new_autosave_path(&dir), &mut session, "") {
-        error!("Failed to autosave game: {}", err);
+    let path = new_autosave_path(&dir);
+    match write_save(&path, &mut session, "") {
+        Ok(()) => take_save_picture(&mut commands, path),
+        Err(err) => error!("Failed to autosave game: {}", err),
     }
 }
 
