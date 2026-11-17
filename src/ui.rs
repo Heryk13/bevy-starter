@@ -9,7 +9,8 @@ mod button;
 mod panel;
 
 pub(crate) use button::{
-    BUTTON_EASE_SECS, BUTTON_HEIGHT_PX, ButtonKind, button, icon_button, menu_button, row_button,
+    BUTTON_EASE_SECS, BUTTON_HEIGHT_PX, ButtonKind, ROW_BUTTON_PADDING_PX, button, icon_button,
+    menu_button, row_button,
 };
 // the icons by name, re-exported so this file is the only one that names the crate
 pub(crate) use lucide_icons::Icon;

@@ -7,7 +7,10 @@ use crate::disk::{game_data_dir, write_atomic};
 
 mod picture;
 
-pub(crate) use picture::{PausePicture, save_pause_picture, take_pause_picture, take_save_picture};
+pub(crate) use picture::{
+    PICTURE_ASPECT_RATIO, PausePicture, read_save_picture, save_pause_picture, take_pause_picture,
+    take_save_picture,
+};
 
 // ==== Config =================================================================
 
