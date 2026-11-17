@@ -24,7 +24,7 @@ Agreed on 2026-11-07.
 
 | #  | Item | Branch | Status | Spec / tasks | Notes |
 |----|------|--------|--------|--------------|-------|
-| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | glass built, regions put off to pieces; look built, keycaps put off to the first screen that shows a key; pieces to design | `glass/design.md`, `glass-tasks.md`, `look/design.md`, `look-tasks.md` | agreed so far: "The look" below, its spike measured; three specs (glass, look, pieces); first, so every tool is born with the look; supersedes the `ui-style` look |
+| 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | built: glass and look. No pieces spec: the dev tools' pieces, the regions and the keycaps each come with the first row that shows one (2026-11-18) | `glass/design.md`, `glass-tasks.md`, `look/design.md`, `look-tasks.md` | agreed so far: "The look" below, its spike measured; two specs built (glass, look); first, so every tool is born with the look; supersedes the `ui-style` look |
 | 1  | **Key bindings**: a Controls page in Settings to change the keys and gamepad buttons | base in `main`, then each branch registers its own actions | | | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
 | 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | designed; to revise for rows 0 and 1 before building | `dev-tools/design.md`, `dev-tools-tasks.md` | waits on rows 0 and 1 |
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | | | agreed so far: below |
@@ -215,10 +215,24 @@ names its roadmap row.
   2. **Look**: the colours, the Lucide font, capsules, and every existing screen, overlay and
      dialog redone in it, plus a picture with every save. The keycaps were left out on
      2026-11-17: no existing screen shows a key, so they come with the first one that does
-     (row 1's Controls page, or the keys panel of Pieces).
+     (row 1's Controls page, or row 2's keys panel).
   3. **Pieces**: what only the dev tools use (popover, HUD, bar, list, alert), and the
      regions, which only a panel smaller than the screen needs (put off from Glass on
-     2026-11-16).
+     2026-11-16). **Not a spec of its own**, decided on 2026-11-18: nothing shows any of them
+     yet, a widget nobody calls is dead code, which fails `just check`, and one built ahead of
+     its user is shaped by a guess. Each piece is designed in the spec of the first row that
+     shows it, stays in that feature's file, and moves to `src/ui.rs` when a third feature
+     needs it, as `CONTRIBUTING.md` asks of any shared code:
+
+     | Piece | The first row that shows it |
+     | --- | --- |
+     | keycaps | 1, the Controls page (or 2, the keys panel) |
+     | popover | 2, the keys panel (F1) |
+     | HUD and its capsule with a bar of steps | 2, the FPS (F2) and slow motion (F4) |
+     | the regions: blur only where glass is | 2, the first glass smaller than the screen over a running game |
+     | glass bar, notification | 3, photo mode's hint and "Photo saved" |
+     | Finder window, list | 4, the file explorer |
+     | alert with an icon | the scenes' unsaved dialog |
 - **Tried on `3d/player`, committed on `main`**, agreed on 2026-11-08: on `main` nothing moves
   behind a panel (the menu's background is a still image, gameplay is empty), so each step is
   written and tried uncommitted on `3d/player`, where the level moves behind a window, then
