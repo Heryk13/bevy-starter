@@ -415,6 +415,8 @@ fn save_row(name: String, details: String) -> impl Bundle {
         },
         children![
             (Text::new(name), font(BODY_FONT_SIZE_PX), TextColor(TEXT)),
+            // muted by its alpha alone, not `muted_text`: under the pointer the row turns
+            // white and `paint_buttons` turns this dark, where a shadow would smear behind it
             (
                 Text::new(details),
                 font(SMALL_FONT_SIZE_PX),
