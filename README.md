@@ -17,7 +17,7 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   Quit to Desktop, asking "Quit without saving?" when there is unsaved play time
 - Saved games, one file each in the per-user data folder: name a new save or overwrite an
   older one from the pause menu, and load or delete any of them from the menu or the pause
-  menu, newest first, in a scrolling list
+  menu, newest first, in a scrolling list, each beside a picture of the moment it was saved
 - Autosave after every 5 minutes of unsaved play, each one kept as its own file
 - A dark, calm look in one palette: capsule buttons that ease to white under the pointer, glass
   panels that rise in over a blur of everything behind them, other panels included

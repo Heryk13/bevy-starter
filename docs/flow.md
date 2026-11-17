@@ -344,12 +344,19 @@ pause card darkens under it instead of competing with it.
   `EditableText` only holds the text: `TextInput` is what types into it, and `TabIndex` is what
   lets a click give it the keyboard, since Bevy hands focus on a click only to an entity with
   one. `paint_save_name_field` outlines it in the accent while `InputFocus` is on it. Each save is a
-  `row_button` holding `save_row`: `save_name` over `save_details` in small muted text.
+  `row_button` holding `save_row`: the save's picture (`save_picture`), then `save_name` over
+  `save_details` in small muted text. The picture is read from disk as the list spawns
+  (`read_save_picture`) and added to `Assets<Image>`; the `ImageNode` holding its handle is what
+  keeps it alive, so it goes with the overlay. A save that has no picture, one from before
+  pictures existed or one whose file cannot be read, shows a grey frame holding
+  `Icon::ImageOff` in its place, and loads all the same. The frame is `SAVE_PICTURE_WIDTH_PX`
+  wide and as tall as the file's own shape makes it (`PICTURE_ASPECT_RATIO`).
 
   The folder is read once, on `OnEnter(Overlay::SaveGame)`. The rows are spawned in a `for`
   with `ChildOf(list)`, because `children![]` only holds a list known when the code is
   written; Close is spawned after them for the same reason, so it ends up last. `list` is a
-  column capped at `SAVE_LIST_MAX_HEIGHT_PX` with `Overflow::scroll_y()` and `ScrollArea`, so
+  column capped at `SAVE_LIST_MAX_HEIGHT_PX`, the height of `SAVE_ROWS_SHOWN` rows and the gaps
+  between them, with `Overflow::scroll_y()` and `ScrollArea`, so
   the mouse wheel scrolls the rows while the title, the field, New Save and Close stay put; it
   reuses `OVERLAY_GAP_PX`, since the panel's own gap only spaces its direct children. A save
   the game can read is a row button showing `save_name` over `save_details`, both pure functions:
@@ -556,7 +563,7 @@ Six files at the top of `src/`, each named after its domain, each used by more t
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
-| `src/save.rs`, with `save/picture.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `delete_save_files()`, `is_autosave()`; re-exported from picture.rs: `PausePicture`, `take_pause_picture()`, `take_save_picture()`, `save_pause_picture()` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read, write and delete saves, Esc takes the picture a save carries |
+| `src/save.rs`, with `save/picture.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `delete_save_files()`, `is_autosave()`; re-exported from picture.rs: `PausePicture`, `take_pause_picture()`, `take_save_picture()`, `save_pause_picture()`, `read_save_picture()`, `PICTURE_ASPECT_RATIO` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read, write and delete saves, Esc takes the picture a save carries |
 | `src/disk.rs` | `game_data_dir()`, `write_atomic()` | saves, their pictures and settings all live in the data folder and are written atomically |
 
 **`src/ui.rs`** is the look of the whole game, split the usual way: `ui.rs` keeps the palette,
@@ -653,6 +660,11 @@ picture of an earlier pause or of another game. A save made before its capture i
 no picture, and an overwritten save then loses the one it had, which would show another
 moment. The save is always written first, and its picture's failure is only logged: a save
 with no picture is a save.
+
+`read_save_picture(path)` reads a picture back for the lists, `None` when the save has none or
+its file is not one (`decode_picture`). It runs on the main thread, a file per save, as a list
+opens: quick for the saves a player keeps by hand, and marked `ponytail:` for the player with
+hundreds of autosaves.
 
 **`src/disk.rs`** is where files live and how they are written. `data_dir(os, var)` picks the
 per-user data folder of each OS plus the package name, and takes the environment as a function

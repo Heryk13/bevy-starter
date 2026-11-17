@@ -1,4 +1,5 @@
-use bevy::image::ImageFormat;
+use bevy::asset::RenderAssetUsages;
+use bevy::image::{CompressedImageFormats, ImageFormat, ImageSampler, ImageType};
 use bevy::prelude::*;
 use bevy::render::view::screenshot::{Screenshot, ScreenshotCaptured};
 use bevy::tasks::AsyncComputeTaskPool;
@@ -17,6 +18,10 @@ const PICTURE_EXTENSION: &str = "jpg";
 // window's shape, so every row of a list frames its picture alike
 const PICTURE_WIDTH_PX: u32 = 320;
 const PICTURE_HEIGHT_PX: u32 = 180;
+
+// ---- derived ----------------------------------------------------------------
+// the picture's shape, for whoever frames one at another size
+pub(crate) const PICTURE_ASPECT_RATIO: f32 = PICTURE_WIDTH_PX as f32 / PICTURE_HEIGHT_PX as f32;
 
 // ==== Plugin =================================================================
 
@@ -87,6 +92,18 @@ pub(crate) fn save_pause_picture(save_path: &Path, picture: &PausePicture) {
     if let Err(err) = written {
         error!("could not write the picture of a save: {err}");
     }
+}
+
+/// Reads the picture of the save at `save_path`, ready to be shown. `None` when the save
+/// has none, as one from before pictures existed, or when its file cannot be read as one:
+/// either way the list shows an empty frame, and the save loads all the same.
+// ponytail: read and decoded on the main thread, a file per save, as a list opens. a small
+// JPEG takes well under a millisecond, but every autosave is kept, so a player with
+// hundreds of saves waits for hundreds of files. the way up is to read them in a task, or
+// only for the rows the list has scrolled to
+pub(crate) fn read_save_picture(save_path: &Path) -> Option<Image> {
+    let bytes = std::fs::read(picture_path(save_path)).ok()?;
+    decode_picture(&bytes)
 }
 
 /// Returns where the picture of the save at `save_path` is kept: beside it, under its name.
@@ -161,15 +178,43 @@ fn encode_picture(image: Image) -> Option<Vec<u8>> {
     Some(bytes.into_inner())
 }
 
+/// Returns the image a picture's bytes hold, or `None` when they are not a picture. Only the
+/// renderer keeps it: nothing reads its pixels once it is on screen.
+fn decode_picture(bytes: &[u8]) -> Option<Image> {
+    Image::from_buffer(
+        bytes,
+        ImageType::Extension(PICTURE_EXTENSION),
+        CompressedImageFormats::NONE,
+        true,
+        ImageSampler::Default,
+        RenderAssetUsages::RENDER_WORLD,
+    )
+    .ok()
+}
+
 // ==== Tests ==================================================================
 
 #[cfg(test)]
 mod tests {
-    use bevy::asset::RenderAssetUsages;
-    use bevy::image::{CompressedImageFormats, ImageSampler, ImageType};
     use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
     use super::*;
+    use crate::disk::fresh_test_dir;
+
+    /// Returns a window as Bevy captures one, three pictures wide and two tall, in one color.
+    fn captured_window() -> Image {
+        Image::new_fill(
+            Extent3d {
+                width: PICTURE_WIDTH_PX * 3,
+                height: PICTURE_HEIGHT_PX * 2,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[40, 90, 160, 255],
+            TextureFormat::Bgra8UnormSrgb,
+            RenderAssetUsages::default(),
+        )
+    }
 
     // ---- picture_path -------------------------------------------------------
 
@@ -214,34 +259,44 @@ mod tests {
         );
     }
 
-    // ---- encode_picture: a window as Bevy captures one, read back as a file -
+    // ---- encode_picture and decode_picture: a window out, a picture back ----
 
     #[test]
     fn a_window_of_any_shape_becomes_a_picture_of_one_size() {
-        let window = Image::new_fill(
-            Extent3d {
-                width: PICTURE_WIDTH_PX * 3,
-                height: PICTURE_HEIGHT_PX * 2,
-                depth_or_array_layers: 1,
-            },
-            TextureDimension::D2,
-            &[40, 90, 160, 255],
-            TextureFormat::Bgra8UnormSrgb,
-            RenderAssetUsages::default(),
-        );
-
-        let bytes = encode_picture(window).unwrap();
-        let picture = Image::from_buffer(
-            &bytes,
-            ImageType::Extension(PICTURE_EXTENSION),
-            CompressedImageFormats::NONE,
-            true,
-            ImageSampler::Default,
-            RenderAssetUsages::default(),
-        )
-        .unwrap();
+        let bytes = encode_picture(captured_window()).unwrap();
+        let picture = decode_picture(&bytes).unwrap();
         assert_eq!(picture.width(), PICTURE_WIDTH_PX);
         assert_eq!(picture.height(), PICTURE_HEIGHT_PX);
+    }
+
+    #[test]
+    fn bytes_that_are_no_picture_decode_to_nothing() {
+        assert!(decode_picture(b"this is not a picture").is_none());
+    }
+
+    // ---- read_save_picture: real files, in a folder of the test's own -------
+
+    #[test]
+    fn a_written_picture_reads_back() {
+        let save_path = fresh_test_dir("bevy-starter-read-picture").join("save.ron");
+        let bytes = encode_picture(captured_window()).unwrap();
+        write_atomic(&picture_path(&save_path), bytes).unwrap();
+
+        assert!(read_save_picture(&save_path).is_some());
+    }
+
+    #[test]
+    fn a_save_without_a_picture_reads_none() {
+        let save_path = fresh_test_dir("bevy-starter-read-no-picture").join("save.ron");
+        assert!(read_save_picture(&save_path).is_none());
+    }
+
+    #[test]
+    fn a_broken_picture_reads_none() {
+        let save_path = fresh_test_dir("bevy-starter-read-broken-picture").join("save.ron");
+        write_atomic(&picture_path(&save_path), "this is not a picture").unwrap();
+
+        assert!(read_save_picture(&save_path).is_none());
     }
 
     // ---- PausePicture -------------------------------------------------------

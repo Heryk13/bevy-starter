@@ -25,7 +25,7 @@ const BUTTON_PRESS_SHADE: f32 = 0.18;
 pub(crate) const BUTTON_HEIGHT_PX: f32 = 44.0;
 const BUTTON_MIN_WIDTH_PX: f32 = 120.0;
 const BUTTON_PADDING_PX: f32 = 20.0;
-const ROW_BUTTON_PADDING_PX: f32 = 8.0;
+pub(crate) const ROW_BUTTON_PADDING_PX: f32 = 8.0;
 const ROW_BUTTON_RADIUS_PX: f32 = 18.0;
 
 // ---- easing -----------------------------------------------------------------
@@ -75,12 +75,17 @@ pub(crate) fn menu_button(key: &'static str) -> impl Bundle {
 }
 
 /// Returns a Choice button around `content`, as tall as the content needs: a row of a list,
-/// such as a save with its name over its details.
+/// such as a save with its picture beside its name.
 pub(crate) fn row_button(content: impl Bundle) -> impl Bundle {
     button_base(
         Node {
             flex_grow: 1.0,
-            padding: UiRect::axes(px(BUTTON_PADDING_PX), px(ROW_BUTTON_PADDING_PX)),
+            // as close on the left as above and below, so what a row starts with, a save's
+            // picture, sits evenly in its corner; a button's own padding on the right
+            padding: UiRect {
+                right: px(BUTTON_PADDING_PX),
+                ..UiRect::all(px(ROW_BUTTON_PADDING_PX))
+            },
             justify_content: JustifyContent::Start,
             // a corner of its own: a row is tall, and a capsule's round ends would eat into
             // what it holds
