@@ -25,7 +25,7 @@ Agreed on 2026-11-07.
 | #  | Item | Branch | Status | Spec / tasks | Notes |
 |----|------|--------|--------|--------------|-------|
 | 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | built: glass and look. No pieces spec: the dev tools' pieces, the regions and the keycaps each come with the first row that shows one (2026-11-18) | `glass/design.md`, `glass-tasks.md`, `look/design.md`, `look-tasks.md` | agreed so far: "The look" below, its spike measured; two specs built (glass, look); first, so every tool is born with the look; supersedes the `ui-style` look |
-| 1  | **Key bindings**: a Controls page in Settings to change the keys and gamepad buttons | base in `main`, then each branch registers its own actions | | | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
+| 1  | **Key bindings**: a Controls page in Settings to change the keys (gamepads left for later) | base in `main`, then each branch registers its own actions | designed, to build | `key-bindings/design.md`, `key-bindings-tasks.md` | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
 | 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | designed; to revise for rows 0 and 1 before building | `dev-tools/design.md`, `dev-tools-tasks.md` | waits on rows 0 and 1 |
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | | | agreed so far: below |
 | 4  | **File explorer** (Numpad 0): the photos and videos, like the Windows explorer | `main` | | | agreed so far: below; was photo mode's gallery |
@@ -261,11 +261,14 @@ names its roadmap row.
   Its words are English, like every dev tool's.
 - Claude's note for the spec: once dev keys are rebindable, the keys panel (row 2) shows the
   bound key, not the default one.
-- **Gamepads too:** every game action can be bound to a gamepad button or stick as well as a
-  key, so this row designs bindings for both from the start (Bevy reads gamepads itself, no
-  crate). Claude's note for the spec: playing with a gamepad also means moving through the
-  menus with it, which the `ui-style` spec left out as "its own spec later" (focus and
-  directional navigation, `bevy_input_focus`); that spec is this row's or a row of its own.
+- **Gamepads: not in this row**, decided by the user on 2026-11-18, as its spec was being
+  written: left for the future. The row binds keys and mouse buttons only, and is designed so
+  that a gamepad input is a field added to a binding and a column added to the page. Before
+  that, the plan had been that every game action could be bound to a gamepad button or stick
+  as well as a key (Bevy reads gamepads itself, no crate).
+- **Moving through the menus with the keyboard** (focus and directional navigation,
+  `bevy_input_focus`), which the `ui-style` spec left out as "its own spec later", is a spec of
+  its own, not this row's: it touches every screen. With a gamepad it waits for gamepads.
 
 ## Photo mode, as agreed (row 3)
 
