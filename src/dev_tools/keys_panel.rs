@@ -1,4 +1,3 @@
-use bevy::ecs::spawn::SpawnIter;
 use bevy::prelude::*;
 
 use super::{DEV_TOOLS_Z_INDEX, dev_window, spawn_dev_window};

@@ -5,6 +5,7 @@ use crate::ui::{BORDER_PX, card_glass, floating_root};
 
 mod fps;
 mod keys_panel;
+mod slow_motion;
 
 // ==== Config =================================================================
 
@@ -29,7 +30,7 @@ pub(super) fn plugin(app: &mut App) {
         .0
         .push(DEV_TOOLS_Z_INDEX);
     // in the order of their keys, which is the order the keys panel and the Dev page list them
-    app.add_plugins((keys_panel::plugin, fps::plugin));
+    app.add_plugins((keys_panel::plugin, fps::plugin, slow_motion::plugin));
 }
 
 // ==== Windows ================================================================
