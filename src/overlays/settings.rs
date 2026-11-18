@@ -10,9 +10,14 @@ use serde::{Deserialize, Serialize};
 
 use super::{Overlay, close_footer, overlay_card, overlay_root};
 use crate::disk::{game_data_dir, write_atomic};
-use crate::i18n::{Language, language_from_locale};
+use crate::i18n::{Language, Localized, language_from_locale};
+use crate::input::{Bindings, Page, SavedBindings};
 use crate::ui::blur::ReduceTransparency;
-use crate::ui::{ACCENT, FIELD_FILL, INK, SMALL_FONT_SIZE_PX, TEXT_MUTED, font, heading, label};
+use crate::ui::{
+    ACCENT, CARD_GAP_PX, FIELD_FILL, INK, SMALL_FONT_SIZE_PX, TEXT_MUTED, font, heading, label,
+};
+
+mod controls;
 
 // ==== Config =================================================================
 
@@ -44,7 +49,7 @@ const SLIDER_TRACK_HEIGHT_PX: f32 = 6.0;
 // by a hundredth of its range instead of across all of it
 const SLIDER_MAX: f32 = 100.0;
 
-// ---- language segments: one capsule track, the chosen language filled -------
+// ---- segments: one capsule track, the chosen page or language filled --------
 const SEGMENT_HEIGHT_PX: f32 = 32.0;
 const SEGMENT_PADDING_PX: f32 = 14.0;
 // between the track's edge and its segments, so the chosen one floats inside it
@@ -63,12 +68,21 @@ const SWITCH_KNOB_ON_OFFSET_PX: f32 = SWITCH_WIDTH_PX - SWITCH_KNOB_SIZE_PX - SW
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
+    app.add_sub_state::<SettingsPage>();
+    app.add_plugins(controls::plugin);
     app.add_systems(Startup, load_settings);
     app.add_systems(OnEnter(Overlay::Settings), spawn_settings_overlay);
+    app.add_systems(OnEnter(SettingsPage::General), spawn_general_page);
+    app.add_observer(choose_page.run_if(in_state(Overlay::Settings)));
     app.add_observer(toggle_fullscreen.run_if(in_state(Overlay::Settings)));
     app.add_observer(toggle_reduce_transparency.run_if(in_state(Overlay::Settings)));
     app.add_observer(update_volume.run_if(in_state(Overlay::Settings)));
     app.add_observer(choose_language.run_if(in_state(Overlay::Settings)));
+    app.add_systems(
+        Update,
+        update_page_segments.run_if(in_state(Overlay::Settings)),
+    );
+    // the General page's controls exist only while it is the page shown
     app.add_systems(
         Update,
         (
@@ -77,12 +91,43 @@ pub(super) fn plugin(app: &mut App) {
             update_volume_slider,
             update_language_segments,
         )
-            .run_if(in_state(Overlay::Settings)),
+            .run_if(in_state(SettingsPage::General)),
     );
     app.add_systems(OnExit(Overlay::Settings), save_settings);
 }
 
+// ==== State ==================================================================
+
+/// The page of Settings that is shown. It only exists while Settings is open, and starts at
+/// General each time.
+#[derive(SubStates, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+#[source(Overlay = Overlay::Settings)]
+enum SettingsPage {
+    #[default]
+    General,
+    Controls,
+    #[cfg(feature = "dev")]
+    Dev,
+}
+
 // ==== Components =============================================================
+
+/// Marks a segment of the row of pages with the page it shows.
+#[derive(Component)]
+struct PageOption(SettingsPage);
+
+/// Marks the root of the settings panel, the node over the whole window its card sits in.
+#[derive(Component)]
+struct SettingsPanel;
+
+/// Marks the row at the bottom of the card that holds Close, where a page of controls
+/// puts its Reset to Defaults.
+#[derive(Component)]
+struct SettingsFooter;
+
+/// Marks the part of the card a page fills: between the row of pages and Close.
+#[derive(Component)]
+struct SettingsPageBody;
 
 /// Marks the switch that puts the window in and out of fullscreen.
 #[derive(Component)]
@@ -122,18 +167,25 @@ struct SettingsFile {
     // off in a file from before the glass existed, which the default lets load
     #[serde(default)]
     reduce_transparency: bool,
+    // the bindings the player changed, by action. none in a file from before they existed
+    // ponytail: one binding this build cannot read (a key name mistyped by hand, or renamed
+    // by a later Bevy) fails the whole file, as any unreadable value in it does, and the
+    // defaults are kept. the way up is to read the bindings apart from the rest
+    #[serde(default)]
+    bindings: SavedBindings,
 }
 
 // ==== Systems ================================================================
 
-/// Applies the remembered settings to the window, the volume, the language and the glass.
-/// Anything missing, unreadable or from another version keeps the defaults, silently: it is
-/// a preference. A language never chosen follows the OS.
+/// Applies the remembered settings to the window, the volume, the language, the glass and
+/// the key bindings. Anything missing, unreadable or from another version keeps the
+/// defaults, silently: it is a preference. A language never chosen follows the OS.
 fn load_settings(
     mut window: Single<&mut Window>,
     mut global_volume: ResMut<GlobalVolume>,
     mut language: ResMut<Language>,
     mut reduce_transparency: ResMut<ReduceTransparency>,
+    mut bindings: ResMut<Bindings>,
 ) {
     let settings = game_data_dir()
         .and_then(|dir| std::fs::read_to_string(dir.join(SETTINGS_FILE_NAME)).ok())
@@ -154,86 +206,199 @@ fn load_settings(
         WindowMode::Windowed
     };
     reduce_transparency.0 = settings.reduce_transparency;
+    bindings.load(settings.bindings);
 }
 
-/// Spawns the settings panel over the current screen, blocking clicks to it.
-fn spawn_settings_overlay(mut commands: Commands, global_volume: Res<GlobalVolume>) {
-    let slider_value = slider_from_volume(global_volume.volume.to_linear());
-    commands.spawn((
-        overlay_root(),
-        children![(
+/// Spawns the settings panel over the current screen, blocking clicks to it: its title, the
+/// row of pages when there is more than one to choose from, the body the page shown fills,
+/// and Close.
+fn spawn_settings_overlay(mut commands: Commands, bindings: Res<Bindings>) {
+    let root = commands
+        .spawn((
+            overlay_root(),
+            SettingsPanel,
+            DespawnOnExit(Overlay::Settings),
+        ))
+        .id();
+    let card = commands
+        .spawn((
             overlay_card(),
-            children![
-                heading("settings-title"),
-                setting_row(
-                    "settings-fullscreen",
-                    (
-                        switch(),
-                        FullscreenToggle,
-                        AccessibleLabel::new("Fullscreen"),
-                    ),
-                ),
-                setting_row(
-                    "settings-reduce-transparency",
-                    (
-                        switch(),
-                        ReduceTransparencyToggle,
-                        AccessibleLabel::new("Reduce Transparency"),
-                    ),
-                ),
-                setting_row(
-                    "settings-volume",
+            ChildOf(root),
+            children![heading("settings-title")],
+        ))
+        .id();
+    let pages = offered_pages(&bindings);
+    if pages.len() > 1 {
+        let row = commands
+            .spawn((
+                Node {
+                    // as wide as its segments, not as the card
+                    align_self: AlignSelf::Start,
+                    ..segment_track()
+                },
+                BackgroundColor(FIELD_FILL),
+                RadioGroup,
+                ChildOf(card),
+            ))
+            .id();
+        for page in pages {
+            let option = PageOption(page);
+            match page {
+                SettingsPage::General => {
+                    commands.spawn((
+                        segment(option, Localized("settings-page-general")),
+                        ChildOf(row),
+                    ));
+                }
+                SettingsPage::Controls => {
+                    commands.spawn((
+                        segment(option, Localized("settings-page-controls")),
+                        ChildOf(row),
+                    ));
+                }
+                // a dev tool's words are English, in the code
+                #[cfg(feature = "dev")]
+                SettingsPage::Dev => {
+                    commands.spawn((segment(option, Text::new("Dev")), ChildOf(row)));
+                }
+            }
+        }
+    }
+    commands.spawn((
+        Node {
+            flex_direction: FlexDirection::Column,
+            row_gap: px(CARD_GAP_PX),
+            ..default()
+        },
+        SettingsPageBody,
+        ChildOf(card),
+    ));
+    commands.spawn((close_footer(), SettingsFooter, ChildOf(card)));
+}
+
+/// Fills the body with the General page: the window, the glass, the volume and the language.
+fn spawn_general_page(
+    mut commands: Commands,
+    body: Single<Entity, With<SettingsPageBody>>,
+    global_volume: Res<GlobalVolume>,
+) {
+    let slider_value = slider_from_volume(global_volume.volume.to_linear());
+    let body = *body;
+    let page = || (ChildOf(body), DespawnOnExit(SettingsPage::General));
+    commands.spawn((
+        setting_row(
+            label("settings-fullscreen"),
+            (
+                switch(),
+                FullscreenToggle,
+                AccessibleLabel::new("Fullscreen"),
+            ),
+        ),
+        page(),
+    ));
+    commands.spawn((
+        setting_row(
+            label("settings-reduce-transparency"),
+            (
+                switch(),
+                ReduceTransparencyToggle,
+                AccessibleLabel::new("Reduce Transparency"),
+            ),
+        ),
+        page(),
+    ));
+    commands.spawn((
+        setting_row(
+            label("settings-volume"),
+            (
+                Node {
+                    width: px(SLIDER_WIDTH_PX),
+                    height: px(SLIDER_THUMB_SIZE_PX),
+                    ..default()
+                },
+                Slider {
+                    track_click: TrackClick::Snap,
+                    ..default()
+                },
+                SliderRange::new(0.0, SLIDER_MAX),
+                SliderValue(slider_value),
+                AccessibleLabel::new("Volume"),
+                VolumeSlider,
+                children![
+                    (slider_track(percent(100)), BackgroundColor(CONTROL_TRACK)),
+                    (slider_track(px(0)), BackgroundColor(ACCENT), VolumeFill),
                     (
                         Node {
-                            width: px(SLIDER_WIDTH_PX),
+                            width: px(SLIDER_THUMB_SIZE_PX),
                             height: px(SLIDER_THUMB_SIZE_PX),
-                            ..default()
-                        },
-                        Slider {
-                            track_click: TrackClick::Snap,
-                            ..default()
-                        },
-                        SliderRange::new(0.0, SLIDER_MAX),
-                        SliderValue(slider_value),
-                        AccessibleLabel::new("Volume"),
-                        VolumeSlider,
-                        children![
-                            (slider_track(percent(100)), BackgroundColor(CONTROL_TRACK)),
-                            (slider_track(px(0)), BackgroundColor(ACCENT), VolumeFill),
-                            (
-                                Node {
-                                    width: px(SLIDER_THUMB_SIZE_PX),
-                                    height: px(SLIDER_THUMB_SIZE_PX),
-                                    position_type: PositionType::Absolute,
-                                    border_radius: BorderRadius::MAX,
-                                    ..default()
-                                },
-                                BackgroundColor(ACCENT),
-                                SliderThumb,
-                            ),
-                        ],
-                    ),
-                ),
-                setting_row(
-                    "settings-language",
-                    // ponytail: a segment per language, side by side, fits three or four
-                    // names in the card's width. a game with more needs a list in its place
-                    (
-                        Node {
-                            padding: UiRect::all(px(SEGMENT_INSET_PX)),
+                            position_type: PositionType::Absolute,
                             border_radius: BorderRadius::MAX,
                             ..default()
                         },
-                        BackgroundColor(FIELD_FILL),
-                        RadioGroup,
-                        Children::spawn(SpawnIter(Language::ALL.into_iter().map(language_segment))),
+                        BackgroundColor(ACCENT),
+                        SliderThumb,
                     ),
-                ),
-                close_footer(),
-            ],
-        )],
-        DespawnOnExit(Overlay::Settings),
+                ],
+            ),
+        ),
+        page(),
     ));
+    commands.spawn((
+        setting_row(
+            label("settings-language"),
+            // ponytail: a segment per language, side by side, fits three or four names in
+            // the card's width. a game with more needs a list in its place
+            (
+                segment_track(),
+                BackgroundColor(FIELD_FILL),
+                RadioGroup,
+                Children::spawn(SpawnIter(Language::ALL.into_iter().map(|language| {
+                    segment(LanguageOption(language), Text::new(language.native_name()))
+                }))),
+            ),
+        ),
+        page(),
+    ));
+}
+
+/// Shows the page whose segment was clicked.
+fn choose_page(
+    value_change: On<ValueChange<Entity>>,
+    options: Query<&PageOption>,
+    mut next_page: ResMut<NextState<SettingsPage>>,
+) {
+    if let Ok(PageOption(chosen)) = options.get(value_change.value) {
+        next_page.set(*chosen);
+    }
+}
+
+/// Checks the segment of the page shown and fills it, unchecking and emptying the others.
+fn update_page_segments(
+    mut commands: Commands,
+    page: Res<State<SettingsPage>>,
+    mut segments: Query<(
+        Entity,
+        &PageOption,
+        Has<Checked>,
+        &mut BackgroundColor,
+        &Children,
+    )>,
+    mut names: Query<&mut TextColor>,
+) {
+    for (entity, PageOption(option), checked, mut fill, children) in &mut segments {
+        let chosen = option == page.get();
+        // already as it should be, which is most frames: a segment spawns unchosen
+        if checked != chosen {
+            set_segment(
+                &mut commands,
+                entity,
+                &mut fill,
+                children,
+                &mut names,
+                chosen,
+            );
+        }
+    }
 }
 
 /// Puts the window in or out of fullscreen when the fullscreen switch is clicked.
@@ -346,32 +511,28 @@ fn update_language_segments(
     for (entity, LanguageOption(option), checked, mut fill, children) in &mut segments {
         let chosen = *option == *language;
         // already as it should be, which is most frames: a segment spawns unchosen
-        if checked == chosen {
-            continue;
-        }
-        let (fill_color, ink) = if chosen {
-            commands.entity(entity).insert(Checked);
-            (ACCENT, INK)
-        } else {
-            commands.entity(entity).remove::<Checked>();
-            (Color::NONE, TEXT_MUTED)
-        };
-        fill.0 = fill_color;
-        for child in children {
-            if let Ok(mut name) = names.get_mut(*child) {
-                name.0 = ink;
-            }
+        if checked != chosen {
+            set_segment(
+                &mut commands,
+                entity,
+                &mut fill,
+                children,
+                &mut names,
+                chosen,
+            );
         }
     }
 }
 
-/// Writes the window mode, the volume, the language and the glass setting to `settings.ron`
-/// as the panel closes, once per visit rather than on every slider move.
+/// Writes the window mode, the volume, the language, the glass setting and the changed key
+/// bindings to `settings.ron` as the panel closes, once per visit rather than on every
+/// slider move.
 fn save_settings(
     window: Single<&Window>,
     global_volume: Res<GlobalVolume>,
     language: Res<Language>,
     reduce_transparency: Res<ReduceTransparency>,
+    bindings: Res<Bindings>,
 ) {
     let settings = SettingsFile {
         version: SETTINGS_VERSION,
@@ -379,6 +540,7 @@ fn save_settings(
         volume: global_volume.volume.to_linear(),
         language: Some(*language),
         reduce_transparency: reduce_transparency.0,
+        bindings: bindings.saved(),
     };
     let Ok(text) = ron::to_string(&settings) else {
         return;
@@ -394,8 +556,22 @@ fn save_settings(
 
 // ==== Helpers ================================================================
 
+/// Returns the pages Settings has to offer, in the order of their row: General always, and
+/// a page of controls only when it has an action to list.
+fn offered_pages(bindings: &Bindings) -> Vec<SettingsPage> {
+    let mut pages = vec![SettingsPage::General];
+    if bindings.listed(Page::Game).next().is_some() {
+        pages.push(SettingsPage::Controls);
+    }
+    #[cfg(feature = "dev")]
+    if bindings.listed(Page::Dev).next().is_some() {
+        pages.push(SettingsPage::Dev);
+    }
+    pages
+}
+
 /// Returns one row of the settings grid: the label in its column, then the control.
-fn setting_row(key: &'static str, control: impl Bundle) -> impl Bundle {
+fn setting_row(label: impl Bundle, control: impl Bundle) -> impl Bundle {
     (
         Node {
             align_items: AlignItems::Center,
@@ -407,7 +583,7 @@ fn setting_row(key: &'static str, control: impl Bundle) -> impl Bundle {
                     width: px(LABEL_WIDTH_PX),
                     ..default()
                 },
-                children![label(key)],
+                children![label],
             ),
             control,
         ],
@@ -493,10 +669,20 @@ fn slider_track(width: Val) -> impl Bundle {
     }
 }
 
-/// Returns the segment that chooses `language`, unchosen: the language's name in itself. It
-/// is a `RadioButton`, so its group reports a click on it and the arrow keys move between
-/// the segments.
-fn language_segment(language: Language) -> impl Bundle {
+/// Returns the layout of a segmented control's track: a capsule its segments float inside.
+/// Its caller gives it its fill and makes it a `RadioGroup`.
+fn segment_track() -> Node {
+    Node {
+        padding: UiRect::all(px(SEGMENT_INSET_PX)),
+        border_radius: BorderRadius::MAX,
+        ..default()
+    }
+}
+
+/// Returns one segment of a segmented control, unchosen: `option`, the marker saying what
+/// it chooses, and `name`, the text it shows. It is a `RadioButton`, so its group reports a
+/// click on it and the arrow keys move between the segments.
+fn segment(option: impl Component, name: impl Bundle) -> impl Bundle {
     (
         Node {
             height: px(SEGMENT_HEIGHT_PX),
@@ -506,14 +692,35 @@ fn language_segment(language: Language) -> impl Bundle {
             ..default()
         },
         RadioButton,
-        LanguageOption(language),
+        option,
         BackgroundColor(Color::NONE),
-        children![(
-            Text::new(language.native_name()),
-            font(SMALL_FONT_SIZE_PX),
-            TextColor(TEXT_MUTED),
-        )],
+        children![(name, font(SMALL_FONT_SIZE_PX), TextColor(TEXT_MUTED))],
     )
+}
+
+/// Checks or unchecks a segment and paints it to match: filled with the accent and named in
+/// the dark ink when chosen, clear and muted when not.
+fn set_segment(
+    commands: &mut Commands,
+    entity: Entity,
+    fill: &mut BackgroundColor,
+    children: &Children,
+    names: &mut Query<&mut TextColor>,
+    chosen: bool,
+) {
+    let (fill_color, ink) = if chosen {
+        commands.entity(entity).insert(Checked);
+        (ACCENT, INK)
+    } else {
+        commands.entity(entity).remove::<Checked>();
+        (Color::NONE, TEXT_MUTED)
+    };
+    fill.0 = fill_color;
+    for child in children {
+        if let Ok(mut name) = names.get_mut(*child) {
+            name.0 = ink;
+        }
+    }
 }
 
 /// Returns the mode the fullscreen toggle switches to: windowed goes fullscreen,
@@ -549,6 +756,7 @@ fn parse_settings(text: &str) -> Option<SettingsFile> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::input::Binding;
 
     const TOLERANCE: f32 = 1e-5;
 
@@ -641,7 +849,68 @@ mod tests {
     }
 
     #[test]
+    fn settings_without_bindings_keep_the_defaults() {
+        let text = format!("(version: {SETTINGS_VERSION}, fullscreen: true, volume: 0.25)");
+        assert!(parse_settings(&text).unwrap().bindings.is_empty());
+    }
+
+    #[test]
+    fn a_saved_binding_reads_back() {
+        let text = format!(
+            "(version: {SETTINGS_VERSION}, fullscreen: true, volume: 0.25, bindings: {{\"fps_overlay\": Key(F4)}})"
+        );
+        assert_eq!(
+            parse_settings(&text).unwrap().bindings.get("fps_overlay"),
+            Some(&Binding::Key(KeyCode::F4))
+        );
+    }
+
+    #[test]
     fn unreadable_settings_are_ignored() {
         assert!(parse_settings("not ron").is_none());
+    }
+
+    // ---- the pages: a real app, with no window and nothing drawn ------------
+
+    /// Returns an app with Settings just opened: the panel spawned, and its first page.
+    fn app_with_settings_open() -> App {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, bevy::state::app::StatesPlugin));
+        app.init_state::<Overlay>();
+        app.add_sub_state::<SettingsPage>();
+        app.init_resource::<Bindings>();
+        app.init_resource::<GlobalVolume>();
+        app.add_systems(OnEnter(Overlay::Settings), spawn_settings_overlay);
+        app.add_systems(OnEnter(SettingsPage::General), spawn_general_page);
+        app.world_mut()
+            .resource_mut::<NextState<Overlay>>()
+            .set(Overlay::Settings);
+        app.update();
+        app
+    }
+
+    #[test]
+    fn settings_opens_on_the_general_page_inside_the_panel() {
+        let mut app = app_with_settings_open();
+        // the page is spawned by another state's `OnEnter` than the panel's, and asks for
+        // the panel's body: this fails if the page ever runs before the panel exists
+        let body = app
+            .world_mut()
+            .query_filtered::<Entity, With<SettingsPageBody>>()
+            .single(app.world())
+            .unwrap();
+        let rows = app.world().entity(body).get::<Children>().unwrap().len();
+        assert_eq!(rows, 4);
+    }
+
+    #[test]
+    fn a_game_with_nothing_to_rebind_has_no_row_of_pages() {
+        let mut app = app_with_settings_open();
+        let options = app
+            .world_mut()
+            .query::<&PageOption>()
+            .iter(app.world())
+            .count();
+        assert_eq!(options, 0);
     }
 }

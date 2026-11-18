@@ -14,7 +14,7 @@ pub(crate) use button::{
 };
 // the icons by name, re-exported so this file is the only one that names the crate
 pub(crate) use lucide_icons::Icon;
-pub(crate) use panel::{Dialog, card, dialog, floating_root};
+pub(crate) use panel::{CARD_GAP_PX, Dialog, card, dialog, floating_root};
 
 // ==== Config =================================================================
 
