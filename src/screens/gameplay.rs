@@ -6,7 +6,7 @@ use crate::save::{
 };
 
 pub(crate) mod pause;
-mod playroom;
+pub(crate) mod playroom;
 
 // ==== Plugin =================================================================
 

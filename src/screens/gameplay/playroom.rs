@@ -109,7 +109,7 @@ pub(super) fn plugin(app: &mut App) {
     // smooths edges in MSAA's place, from the finished image, so SSAO keeps working
     Smaa
 )]
-pub(super) struct PlayroomCamera;
+pub(crate) struct PlayroomCamera;
 
 // ==== Systems ================================================================
 
