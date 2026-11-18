@@ -480,6 +480,7 @@ do this. The layers, bottom to top:
 | pause menu | 50 | `PAUSE_Z_INDEX` |
 | overlays | 100 | `OVERLAY_Z_INDEX` |
 | dialog | 200 | `DIALOG_Z_INDEX`, in `ui/panel.rs` |
+| dev tools' windows, in dev builds | 300 | `DEV_TOOLS_Z_INDEX`, in `dev_tools.rs` |
 
 Those numbers order roots *within a camera*. Every floating layer (pause, overlays, dialogs) also
 has a camera of its own, ordered by the same number and drawn after the screen camera, so each
@@ -554,7 +555,8 @@ a feature turns it on, and hands out `freeze_background` and `unfreeze_backgroun
 whether a veil is fading over the menu (`update_frozen_background`), and off on leaving the
 screen. So `blur.rs` names no screen, as with `GlassLayers`. In `PostUpdate`,
 `freeze_settled_layers` marks each layer camera's `FrozenLayer`: the background is still, and
-every `Floating` root at or below the layer has finished its `Entrance` (the pure `is_settled`).
+every `Floating` root at or below the layer has finished its `Entrance` (the pure `is_settled`)
+and blocks the pointer: under one that lets it through, something may still be hovered.
 The layer's own root counts too: its entrance covers what is still settling under it, like the
 button that opened it easing out of its hover. `blur_layer_backdrops` reads the mark and keeps,
 for each layer camera, the copy it last finished while frozen; a frozen layer whose copy is
@@ -564,6 +566,15 @@ A background nobody called still is blurred every frame, which is always right, 
 that is a panel over live gameplay, such as a dev tool. What changes under a frozen layer is
 not seen until the layer closes: a language picked in Settings rewrites the menu behind it,
 and the blur keeps the old words.
+
+A floating root that lets the pointer through (`Pickable` that does not block, the pure
+`lets_pointer_through`) floats over a game that goes on: `target_layer_camera` sends it to its
+layer's camera but gives it no backdrop, so what is under it stays sharp and takes clicks, and
+only its cards are glass; and its layer is never frozen. The dev tools' windows are such roots
+(`spawn_dev_window` in `dev_tools.rs`, which gives every node inside `Pickable::IGNORE` too,
+since picking stops at a node without one), on a layer of their own above the dialog: sharp
+over the pause menu, with whatever is open under them blurred in their glass. Their windows
+are not `card()`s but carry the same `card_glass()`, so they are glass the same way.
 
 Reduce Transparency draws the glass flat. `ReduceTransparency` is a resource of `blur.rs` that
 the Settings overlay writes and saves, so `blur.rs` does not name the overlay. While it is on,
@@ -600,8 +611,8 @@ Seven files at the top of `src/`, each named after its domain, each used by more
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
-| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `muted_text()`, `icon()` and `Icon`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `icon_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
-| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()`, `ReduceTransparency`, `ScreensCovered` with `ScreensCoveredSystems` | the pause menu, every overlay and every dialog float |
+| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `muted_text()`, `icon()` and `Icon`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `icon_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()`, and in dev builds `card_glass()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions; the dev tools' windows are glass like a card |
+| `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()`, `ReduceTransparency`, `ScreensCovered` with `ScreensCoveredSystems` | the pause menu, every overlay and every dialog float, and in dev builds the dev tools' windows |
 | `src/input.rs` | `ActionName`, `Action`, `Binding`, `register_action()`, `Controls`, `action_just_pressed()`, `Bindings`, `SavedBindings` | Esc and the dev tools' keys are read as actions, and the settings file keeps the changed bindings; every feature that reads a key registers one |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
@@ -648,8 +659,11 @@ registered, each with what it is bound to now. A system reads an action through 
 system parameter (`controls.just_pressed(PAUSE)`), or runs on its press with
 `action_just_pressed(PAUSE)`, and never names a `KeyCode` itself. `report_shared_keys` logs two
 actions registered on one key as the game starts, found by the pure `shared_default`. On
-`main` the actions are Pause (`overlays.rs`, Esc) and, in dev builds, the FPS overlay
-(`dev_tools/fps.rs`, F2); a branch adds its own.
+`main` the actions are Pause (`overlays.rs`, Esc) and, in dev builds, the keys panel
+(`dev_tools/keys_panel.rs`, F1) and the FPS overlay (`dev_tools/fps.rs`, F2); a branch adds its
+own. The keys panel lists the Dev page's actions, each on the keycap of the Controls page
+(`keycap()` and `binding_legend()`, re-exported from `overlays.rs` in dev builds); while it is
+closed, its own key waits in its place on the screen camera (`spawn_keys_panel_hint`).
 An action also has a `Page`, the game's or the dev tools', and a label that page lists it under.
 One with no label, Pause, is not listed and never changes: the `swap` refuses its key and a
 saved binding for it is ignored. `Controls::pressed` says whether an action is held.
