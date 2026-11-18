@@ -14,7 +14,7 @@
 set -eu
 
 # the branch tree as parent:child, in the order the merges run: a new branch is a new pair
-TREE="main:3d/base 3d/base:3d/player main:2d/base"
+TREE="main:3d/base 3d/base:3d/player main:2d/base 2d/base:2d/player"
 
 die() {
     echo "sync: $*" >&2
