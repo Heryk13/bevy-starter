@@ -265,7 +265,12 @@ body's child at eye height. `walk_player` turns the four walk actions (`MOVE_FOR
 `MOVE_RIGHT`, which `player.rs` registers on W, S, A and D and the Controls page of Settings
 lets the player rebind) into the body's velocity across the ground,
 `look_around` turns the body for the yaw and tilts the camera for the pitch, and both run only in
-`Pause::Off`, whose `OnEnter` and `OnExit` lock and free the cursor. Everything about the camera
+`Pause::Off`; `look_around` also stops while a modal is open over the running game, the file
+explorer say. `hold_cursor` keeps the cursor locked exactly then, the game running with no
+modal open (the pure `is_cursor_locked`), and free the rest of the time, so the pause menu,
+photo mode, a modal and the menus all get it back. A modal is whatever Esc closes first, the
+`ClosesOnEsc` of `ui.rs`, so it never names the explorer, and a dev window the pointer goes
+through (the keys panel, slow motion) leaves the cursor held. Everything about the camera
 is in `first_person.rs`, and every line outside it that names it ends with
 `// camera: first-person`, so a game that keeps another camera deletes the file and those lines.
 What makes a camera the level's is one component, `PlayroomCamera` in `playroom.rs`: it requires the `Camera3d` and the camera kit (exposure, sky light, bloom,

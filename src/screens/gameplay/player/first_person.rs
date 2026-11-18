@@ -8,6 +8,7 @@ use super::{PLAYER_HEIGHT_M, Player};
 use crate::save::Session;
 use crate::screens::gameplay::playroom::PlayroomCamera;
 use crate::screens::{Pause, Screen};
+use crate::ui::ClosesOnEsc;
 
 // ==== Config =================================================================
 
@@ -38,9 +39,15 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(spawn_first_person_camera.run_if(in_state(Screen::Gameplay)));
     #[cfg(feature = "dev")]
     app.add_observer(hide_body_debug_collider.run_if(in_state(Screen::Gameplay)));
-    app.add_systems(OnEnter(Pause::Off), lock_cursor);
-    app.add_systems(Update, look_around.run_if(in_state(Pause::Off)));
-    app.add_systems(OnExit(Pause::Off), unlock_cursor);
+    // every frame and on every screen: the cursor must come back the moment a modal opens
+    // over the running game, or the game is left, whatever left it
+    app.add_systems(Update, hold_cursor);
+    app.add_systems(
+        Update,
+        look_around
+            .run_if(in_state(Pause::Off))
+            .run_if(not(any_with_component::<ClosesOnEsc>)),
+    );
 }
 
 // ==== Systems ================================================================
@@ -64,11 +71,31 @@ fn hide_body_debug_collider(add: On<Add<Player>>, mut commands: Commands) {
     commands.entity(add.entity).insert(DebugRender::none());
 }
 
-/// Hides the cursor and holds it in place while the game runs, so a turn never carries it
-/// out of the window, and every move of the mouse becomes looking around.
-fn lock_cursor(mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>) {
-    cursor.grab_mode = CursorGrabMode::Locked;
-    cursor.visible = false;
+/// Hides the cursor and holds it in place while the game runs with no modal open over it, so
+/// a turn never carries it out of the window and every move of the mouse becomes looking
+/// around; gives it back the rest of the time, for the menus and for a modal over the running
+/// game, the file explorer say. A modal is whatever Esc closes first (`ClosesOnEsc`), so a dev
+/// window the pointer goes through leaves it held. Writes only when that changes.
+fn hold_cursor(
+    pause: Option<Res<State<Pause>>>,
+    modals: Query<(), With<ClosesOnEsc>>,
+    mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>,
+    mut held: Local<Option<bool>>,
+) {
+    let pause = pause.map(|pause| *pause.get());
+    let locked = is_cursor_locked(pause, !modals.is_empty());
+    // against what was last asked, not what the window says: where the OS refuses to hold the
+    // cursor, Bevy puts the old mode back, and asking again every frame would only fail again
+    if *held == Some(locked) {
+        return;
+    }
+    *held = Some(locked);
+    cursor.grab_mode = if locked {
+        CursorGrabMode::Locked
+    } else {
+        CursorGrabMode::None
+    };
+    cursor.visible = !locked;
 }
 
 /// Turns the view with the mouse: across turns the whole body, so walking follows where the
@@ -87,13 +114,13 @@ fn look_around(
     ));
 }
 
-/// Gives the cursor back whenever the game stops running, paused or left, for the menus.
-fn unlock_cursor(mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>) {
-    cursor.grab_mode = CursorGrabMode::None;
-    cursor.visible = true;
-}
-
 // ==== Helpers ================================================================
+
+/// Tells whether the cursor is held for looking around: only while the game runs, `pause`
+/// being `Off`, and no modal is open over it. Outside gameplay `pause` is `None`.
+fn is_cursor_locked(pause: Option<Pause>, modal_open: bool) -> bool {
+    pause == Some(Pause::Off) && !modal_open
+}
 
 /// Returns the pitch after the mouse moves `delta_y_px` down the screen, held inside the
 /// limit. Screen y grows downwards and pitch upwards, so the motion is subtracted.
@@ -132,5 +159,25 @@ mod tests {
     fn pitch_stops_at_the_bottom_limit() {
         let pitch = next_pitch(-FIRST_PERSON_PITCH_LIMIT_RAD, 5.0);
         assert!((pitch + FIRST_PERSON_PITCH_LIMIT_RAD).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn the_cursor_is_held_while_the_game_runs_with_nothing_over_it() {
+        assert!(is_cursor_locked(Some(Pause::Off), false));
+    }
+
+    #[test]
+    fn a_modal_over_the_running_game_frees_the_cursor() {
+        assert!(!is_cursor_locked(Some(Pause::Off), true));
+    }
+
+    #[test]
+    fn the_paused_game_frees_the_cursor() {
+        assert!(!is_cursor_locked(Some(Pause::On), true));
+    }
+
+    #[test]
+    fn the_cursor_is_free_outside_gameplay() {
+        assert!(!is_cursor_locked(None, false));
     }
 }
