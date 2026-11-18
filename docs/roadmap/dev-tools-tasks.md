@@ -128,4 +128,4 @@ The other dev keys belong to later rows: the roadmap's Keys table lists them.
 |---|------|-----|-------|
 | [x] | 6.1 `README.md`: the dev keys (F1, F4 beside F2), `just profile` in the commands table, the `dev` feature row | Claude | |
 | [x] | 6.2 The spec's status and its "What changed while building it" from the Departures above; the roadmap's row 2 and its table of pieces (popover and HUD shown, the regions still waiting) | Claude | |
-| [ ] | 6.3 Sync; `just run` on `main` and on `2d/base` | you | every step before was seen on `3d/player` only, step 1 aside |
+| [x] | 6.3 Sync; `just run` on `main` and on `2d/base` | you | every step before was seen on `3d/player` only, step 1 aside |
