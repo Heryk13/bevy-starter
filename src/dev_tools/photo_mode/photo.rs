@@ -6,7 +6,7 @@ use bevy::tasks::{AsyncComputeTaskPool, Task};
 use std::io::Cursor;
 use std::path::Path;
 
-use super::PhotoModeUi;
+use super::{PhotoHint, PhotoModeUi, register_photo_hint};
 use crate::dev_tools::{
     DEV_TOOLS_Z_INDEX, SECS_PER_DAY, SECS_PER_HOUR, SECS_PER_MINUTE, civil_from_days, dev_window,
     gallery_dir, register_inner_key, spawn_dev_window,
@@ -21,10 +21,10 @@ use crate::ui::{ACCENT, INK, Icon, SMALL_FONT_SIZE_PX, TEXT, custom_icon, font, 
 // ==== Config =================================================================
 
 // takes the photo: the action, and the key it starts on
-pub(super) const TAKE_PHOTO: ActionName = ActionName("take_photo");
+const TAKE_PHOTO: ActionName = ActionName("take_photo");
 const TAKE_PHOTO_KEY: KeyCode = KeyCode::KeyE;
 // English, as every dev tool's words: on the Dev page, the keys panel and photo mode's bar
-pub(super) const TAKE_PHOTO_LABEL: &str = "Take Photo";
+const TAKE_PHOTO_LABEL: &str = "Take Photo";
 
 // ---- the file: a PNG in the gallery, which the file explorer browses --------
 const PHOTO_EXTENSION: &str = "png";
@@ -74,6 +74,14 @@ pub(super) fn plugin(app: &mut App) {
     );
     // photo mode's bar shows it once photo mode is on, and it does nothing before
     register_inner_key(app, TAKE_PHOTO);
+    register_photo_hint(
+        app,
+        PhotoHint {
+            icon: Icon::Camera,
+            actions: &[TAKE_PHOTO],
+            words: TAKE_PHOTO_LABEL,
+        },
+    );
     app.init_resource::<PhotosThisSecond>();
     // the last three run outside photo mode too: a photo still being written as photo mode
     // ends still says so, and its flash and notice still go

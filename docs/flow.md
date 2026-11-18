@@ -83,13 +83,16 @@ F3 enters it only from `Pause::Off` (the pure `photo_key_target`), and F3 or Esc
 Entering hides every root marked `DevUi` (every dev window, by `spawn_dev_window`, and the F1
 hint), and `fps.rs` turns the FPS off, keeping whether it showed; leaving brings both back.
 The other dev keys do nothing meanwhile (`.run_if(not(in_state(Pause::Photo)))`). Photo mode
-shows its own windows, marked `PhotoModeUi`: a bar of its keys at the bottom. E
+shows its own windows, marked `PhotoModeUi`: a bar of its keys at the bottom, built from the
+hints the tools add with `register_photo_hint` (Take Photo on `main`, the free camera's on
+`3d/player`), Exit always last. E
 (`photo_mode/photo.rs`) hides those for one frame, takes a `Screenshot` of the window in that
 frame, and when it arrives shows them again, flashes the window's edges, plays a click, and
 writes the PNG on another thread into `gallery/` in the data folder, named by its time in UTC
 (`2026-11-18_14-32-05.png`, `_2` for a second photo in the same second). A "Photo saved"
-notice comes once the file is written. On `3d/player`, leaving `Pause::Off` frees the cursor
-and stops the look, as under the pause menu, until row 5's free camera.
+notice comes once the file is written. On `3d/player` the cursor stays held, and the view
+leaves the player as a free camera (`dev_tools/free_camera.rs`), coming back where it was as
+photo mode ends.
 
 **The file explorer** (`src/dev_tools/file_explorer.rs` and its folder, dev builds only) is no
 state either: Numpad 0 opens it over any screen, the running game included, which goes on

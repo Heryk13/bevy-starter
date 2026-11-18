@@ -270,4 +270,4 @@ needs. The look is the mockup's block "4" in `docs/roadmap/ui/mockup.html`.
 | | Task | Who | Facts |
 |---|------|-----|-------|
 | [x] | 11.1 `README.md`, `docs/flow.md`, `docs/template.md`, the roadmap's row and pieces, the spec's status and "What changed" | Claude | |
-| [ ] | 11.2 Sync; `just run` on `main` and on `2d/base` | you | |
+| [x] | 11.2 Sync; `just run` on `main` and on `2d/base` | you | |
