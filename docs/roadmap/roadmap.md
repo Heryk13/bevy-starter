@@ -30,7 +30,7 @@ Agreed on 2026-11-07.
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | built 2026-11-18, plus a flash and a click on E; the 3D free camera came with row 5, the 2D one comes with row 6 | `photo-mode/design.md`, `photo-mode-tasks.md` | agreed so far: below; the free cameras come with rows 5 and 6 |
 | 4  | **File explorer** (Numpad 0): the gallery (photos, videos) and the game's assets, like the Windows explorer | `main` | built 2026-11-19 | `file-explorer/design.md`, `file-explorer-tasks.md` | agreed so far: below; was photo mode's gallery |
 | 5  | **Dev tools 3D**: physics debug view (F6), fly (F7), photo mode's 3D free camera | `3d/player` | built 2026-11-19, plus `register_photo_hint` on `main` for photo mode's bar | `dev-tools-3d/design.md` | agreed so far: below; `hide_body_debug_collider` is gone |
-| 6  | **2D player**: a square that walks, no animation, and photo mode's 2D free camera | `2d/player` (new) | | | agreed so far: below; the CLI asks without or with the player module |
+| 6  | **2D player**: a square that walks, no animation, and photo mode's 2D free camera | `2d/player` | built 2026-11-19, with `create-bevy-starter` 0.3.0 asking for it | `2d-player/design.md`, on `2d/player` | agreed so far: below; the CLI asks without or with the player module |
 | 7  | **Speed + UI** (F8) | base in `main`, then `2d/player` and `3d/player` | | | agreed so far: below |
 | 8  | **Screen recording** (F9): a countdown, then a blinking REC while it records, sound included | `main` | | | agreed so far: below |
 | 9  | **Lighting**: dark places really dark | `3d/base` | | | agreed so far: below; test in `DarkRoom`, `DarkCorridor`, `DarkRoom_LightSpot`; the sky light lights interiors evenly today |
