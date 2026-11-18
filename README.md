@@ -50,7 +50,7 @@ branch starts from the one it builds on. Clone the branch closest to the game yo
 ```mermaid
 flowchart LR
     main["main"] --> base["3d/base"] --> player["3d/player"]
-    main --> twodbase["2d/base"]
+    main --> twodbase["2d/base"] --> twodplayer["2d/player"]
 ```
 
 | Branch      | What it is for                                                          |
@@ -59,14 +59,15 @@ flowchart LR
 | `3d/base`   | A test level (`playroom.glb`) under a sky and a glaring sun             |
 | `3d/player` | Physics, a player in first person, and the 3D dev tools (F6, F7)        |
 | `2d/base`   | A test room seen from above, drawn in tiles from an ASCII map           |
+| `2d/player` | A square that walks the room, the camera following it near an edge      |
 
 Each branch's `docs/specs/` holds the designs built on it and what is still to come.
 The cameras of `3d/player` (first-person, built, then third-person and isometric) will not be
 branches of their own: a game will keep any of them, and switch between them with F5 when it
 keeps more than one. Multiplayer is planned too, as an option across the kinds rather than a
 branch. [`create-bevy-starter`](https://github.com/Heryk13/create-bevy-starter) builds a game
-from `main`, `3d/base`, `3d/player` or `2d/base`, the last three by its kind and, for a 3D
-game, the camera picked: it clones the branch, renames the game and starts a fresh git
+from `main`, `3d/base`, `3d/player`, `2d/base` or `2d/player`, by its kind and, for a 3D
+game, the camera picked, for a 2D one, whether it has the player: it clones the branch, renames the game and starts a fresh git
 history. Its design is in [its spec](docs/specs/create-bevy-starter/design.md).
 
 A change is committed on the highest branch that every game using it starts from, and merged
