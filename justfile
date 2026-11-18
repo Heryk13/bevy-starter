@@ -6,6 +6,14 @@ exe := if os_family() == "windows" { ".exe" } else { "" }
 run:
     cargo run
 
+# run the game recording how long every system takes, into a dated file in profiles/ written
+# when the game closes. To read it, open https://ui.perfetto.dev in a browser and drag the
+# file in: nothing to install. Traced builds are slower, so compare systems with each other,
+# not with a release build, and keep runs short: the file grows by hundreds of MB a minute
+profile:
+    mkdir -p profiles
+    file="profiles/trace-$(date +%Y-%m-%d-%H%M%S).json"; TRACE_CHROME="$file" cargo run --features bevy/trace_chrome && echo "profile written to $file: open https://ui.perfetto.dev and drag it in"
+
 # apply clippy fixes and format the code
 fix:
     cargo clippy --all-targets --fix --allow-dirty
