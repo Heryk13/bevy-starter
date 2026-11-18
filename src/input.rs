@@ -1,5 +1,7 @@
 use bevy::ecs::system::SystemParam;
+use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
+use bevy::text::EditableText;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -64,13 +66,16 @@ pub(crate) fn register_action(app: &mut App, action: Action) {
 
 /// Reads the actions: what a feature asks in place of a key written in the code.
 #[derive(SystemParam)]
-pub(crate) struct Controls<'w> {
+pub(crate) struct Controls<'w, 's> {
     bindings: Res<'w, Bindings>,
     keys: Res<'w, ButtonInput<KeyCode>>,
     mouse: Res<'w, ButtonInput<MouseButton>>,
+    // an `Option`: a world without keyboard focus, as a test's, has no field to type in
+    focus: Option<Res<'w, InputFocus>>,
+    text_fields: Query<'w, 's, (), With<EditableText>>,
 }
 
-impl Controls<'_> {
+impl Controls<'_, '_> {
     /// Tells whether what the action is bound to went down this frame. An action nobody
     /// registered was never pressed.
     pub(crate) fn just_pressed(&self, action: ActionName) -> bool {
@@ -90,14 +95,15 @@ impl Controls<'_> {
         }
     }
 
-    /// Returns what the action is bound to, unless a binding is being chosen: then no action
-    /// hears its key, so the key pressed to bind does nothing else, the Esc that cancels
-    /// included.
+    /// Returns what the action is bound to, as `Bindings::heard` hears it, a text field
+    /// having the keyboard or not.
     fn heard(&self, action: ActionName) -> Option<Binding> {
-        match self.bindings.listening {
-            Some(_) => None,
-            None => self.bindings.binding(action),
-        }
+        let typing = self
+            .focus
+            .as_ref()
+            .and_then(|focus| focus.get())
+            .is_some_and(|focused| self.text_fields.contains(focused));
+        self.bindings.heard(action, typing)
     }
 }
 
@@ -191,6 +197,22 @@ impl Bindings {
                     .label
                     .map(|label| (bound.action.name, label, bound.binding))
             })
+    }
+
+    /// Returns what the action is bound to, as the game hears it: nothing while a binding is
+    /// being chosen, so the key pressed to bind does nothing else, the Esc that cancels
+    /// included; and while `typing` in a text field, only the actions that are not listed:
+    /// Esc, which types nothing and is the way out of every panel. So a letter typed into a
+    /// name is never an action too.
+    fn heard(&self, action: ActionName, typing: bool) -> Option<Binding> {
+        if self.listening.is_some() {
+            return None;
+        }
+        self.actions
+            .iter()
+            .find(|bound| bound.action.name == action)
+            .filter(|bound| !typing || bound.action.label.is_none())
+            .map(|bound| bound.binding)
     }
 
     /// Returns what the action is bound to, or `None` for one nobody registered.
@@ -358,6 +380,31 @@ mod tests {
         assert!(world.run_system_once(forward_is_pressed).unwrap());
         world.resource_mut::<Bindings>().listen(BACK);
         assert!(!world.run_system_once(forward_is_pressed).unwrap());
+    }
+
+    #[test]
+    fn only_esc_is_heard_while_a_text_field_has_the_keyboard() {
+        let bindings = bindings_with_pause();
+        assert_eq!(bindings.heard(FORWARD, false), Some(W));
+        assert_eq!(bindings.heard(FORWARD, true), None);
+        assert_eq!(bindings.heard(PAUSE, true), Some(ESC));
+    }
+
+    #[test]
+    fn no_action_is_heard_while_a_focused_text_field_takes_the_keys() {
+        let mut world = World::new();
+        world.insert_resource(bindings());
+        world.init_resource::<ButtonInput<MouseButton>>();
+        let mut keys = ButtonInput::<KeyCode>::default();
+        keys.press(KeyCode::KeyW);
+        world.insert_resource(keys);
+        let field = world.spawn(EditableText::default()).id();
+        world.insert_resource(InputFocus::from_entity(field));
+        let forward_is_pressed = |controls: Controls| controls.pressed(FORWARD);
+
+        assert!(!world.run_system_once(forward_is_pressed).unwrap());
+        world.resource_mut::<InputFocus>().clear();
+        assert!(world.run_system_once(forward_is_pressed).unwrap());
     }
 
     // ---- shared_default -----------------------------------------------------

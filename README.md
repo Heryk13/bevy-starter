@@ -30,8 +30,12 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 - Fast dev builds: dynamic linking and optimized dependencies
 - Dev tools in dev builds, each on a key you can change in Settings: a list of the dev keys
   (F1, waiting in the corner), the FPS overlay (F2), photo mode (F3: the game frozen with
-  every dev window hidden, E saves a PNG of it into the data folder's `gallery/`) and slow
-  motion (F4, stepped with Numpad − and +); and asset hot reloading
+  every dev window hidden, E saves a PNG of it into the data folder's `gallery/`), slow
+  motion (F4, stepped with Numpad − and +) and the file explorer (Numpad 0: a drawer over
+  the running game that browses the gallery and the game's `assets/` like the Windows
+  explorer, with a preview, folders, renaming, dragging, a trash of its own, files dropped
+  in from the OS, and a warning before changing an asset the code names); and asset hot
+  reloading
 - Fast linking on Windows with `rust-lld`
 - Release packaging into a ready-to-ship `dist/` folder
 - Third-party license notices generated on every release
