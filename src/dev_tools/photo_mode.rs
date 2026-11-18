@@ -19,7 +19,7 @@ use photo::{TAKE_PHOTO, TAKE_PHOTO_LABEL};
 const PHOTO_MODE: ActionName = ActionName("photo_mode");
 const PHOTO_MODE_KEY: KeyCode = KeyCode::F3;
 
-// ---- words: English, as every dev tool's, since release builds leave them out --
+// ---- words: English, as every dev tool's, never read in a release build -----
 const PHOTO_MODE_LABEL: &str = "Photo Mode";
 const EXIT_WORDS: &str = "Exit";
 

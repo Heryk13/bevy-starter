@@ -91,6 +91,25 @@ writes the PNG on another thread into `gallery/` in the data folder, named by it
 notice comes once the file is written. On `3d/player`, leaving `Pause::Off` frees the cursor
 and stops the look, as under the pause menu, until row 5's free camera.
 
+**The file explorer** (`src/dev_tools/file_explorer.rs` and its folder, dev builds only) is no
+state either: Numpad 0 opens it over any screen, the running game included, which goes on
+under it, and Numpad 0, its X or Esc slide it away. It is a glass drawer along the bottom
+(`drawer.rs`), on the dev tools' layer and letting the pointer through around it, so the game
+above stays sharp; its grip resizes it, and the height is kept while the game runs. It shows one
+of four places, a resource, `Explorer`, saying which, with the folder and the entry selected:
+Recents (every photo of the gallery, newest first), Gallery (`gallery/` in the data folder),
+Assets (the folder Bevy loads from, the repository's `assets/` under `just run`) and Trash
+(`trash/` in the data folder). Every part redraws from `Explorer` when what it shows changes:
+the title bar's places and path (`title_bar.rs`), the tree (`tree.rs`), the list (`list.rs`)
+and the preview (`preview.rs`). A double click enters a folder or opens a file in the OS's app;
+a right click opens a menu (`menu.rs`); a name is renamed in place (`rename.rs`); an entry
+dragged onto a folder, a place or a part of the path moves there, or is copied into the other
+place; a file dropped from the OS is copied into the folder shown (`actions.rs`). Delete moves
+an entry into Trash, which `trash.rs` lists with where each came from and can put back. Before
+Assets has something renamed, moved or deleted, `usage.rs` reads `src/` and the text files of
+`assets/` for its path, and when the code names it, asks first, listing each line. Its
+questions and its menu are a layer of their own over it, 310 (`dialog.rs`).
+
 A dialog is not a state: it is an entity drawn over whatever asked the question, the pause menu
 or the save list, and No or Esc despawns it and leaves what is underneath as it was.
 
@@ -468,7 +487,10 @@ instead, and calls `take_pause_picture` on that frame, the last one that shows t
 menu over it. The whole Esc rule lives in one pure function beside it,
 `esc_action`, which returns an `EscAction` and has a test per line, first match wins:
 
-1. a dialog is open → close it
+1. a modal is open, a dialog or a dev tool's drawer (`ClosesOnEsc`) → send the topmost a
+   `Dismiss`, which each answers its own way: a dialog despawns, the file explorer slides away.
+   Over the explorer the layers decide the order: its question or menu (310), then its rename
+   field (301), which gives the rename up, then the explorer (300)
 2. an overlay is open → close it (back to the pause menu, if paused)
 3. gameplay is paused → resume
 4. gameplay is running → pause
@@ -500,6 +522,8 @@ do this. The layers, bottom to top:
 | overlays | 100 | `OVERLAY_Z_INDEX` |
 | dialog | 200 | `DIALOG_Z_INDEX`, in `ui/panel.rs` |
 | dev tools' windows, in dev builds | 300 | `DEV_TOOLS_Z_INDEX`, in `dev_tools.rs` |
+| the file explorer's rename field, in dev builds | 301 | `RENAME_FIELD_Z_INDEX`, in `dev_tools/file_explorer/rename.rs`, 1 above the dev tools: a modal only for Esc, inside the explorer |
+| the file explorer's questions and right-click menu, in dev builds | 310 | `EXPLORER_DIALOG_Z_INDEX`, in `dev_tools/file_explorer/dialog.rs`, 10 above the dev tools |
 
 Those numbers order roots *within a camera*. Every floating layer (pause, overlays, dialogs) also
 has a camera of its own, ordered by the same number and drawn after the screen camera, so each
@@ -637,7 +661,7 @@ Seven files at the top of `src/`, each named after its domain, each used by more
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
 | `src/save.rs`, with `save/picture.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `delete_save_files()`, `is_autosave()`; re-exported from picture.rs: `PausePicture`, `take_pause_picture()`, `take_save_picture()`, `save_pause_picture()`, `read_save_picture()`, `PICTURE_ASPECT_RATIO` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read, write and delete saves, Esc takes the picture a save carries |
-| `src/disk.rs` | `game_data_dir()`, `write_atomic()` | saves, their pictures, settings and photo mode's photos all live in the data folder and are written atomically |
+| `src/disk.rs` | `game_data_dir()`, `write_atomic()` | saves, their pictures, settings, photo mode's photos and the file explorer's trash all live in the data folder and are written atomically |
 
 **`src/ui.rs`** is the look of the whole game, split the usual way: `ui.rs` keeps the palette,
 the type and the text widgets, `ui/button.rs` the buttons, `ui/panel.rs` the floating roots,
@@ -669,6 +693,12 @@ the card rising 12 px and scaling up, by the `ENTRANCE` fade. Its systems carry 
 so there is no state to gate them on. `load_button_sounds` loads `ui/click.wav` and `ui/hover.wav`
 once at `Startup` into a `ButtonSounds` resource, and `play_button_sounds` spawns a one-shot player
 per hover and per press with `PlaybackSettings::DESPAWN`, so nothing accumulates.
+`point_at_pressables` turns the cursor into a pointing hand while the mouse is over anything
+that can be pressed, anywhere in the game: it reads Bevy's `HoverMap` and looks, from each
+node under the mouse up through those holding it, for a `Button`, `Checkbox`, `RadioButton`,
+`Slider`, or a `Hovered` (what lights up under the pointer without being a button, as the
+file explorer's tree rows). `paint_buttons` also repaints a resting button whose `ButtonKind`
+changed, as a list's row does when it is selected.
 
 **`src/input.rs`** puts a name between a feature and a key. A feature registers an *action*
 from its plugin with `register_action(app, Action { name, default, page, label })`, the way a
@@ -679,14 +709,21 @@ system parameter (`controls.just_pressed(PAUSE)`), or runs on its press with
 `action_just_pressed(PAUSE)`, and never names a `KeyCode` itself. `report_shared_keys` logs two
 actions registered on one key as the game starts, found by the pure `shared_default`. On
 `main` the actions are Pause (`overlays.rs`, Esc) and, in dev builds, the keys panel
-(`dev_tools/keys_panel.rs`, F1), the FPS overlay (`dev_tools/fps.rs`, F2) and slow motion
-(`dev_tools/slow_motion.rs`, F4, with Numpad − and + read only while its capsule is open); a
-branch adds its own. The keys panel lists the Dev page's actions, each on the keycap of the Controls page
+(`dev_tools/keys_panel.rs`, F1), the FPS overlay (`dev_tools/fps.rs`, F2), photo mode
+(`dev_tools/photo_mode.rs`, F3, with E taking a photo), slow motion
+(`dev_tools/slow_motion.rs`, F4, with Numpad − and + read only while its capsule is open) and
+the file explorer (`dev_tools/file_explorer.rs`, Numpad 0); a branch adds its own. The keys panel lists the Dev page's actions, each on the keycap of the Controls page
 (`keycap()` and `binding_legend()`, re-exported from `overlays.rs` in dev builds); while it is
-closed, its own key waits in its place on the screen camera (`spawn_keys_panel_hint`).
+closed, its own key waits in its place on the screen camera (`spawn_keys_panel_hint`). It
+leaves out a tool's inner keys, the ones that only work once the tool is open and that the tool
+shows itself (Take Photo, Slower, Faster): each tool's plugin names its own with
+`register_inner_key` in `dev_tools.rs`, and the Dev page still lists them.
 An action also has a `Page`, the game's or the dev tools', and a label that page lists it under.
 One with no label, Pause, is not listed and never changes: the `swap` refuses its key and a
 saved binding for it is ignored. `Controls::pressed` says whether an action is held.
+While a text field has the keyboard (`InputFocus` on an `EditableText`: the save name, the file
+explorer's rename), `Controls` hears only the unlisted actions, so a letter typed into a name is
+never an action too, and Esc still closes what is open (`Bindings::heard`).
 
 A `Binding` is a key or a mouse button. There is one way to change one: the pure `swap`, which
 gives whoever held the new binding the one the action gave up, so no two actions ever share a

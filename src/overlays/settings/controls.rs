@@ -563,7 +563,7 @@ mod tests {
     use super::*;
     use crate::input::{Action, register_action};
 
-    // ---- heard--------------------------------------------------------------
+    // ---- heard --------------------------------------------------------------
 
     #[test]
     fn a_frame_with_no_press_keeps_the_slot_listening() {

@@ -28,7 +28,7 @@ Agreed on 2026-11-07.
 | 1  | **Key bindings**: a Controls page in Settings to change the keys (gamepads left for later) | base in `main`, then each branch registers its own actions | built: keys and mouse buttons; gamepads and menu navigation left for later | `key-bindings/design.md`, `key-bindings-tasks.md` | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
 | 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | built 2026-11-18, plus F1 waiting in the corner while the panel is closed | `dev-tools/design.md`, `dev-tools-tasks.md` | rows 0 and 1 are built |
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | built 2026-11-18, plus a flash and a click on E; the free cameras still to come | `photo-mode/design.md`, `photo-mode-tasks.md` | agreed so far: below; the free cameras come with rows 5 and 6 |
-| 4  | **File explorer** (Numpad 0): the photos and videos, like the Windows explorer | `main` | | | agreed so far: below; was photo mode's gallery |
+| 4  | **File explorer** (Numpad 0): the gallery (photos, videos) and the game's assets, like the Windows explorer | `main` | built 2026-11-19 | `file-explorer/design.md`, `file-explorer-tasks.md` | agreed so far: below; was photo mode's gallery |
 | 5  | **Dev tools 3D**: physics debug view (F6), fly (F7), photo mode's 3D free camera | `3d/player` | | | agreed so far: below; `hide_body_debug_collider` goes |
 | 6  | **2D player**: a square that walks, no animation, and photo mode's 2D free camera | `2d/player` (new) | | | agreed so far: below; the CLI asks without or with the player module |
 | 7  | **Speed + UI** (F8) | base in `main`, then `2d/player` and `3d/player` | | | agreed so far: below |
@@ -231,7 +231,7 @@ names its roadmap row.
      | HUD and its capsule with a bar of steps | 2, slow motion (F4): built in `slow_motion.rs`; the FPS stays Bevy's own overlay |
      | the regions: blur only where glass is | put off again by row 2: its windows exist only in dev builds; they wait for a glass a released game shows while playing |
      | glass bar, notification | 3, photo mode's hint and "Photo saved": built in `photo_mode.rs` and `photo_mode/photo.rs` |
-     | Finder window, list | 4, the file explorer |
+     | Finder window, list | 4, the file explorer: built as a drawer in `dev_tools/file_explorer.rs` and its folder, with a tree, a list, a right-click menu and faint scrollbars |
      | alert with an icon | the scenes' unsaved dialog |
 - **Tried on `3d/player`, committed on `main`**, agreed on 2026-11-08: on `main` nothing moves
   behind a panel (the menu's background is a still image, gameplay is empty), so each step is

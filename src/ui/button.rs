@@ -1,7 +1,9 @@
-use bevy::picking::hover::Hovered;
+use bevy::picking::hover::{HoverMap, Hovered};
+use bevy::picking::pointer::PointerId;
 use bevy::prelude::*;
 use bevy::ui::Pressed;
-use bevy::ui_widgets::Button;
+use bevy::ui_widgets::{Button, Checkbox, RadioButton, Slider};
+use bevy::window::{CursorIcon, PrimaryWindow, SystemCursorIcon};
 
 use super::{ACCENT, DANGER, INK, Icon, TEXT, icon, label};
 use crate::fade::approach;
@@ -18,13 +20,16 @@ const CLEAR: Color = Color::srgba(1.0, 1.0, 1.0, 0.0);
 const PRIMARY_HOVER_ALPHA: f32 = 0.84;
 // the ink on a fill of `DANGER`, where the dark ink of a white fill would not read
 const DANGER_INK: Color = Color::WHITE;
+// a close button's red under the pointer: half of it, a warning rather than a Delete
+#[cfg(feature = "dev")]
+const CLOSE_HOVER_ALPHA: f32 = 0.5;
 // how far pressing darkens whatever fill a button has, 0.0 to 1.0
 const BUTTON_PRESS_SHADE: f32 = 0.18;
 
 // ---- size -------------------------------------------------------------------
 pub(crate) const BUTTON_HEIGHT_PX: f32 = 44.0;
 const BUTTON_MIN_WIDTH_PX: f32 = 120.0;
-const BUTTON_PADDING_PX: f32 = 20.0;
+pub(crate) const BUTTON_PADDING_PX: f32 = 20.0;
 pub(crate) const ROW_BUTTON_PADDING_PX: f32 = 8.0;
 // the corner of what a row starts with, such as a save's picture
 pub(crate) const ROW_CONTENT_RADIUS_PX: f32 = 10.0;
@@ -45,7 +50,10 @@ pub(super) fn plugin(app: &mut App) {
     // no run_if in this file: a button lives on any screen and inside any overlay, so
     // there is no state these systems could be gated on
     app.add_systems(Startup, load_button_sounds);
-    app.add_systems(Update, (paint_buttons, play_button_sounds));
+    app.add_systems(
+        Update,
+        (paint_buttons, play_button_sounds, point_at_pressables),
+    );
 }
 
 // ==== Widgets ================================================================
@@ -62,6 +70,28 @@ pub(crate) fn button(key: &'static str, kind: ButtonKind) -> impl Bundle {
         },
         kind,
         children![label(key)],
+    )
+}
+
+/// Returns a button labeled with plain words instead of a translation key, its label
+/// centered: for a dev tool, whose words are English and never translated. Only dev builds
+/// have dev tools, so only they have this.
+#[cfg(feature = "dev")]
+pub(crate) fn words_button(words: &'static str, kind: ButtonKind) -> impl Bundle {
+    button_base(
+        Node {
+            min_width: px(BUTTON_MIN_WIDTH_PX),
+            height: px(BUTTON_HEIGHT_PX),
+            padding: UiRect::horizontal(px(BUTTON_PADDING_PX)),
+            justify_content: JustifyContent::Center,
+            ..button_frame()
+        },
+        kind,
+        children![(
+            Text::new(words),
+            super::font(super::BODY_FONT_SIZE_PX),
+            TextColor(TEXT),
+        )],
     )
 }
 
@@ -121,6 +151,14 @@ pub(crate) fn icon_button(symbol: Icon, kind: ButtonKind) -> impl Bundle {
     )
 }
 
+/// Returns a button laid out by its caller, `node` its size, shape and layout, around
+/// `content`: for a button none of the others draws, such as a dev tool's icon with its name
+/// under it, both inside the fill. Only dev builds have one.
+#[cfg(feature = "dev")]
+pub(crate) fn laid_out_button(node: Node, kind: ButtonKind, content: impl Bundle) -> impl Bundle {
+    button_base(node, kind, children![content])
+}
+
 // ==== Components =============================================================
 
 /// What a button is for, which decides the fill and the ink it is painted in.
@@ -136,6 +174,11 @@ pub(crate) enum ButtonKind {
     /// What destroys, in red ink at rest and filled red under the pointer: Delete, and a Yes
     /// that destroys something.
     Danger,
+    /// A window's close button: bare at rest, as Quiet is, and a see-through red under the
+    /// pointer. Only a dev tool's window has one, so only dev builds have it: a variant
+    /// nothing builds fails `just check`.
+    #[cfg(feature = "dev")]
+    Close,
 }
 
 /// Marks a text under a button that keeps its own color: one that lies on a surface of its
@@ -179,7 +222,7 @@ fn paint_buttons(
     mut buttons: Query<
         (
             Entity,
-            &ButtonKind,
+            Ref<ButtonKind>,
             &Hovered,
             Has<Pressed>,
             &mut ButtonMotion,
@@ -196,9 +239,12 @@ fn paint_buttons(
         let press_target = f32::from(u8::from(pressed));
         // a button resting where it was last painted is left alone: most buttons, most
         // frames. a new one is painted once, since its texts spawn in a color of their own,
-        // whatever the ink of its kind. so a text added under a button later would wait for
-        // the next hover to get its ink: nothing does that, every button spawns whole
-        if !motion.is_added() && motion.hover == hover_target && motion.press == press_target {
+        // whatever the ink of its kind; and one whose kind changed, as a row of a list does
+        // when it is selected, is painted in its new kind at once, not at the next hover. so a
+        // text added under a button later would wait for the next hover to get its ink:
+        // nothing does that, every button spawns whole
+        let resting = motion.hover == hover_target && motion.press == press_target;
+        if !motion.is_added() && !kind.is_changed() && resting {
             continue;
         }
         motion.hover = approach(motion.hover, hover_target, step);
@@ -213,6 +259,48 @@ fn paint_buttons(
             }
         }
     }
+}
+
+/// Shows a pointing hand while the mouse is over anything that can be pressed, anywhere in
+/// the game: a button, a switch, a choice among a few, a slider, or what carries `Hovered` to
+/// light up under the pointer, such as a row of the file explorer's tree. The window's own
+/// cursor comes back once it leaves. Writes only when that changes.
+fn point_at_pressables(
+    mut commands: Commands,
+    hover_map: Res<HoverMap>,
+    pressables: Query<
+        (),
+        Or<(
+            With<Button>,
+            With<Checkbox>,
+            With<RadioButton>,
+            With<Slider>,
+            With<Hovered>,
+        )>,
+    >,
+    parents: Query<&ChildOf>,
+    window: Single<Entity, With<PrimaryWindow>>,
+    mut pointing: Local<bool>,
+) {
+    // what the pointer hit, or any node holding it: a text in a button hits the text
+    let over_pressable = hover_map.get(&PointerId::Mouse).is_some_and(|hits| {
+        hits.keys().any(|&hit| {
+            pressables.contains(hit)
+                || parents
+                    .iter_ancestors(hit)
+                    .any(|node| pressables.contains(node))
+        })
+    });
+    if over_pressable == *pointing {
+        return;
+    }
+    *pointing = over_pressable;
+    let cursor = if over_pressable {
+        SystemCursorIcon::Pointer
+    } else {
+        SystemCursorIcon::Default
+    };
+    commands.entity(*window).insert(CursorIcon::System(cursor));
 }
 
 /// Plays the tick when a pointer enters a button, and the click when one is pressed.
@@ -260,6 +348,13 @@ fn button_colors(kind: ButtonKind, hover: f32, press: f32) -> ButtonColors {
         ButtonKind::Choice => (BUTTON_FILL, TEXT, ACCENT, INK),
         ButtonKind::Quiet => (CLEAR, TEXT, QUIET_FILL_HOVER, TEXT),
         ButtonKind::Danger => (BUTTON_FILL, DANGER, DANGER, DANGER_INK),
+        #[cfg(feature = "dev")]
+        ButtonKind::Close => (
+            CLEAR,
+            TEXT,
+            DANGER.with_alpha(CLOSE_HOVER_ALPHA),
+            DANGER_INK,
+        ),
     };
     let fill = rest_fill.mix(&hover_fill, hover);
     let pressed_fill = Color::BLACK.with_alpha(fill.alpha());
@@ -300,11 +395,14 @@ mod tests {
     use super::*;
 
     const TOLERANCE: f32 = 1e-5;
-    const KINDS: [ButtonKind; 4] = [
+    // a slice, not an array: dev builds have one kind more
+    const KINDS: &[ButtonKind] = &[
         ButtonKind::Primary,
         ButtonKind::Choice,
         ButtonKind::Quiet,
         ButtonKind::Danger,
+        #[cfg(feature = "dev")]
+        ButtonKind::Close,
     ];
 
     /// Returns whether two colors match channel by channel, within the tolerance.
@@ -355,9 +453,21 @@ mod tests {
         assert!(same_color(colors.ink, DANGER_INK));
     }
 
+    #[cfg(feature = "dev")]
+    #[test]
+    fn close_button_draws_nothing_at_rest_and_turns_half_red_hovered() {
+        assert!(button_colors(ButtonKind::Close, 0.0, 0.0).fill.alpha() < TOLERANCE);
+        let hovered = button_colors(ButtonKind::Close, 1.0, 0.0);
+        assert!(same_color(
+            hovered.fill,
+            DANGER.with_alpha(CLOSE_HOVER_ALPHA)
+        ));
+        assert!(same_color(hovered.ink, DANGER_INK));
+    }
+
     #[test]
     fn pressed_button_darkens_its_fill_and_stays_as_see_through() {
-        for kind in KINDS {
+        for &kind in KINDS {
             let hovered = button_colors(kind, 1.0, 0.0).fill.to_srgba();
             let pressed = button_colors(kind, 1.0, 1.0).fill.to_srgba();
             assert!(pressed.red < hovered.red, "{kind:?}");
@@ -370,7 +480,7 @@ mod tests {
 
     #[test]
     fn ink_is_dark_exactly_where_the_fill_is_white() {
-        for kind in KINDS {
+        for &kind in KINDS {
             for hover in [0.0, 1.0] {
                 let colors = button_colors(kind, hover, 0.0);
                 assert_eq!(

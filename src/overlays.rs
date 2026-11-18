@@ -5,7 +5,7 @@ use crate::input::{Action, ActionName, Binding, Page, action_just_pressed, regis
 use crate::save::take_pause_picture;
 use crate::screens::Pause;
 use crate::ui::blur::GlassLayers;
-use crate::ui::{ButtonKind, Dialog, button, card, floating_root};
+use crate::ui::{ButtonKind, ClosesOnEsc, Dismiss, button, card, floating_root};
 
 mod credits;
 mod saves;
@@ -120,15 +120,26 @@ fn close_overlay(
 /// pause menu will carry.
 fn apply_esc_action(
     mut commands: Commands,
-    dialogs: Query<(), With<Dialog>>,
+    modals: Query<(Entity, &GlobalZIndex, &InheritedVisibility), With<ClosesOnEsc>>,
     overlay: Res<State<Overlay>>,
     mut next_overlay: ResMut<NextState<Overlay>>,
     pause: Option<Res<State<Pause>>>,
     mut next_pause: ResMut<NextState<Pause>>,
 ) {
     let pause = pause.map(|pause| *pause.get());
-    match esc_action(!dialogs.is_empty(), *overlay.get(), pause) {
-        EscAction::CloseDialog => commands.despawn_all::<With<Dialog>>(),
+    // only the modals on screen: one hidden, as photo mode hides the dev tools' windows, would
+    // take the press with nothing to show for it
+    let topmost = modals
+        .iter()
+        .filter(|(_, _, visibility)| visibility.get())
+        .max_by_key(|(_, z_index, _)| z_index.0)
+        .map(|(entity, _, _)| entity);
+    match esc_action(topmost.is_some(), *overlay.get(), pause) {
+        EscAction::CloseModal => {
+            if let Some(topmost) = topmost {
+                commands.trigger(Dismiss { entity: topmost });
+            }
+        }
         EscAction::CloseOverlay => next_overlay.set(Overlay::None),
         EscAction::SetPause(pause) => {
             // now, not as the pause menu spawns: that is a frame from here, on entering
@@ -149,18 +160,18 @@ fn apply_esc_action(
 /// What one press of Esc does.
 #[derive(Debug, PartialEq)]
 enum EscAction {
-    CloseDialog,
+    CloseModal,
     CloseOverlay,
     SetPause(Pause),
     Nothing,
 }
 
-/// Returns what Esc does: it closes a dialog first, then an overlay, and with neither open
-/// it pauses or resumes gameplay, or leaves photo mode. Outside gameplay, where `pause` is
-/// `None`, it does nothing.
-fn esc_action(dialog_open: bool, overlay: Overlay, pause: Option<Pause>) -> EscAction {
-    if dialog_open {
-        EscAction::CloseDialog
+/// Returns what Esc does: it closes a modal first (a dialog, or a dev tool's window that
+/// takes the pointer), then an overlay, and with neither open it pauses or resumes gameplay,
+/// or leaves photo mode. Outside gameplay, where `pause` is `None`, it does nothing.
+fn esc_action(modal_open: bool, overlay: Overlay, pause: Option<Pause>) -> EscAction {
+    if modal_open {
+        EscAction::CloseModal
     } else if overlay != Overlay::None {
         EscAction::CloseOverlay
     } else {
@@ -182,9 +193,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn esc_closes_a_dialog_before_anything_under_it() {
+    fn esc_closes_a_modal_before_anything_under_it() {
         let action = esc_action(true, Overlay::Settings, Some(Pause::On));
-        assert_eq!(action, EscAction::CloseDialog);
+        assert_eq!(action, EscAction::CloseModal);
     }
 
     #[test]
