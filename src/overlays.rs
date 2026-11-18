@@ -11,6 +11,9 @@ mod credits;
 mod saves;
 mod settings;
 
+#[cfg(feature = "dev")]
+pub(crate) use settings::{binding_legend, keycap};
+
 // ==== Config =================================================================
 
 // ---- pause: the way out of every panel, and into the pause menu -------------

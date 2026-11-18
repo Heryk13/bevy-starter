@@ -19,6 +19,10 @@ use crate::ui::{
 
 mod controls;
 
+// the keys panel shows each dev key on this page's keycap, and only dev builds have it
+#[cfg(feature = "dev")]
+pub(crate) use controls::{binding_legend, keycap};
+
 // ==== Config =================================================================
 
 // ---- layout: a grid, the labels in a column of their own --------------------

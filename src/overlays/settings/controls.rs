@@ -183,6 +183,8 @@ fn listen_for_binding(
 /// up when it is let go: the player sees a binding work, and which key a legend names,
 /// before closing the panel.
 fn press_held_keycaps(controls: Controls, mut faces: Query<(&KeycapFace, &mut UiTransform)>) {
+    // every face in the world, the keys panel's included: while this page is open, a key
+    // held goes down on both
     for (KeycapFace(action), mut transform) in &mut faces {
         let pressed = keycap_face_transform(controls.pressed(*action));
         // most frames nothing is held and nothing moves
@@ -235,6 +237,8 @@ fn paint_slots(
             node.display = display;
         }
     }
+    // every legend in the world, the keys panel's included: Settings is the only place a
+    // binding changes, so the panel follows a change with no system of its own
     if bindings.is_changed() {
         for (KeycapLegend(action), mut text) in &mut legends {
             if let Some(binding) = bindings.binding(*action) {
@@ -438,8 +442,8 @@ fn heard(pressed: Option<Binding>) -> Heard {
 // ---- the keycap -------------------------------------------------------------
 
 /// Returns a keycap showing `legend`: a grey skirt, and on it the white face that goes down
-/// while the key of `action` is held.
-fn keycap(action: ActionName, legend: String) -> impl Bundle {
+/// while the key of `action` is held. The keys panel shows its keys on it too.
+pub(crate) fn keycap(action: ActionName, legend: String) -> impl Bundle {
     (
         Node {
             padding: UiRect::bottom(px(KEYCAP_SKIRT_PX)),
@@ -490,7 +494,7 @@ fn keycap_face_transform(held: bool) -> UiTransform {
 // on an AZERTY keyboard the key shown as W types Z. A held key goes down on the page, so
 // the player can find it. The way up is to keep, beside a binding, the `logical_key` the
 // page hears when the player presses the key
-fn binding_legend(binding: Binding) -> String {
+pub(crate) fn binding_legend(binding: Binding) -> String {
     match binding {
         Binding::Key(key) => key_legend(key),
         Binding::Mouse(button) => format!("Mouse {}", mouse_button_number(button)),
