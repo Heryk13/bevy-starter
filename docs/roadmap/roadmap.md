@@ -26,7 +26,7 @@ Agreed on 2026-11-07.
 |----|------|--------|--------|--------------|-------|
 | 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | built: glass and look. No pieces spec: the dev tools' pieces, the regions and the keycaps each come with the first row that shows one (2026-11-18) | `glass/design.md`, `glass-tasks.md`, `look/design.md`, `look-tasks.md` | agreed so far: "The look" below, its spike measured; two specs built (glass, look); first, so every tool is born with the look; supersedes the `ui-style` look |
 | 1  | **Key bindings**: a Controls page in Settings to change the keys (gamepads left for later) | base in `main`, then each branch registers its own actions | built: keys and mouse buttons; gamepads and menu navigation left for later | `key-bindings/design.md`, `key-bindings-tasks.md` | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
-| 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | designed (revised for rows 0 and 1 on 2026-11-18), to build | `dev-tools/design.md`, `dev-tools-tasks.md` | rows 0 and 1 are built |
+| 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | built 2026-11-18, plus F1 waiting in the corner while the panel is closed | `dev-tools/design.md`, `dev-tools-tasks.md` | rows 0 and 1 are built |
 | 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | | | agreed so far: below |
 | 4  | **File explorer** (Numpad 0): the photos and videos, like the Windows explorer | `main` | | | agreed so far: below; was photo mode's gallery |
 | 5  | **Dev tools 3D**: physics debug view (F6), fly (F7), photo mode's 3D free camera | `3d/player` | | | agreed so far: below; `hide_body_debug_collider` goes |
@@ -226,10 +226,10 @@ names its roadmap row.
 
      | Piece | The first row that shows it |
      | --- | --- |
-     | keycaps | 1, the Controls page (or 2, the keys panel) |
-     | popover | 2, the keys panel (F1) |
-     | HUD and its capsule with a bar of steps | 2, the FPS (F2) and slow motion (F4) |
-     | the regions: blur only where glass is | 2, the first glass smaller than the screen over a running game |
+     | keycaps | 1, the Controls page: built there, and the keys panel reuses them |
+     | popover | 2, the keys panel (F1): built as `dev_window()` in `dev_tools.rs` |
+     | HUD and its capsule with a bar of steps | 2, slow motion (F4): built in `slow_motion.rs`; the FPS stays Bevy's own overlay |
+     | the regions: blur only where glass is | put off again by row 2: its windows exist only in dev builds; they wait for a glass a released game shows while playing |
      | glass bar, notification | 3, photo mode's hint and "Photo saved" |
      | Finder window, list | 4, the file explorer |
      | alert with an icon | the scenes' unsaved dialog |

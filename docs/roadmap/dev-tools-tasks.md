@@ -59,6 +59,10 @@ flat `dev_window()`, a `DevKeys` resource and `*_KEY` constants read straight of
   little off its step.
 - **The panel sits 116 px from the top**, not just under a guessed FPS line: Bevy's overlay
   is its 32 px text over a graph twice that tall, about 104 px.
+- **`just profile` says where to read its file** (asked by the user after 5.3): the recipe
+  prints the file's path and https://ui.perfetto.dev when the game closes, and the README
+  explains it beside the commands.
+- **Steps 5 and 6 landed as one commit** (the user's call, to sync less).
 
 ## The actions at a glance
 
@@ -108,20 +112,20 @@ The other dev keys belong to later rows: the roadmap's Keys table lists them.
 | [x] | 4.3 The capsule: the hourglass, the speed, the bar of steps, the two keycaps; one system rewrites the speed and the bar when the speed changes | Claude | `icon(Icon::Hourglass)` from `src/ui.rs` is sized by `ICON_SIZE_PX` (22): a HUD's icon is 32 px, so its `TextFont` is set here |
 | [x] | 4.4 `key_legend` in `controls.rs` spells the two Numpad keys `Num −` and `Num +`, with their test | Claude | today they read `Num Subtract` and `Num Add`, Bevy's names less the prefix |
 | [x] | 4.5 `docs/template.md`: the file; `README.md` waits for step 6 | Claude | |
-| [ ] | 4.6 `just run`: in gameplay + and − step the speed and the capsule follows; the pause menu still comes in at normal speed; closing brings 1× back; closed, + and − do nothing; the keys panel lists the three; review; sync | both | |
+| [x] | 4.6 `just run`: in gameplay + and − step the speed and the capsule follows; the pause menu still comes in at normal speed; closing brings 1× back; closed, + and − do nothing; the keys panel lists the three; review; sync | both | |
 
 ## Step 5: `build: profile with just profile`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 5.1 `/profiles` in `.gitignore`, next to `/target` and `/dist` | Claude | |
-| [ ] | 5.2 `profile` recipe in the `justfile`: create `profiles/`, run the game with Chrome tracing into a dated file there | Claude | `--features bevy/trace_chrome`; the env var `TRACE_CHROME` takes the file's path (`bevy_log-0.20.0/src/lib.rs`); the recipes run in `sh`, so `$(date +...)` works, as `release` already uses `rm` and `cp` |
-| [ ] | 5.3 `just profile`, play a little, close, drag the file into `ui.perfetto.dev`; sync | you | the file is only written when the game closes |
+| [x] | 5.1 `/profiles` in `.gitignore`, next to `/target` and `/dist` | Claude | |
+| [x] | 5.2 `profile` recipe in the `justfile`: create `profiles/`, run the game with Chrome tracing into a dated file there | Claude | `--features bevy/trace_chrome`; the env var `TRACE_CHROME` takes the file's path (`bevy_log-0.20.0/src/lib.rs`); the recipes run in `sh`, so `$(date +...)` works, as `release` already uses `rm` and `cp` |
+| [x] | 5.3 `just profile`, play a little, close, drag the file into `ui.perfetto.dev`; sync | you | the file is only written when the game closes |
 
 ## Step 6: `docs: mark the dev tools spec built`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 6.1 `README.md`: the dev keys (F1, F4 beside F2), `just profile` in the commands table, the `dev` feature row | Claude | |
-| [ ] | 6.2 The spec's status and its "What changed while building it" from the Departures above; the roadmap's row 2 and its table of pieces (popover and HUD shown, the regions still waiting) | Claude | |
+| [x] | 6.1 `README.md`: the dev keys (F1, F4 beside F2), `just profile` in the commands table, the `dev` feature row | Claude | |
+| [x] | 6.2 The spec's status and its "What changed while building it" from the Departures above; the roadmap's row 2 and its table of pieces (popover and HUD shown, the regions still waiting) | Claude | |
 | [ ] | 6.3 Sync; `just run` on `main` and on `2d/base` | you | every step before was seen on `3d/player` only, step 1 aside |
