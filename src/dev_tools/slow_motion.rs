@@ -5,7 +5,8 @@ use crate::input::{
     Action, ActionName, Binding, Bindings, Controls, Page, action_just_pressed, register_action,
 };
 use crate::overlays::{binding_legend, keycap};
-use crate::ui::{ACCENT, BODY_FONT_SIZE_PX, Icon, TEXT, font, sized_icon};
+use crate::screens::Pause;
+use crate::ui::{ACCENT, BODY_FONT_SIZE_PX, Icon, TEXT, custom_icon, font};
 
 // ==== Config =================================================================
 
@@ -75,7 +76,9 @@ pub(super) fn plugin(app: &mut App) {
             toggle_slow_motion.run_if(action_just_pressed(SLOW_MOTION)),
             step_slow_motion.run_if(any_with_component::<SlowMotionCapsule>),
         )
-            .chain(),
+            .chain()
+            // hidden in photo mode, so it neither opens nor steps behind a photo
+            .run_if(not(in_state(Pause::Photo))),
     );
 }
 
@@ -177,7 +180,7 @@ fn capsule_row(speed: f32, bindings: &Bindings) -> impl Bundle {
             ..default()
         },
         children![
-            sized_icon(Icon::Hourglass, HOURGLASS_SIZE_PX),
+            custom_icon(Icon::Hourglass, HOURGLASS_SIZE_PX, TEXT),
             (
                 Node {
                     min_width: px(SPEED_MIN_WIDTH_PX),

@@ -1,10 +1,11 @@
 use bevy::prelude::*;
 
-use super::{DEV_TOOLS_Z_INDEX, dev_window, spawn_dev_window};
+use super::{DEV_TOOLS_Z_INDEX, DevUi, dev_window, spawn_dev_window};
 use crate::input::{
     Action, ActionName, Binding, Bindings, Page, action_just_pressed, register_action,
 };
 use crate::overlays::{binding_legend, keycap};
+use crate::screens::Pause;
 use crate::ui::{Icon, SMALL_FONT_SIZE_PX, TEXT, font, icon, muted_text};
 
 // ==== Config =================================================================
@@ -50,7 +51,9 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(PostStartup, spawn_keys_panel_hint);
     app.add_systems(
         Update,
-        toggle_keys_panel.run_if(action_just_pressed(KEYS_PANEL)),
+        toggle_keys_panel
+            .run_if(action_just_pressed(KEYS_PANEL))
+            .run_if(not(in_state(Pause::Photo))),
     );
 }
 
@@ -88,6 +91,7 @@ fn spawn_keys_panel_hint(mut commands: Commands, bindings: Res<Bindings>) {
             // over every screen root the screen camera draws
             DEV_TOOLS_Z_INDEX,
             KeysPanelHint,
+            DevUi,
             children![
                 keycap(KEYS_PANEL, binding_legend(binding)),
                 (Text::new(KEYS_PANEL_TITLE), muted_text(SMALL_FONT_SIZE_PX)),
