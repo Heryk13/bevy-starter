@@ -56,11 +56,14 @@ src/
   disk.rs           the data folder and safe file writes, shared
   fade.rs           the fade timing every screen shares
   i18n.rs           languages, translations and the UI font, shared
+  input.rs          the game's actions and the keys they are bound to, shared
   overlays.rs       Overlay state and overlay plugins
   overlays/
     credits.rs      credits panel
     saves.rs        the lists of saved games: save new or over one, load or delete one
-    settings.rs     fullscreen, reduce transparency, volume and language, kept in settings.ron
+    settings.rs     the settings panel and its pages; the General page; settings.ron
+    settings/
+      controls.rs   the pages of controls: the actions, each beside the keycap of its key
   screens.rs        Screen state and screen plugins
   screens/
     splash.rs       splash screen

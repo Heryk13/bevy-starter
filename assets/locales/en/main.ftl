@@ -27,6 +27,7 @@ dialog-no = No
 dialog-quit-without-saving = Quit without saving?
 dialog-overwrite-save = Overwrite this save?
 dialog-delete-save = Delete this save?
+dialog-reset-controls = Reset all controls to their defaults?
 
 ## overlays
 
@@ -38,6 +39,11 @@ settings-fullscreen = Fullscreen
 settings-reduce-transparency = Reduce Transparency
 settings-volume = Volume
 settings-language = Language
+settings-page-general = General
+settings-page-controls = Controls
+controls-listening = Press a key…
+controls-cancel-hint = Esc cancels
+controls-reset = Reset to Defaults
 
 ## save and load
 

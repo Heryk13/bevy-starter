@@ -280,7 +280,41 @@ pause card darkens under it instead of competing with it.
 
 - **Credits** (`src/overlays/credits.rs`): a translated line, the names as plain text, and a Close
   button.
-- **Settings** (`src/overlays/settings.rs`): a grid of `setting_row`s, each a label in a column of
+- **Settings** (`src/overlays/settings.rs`) has pages. `SettingsPage` is a sub-state of
+  `Overlay::Settings`, as `Pause` is of `Screen::Gameplay`: General, Controls and, in dev builds,
+  Dev, starting at General each time the panel opens. `spawn_settings_overlay` spawns the card
+  with its title, the row of pages, an empty `SettingsPageBody` and Close; each page fills the
+  body on entering its state and loses its rows on leaving it (`DespawnOnExit`). The row of
+  pages is a segmented control, a `RadioGroup` of `segment`s carrying a `PageOption`:
+  `choose_page` sets the next page and `update_page_segments` fills the one shown, through the
+  `set_segment` the language's control shares. `offered_pages` leaves out a page of controls
+  that has no action to list, and with General alone there is no row of pages: on `main` a
+  release build shows Settings as it was, a dev build General and Dev.
+
+  The Controls and Dev pages are `settings/controls.rs`. Each is a scrolling column
+  (`spawn_action_list`) of one `setting_row` per action its page lists (`Bindings::listed`): the label,
+  a translation key for a game action and English words for a dev tool, then a `keycap`, a grey
+  skirt holding a white face holding the key's legend. `binding_legend` gives the legend, what
+  is printed on the key, never translated (`W`, `Esc`, `Mouse 1`). `press_held_keycaps` sets a
+  `KeycapFace` down on its skirt while its action's key is held.
+
+  A keycap sits in a `binding_slot`, a `Button` carrying `BindingSlot(action)`. Pressing it
+  (`listen_for_binding`) makes its action the one `Bindings` is listening for: the slot turns
+  white and shows "Press a key…" in place of its keycap, a line under the list says Esc
+  cancels (`paint_slots`), and a `ListeningShield` is laid over the whole window. While
+  `Bindings` listens, `Controls` reports no action as pressed. `take_pressed_binding` runs in
+  `PostUpdate`, after every reader of the frame: the next key or mouse button becomes the
+  binding through `Bindings::bind`, the swap, and Esc gives up (the pure `heard`). So the key
+  being bound does nothing else, the Esc that cancels does not close the panel, and a click
+  that becomes a binding lands on the shield, not on the button under the pointer. Esc itself
+  can never be bound: it cancels, and Pause, which holds it, is not listed.
+
+  Each page of controls puts a Reset to Defaults in the card's `SettingsFooter`, before Close.
+  `ask_to_reset_controls` asks with `dialog()`, and on Yes `reset_controls` calls
+  `Bindings::reset`, which puts every action back, those of the other page included: a swap
+  can cross the two pages, so one page reset alone could leave two actions on one key.
+
+  The General page (`spawn_general_page`) is a grid of `setting_row`s, each a label in a column of
   its own beside its control: a fullscreen switch, a Reduce Transparency switch and a 0–100
   volume slider, all from `bevy_ui_widgets`, and the language segments. The two switches are
   the same `switch()`, a `Checkbox` drawn as a capsule track with a `SwitchKnob`, turned on
@@ -288,7 +322,8 @@ pause card darkens under it instead of competing with it.
   as tall as its thumb, with a thin track through it and a `VolumeFill` up to the thumb, in
   the accent. Its `update_fullscreen_switch`, `update_reduce_transparency_switch`,
   `update_volume_slider` and `update_language_segments` are gated with
-  `.run_if(in_state(Overlay::Settings))`; the widgets are headless, so those systems are what
+  `.run_if(in_state(SettingsPage::General))`, since their controls exist only on that page;
+  the widgets are headless, so those systems are what
   actually draw the state, and a control already showing its state is left alone.
   `toggle_reduce_transparency` flips `ReduceTransparency`, a resource of `ui/blur.rs`, and the
   glass follows at once, the Settings panel's own included (see "The cameras and the blur").
@@ -299,8 +334,11 @@ pause card darkens under it instead of competing with it.
   is read from them and written back to them. A missing, unreadable or other-version file keeps
   the defaults silently, since `parse_settings` returns `None` for all of them; a failed write
   is logged with `error!`. A file from before Reduce Transparency existed loads with it off.
+  The file also holds the key bindings the player changed, by action name (`bindings`, empty
+  in an older file): `load_settings` hands them to `Bindings::load` and `save_settings` writes
+  `Bindings::saved()` (see `src/input.rs` below).
   The last row picks the language with a segmented control: a `RadioGroup` drawn as one
-  capsule track, holding a `language_segment` (a `RadioButton`) per `Language::ALL`, each named
+  capsule track (`segment_track`), holding a `segment` (a `RadioButton`) per `Language::ALL`, each named
   in its own language. `choose_language` observes the group's `ValueChange<Entity>` and sets
   the `Language` resource; `update_language_segments` checks the one that matches it and fills
   it with the accent. Side by side, the segments fit three or four names: a game with more
@@ -375,7 +413,8 @@ pause card darkens under it instead of competing with it.
 `close_footer()`, which holds `(button("overlay-close", ButtonKind::Quiet), CloseOverlay)`, and
 the single `close_overlay` observer in `src/overlays.rs` sets `Overlay::None` when the activated
 entity carries the marker. `apply_esc_action` is the second way out, run only on the frame Esc is
-pressed (`input_just_pressed`); with nothing open during running gameplay, the same press pauses
+pressed (`action_just_pressed(PAUSE)`, the Pause action of `src/input.rs`, which is always on
+Esc); with nothing open during running gameplay, the same press pauses
 instead, and calls `take_pause_picture` on that frame, the last one that shows the game with no
 menu over it. The whole Esc rule lives in one pure function beside it,
 `esc_action`, which returns an `EscAction` and has a test per line, first match wins:
@@ -519,12 +558,13 @@ vanish), and the same HDR and MSAA on all of them (or they stop sharing the imag
 
 ## Shared code
 
-Six files at the top of `src/`, each named after its domain, each used by more than one feature.
+Seven files at the top of `src/`, each named after its domain, each used by more than one feature.
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
 | `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `muted_text()`, `icon()` and `Icon`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `icon_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions |
 | `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()`, `ReduceTransparency`, `ScreensCovered` with `ScreensCoveredSystems` | the pause menu, every overlay and every dialog float |
+| `src/input.rs` | `ActionName`, `Action`, `Binding`, `register_action()`, `Controls`, `action_just_pressed()`, `Bindings`, `SavedBindings` | Esc and the dev tools' keys are read as actions, and the settings file keeps the changed bindings; every feature that reads a key registers one |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
@@ -561,6 +601,32 @@ the card rising 12 px and scaling up, by the `ENTRANCE` fade. Its systems carry 
 so there is no state to gate them on. `load_button_sounds` loads `ui/click.wav` and `ui/hover.wav`
 once at `Startup` into a `ButtonSounds` resource, and `play_button_sounds` spawns a one-shot player
 per hover and per press with `PlaybackSettings::DESPAWN`, so nothing accumulates.
+
+**`src/input.rs`** puts a name between a feature and a key. A feature registers an *action*
+from its plugin with `register_action(app, Action { name, default, page, label })`, the way a
+floating layer adds itself to `GlassLayers`: its `ActionName`, which it keeps as a constant, and the `Binding`
+it starts on. `Bindings` is the resource holding every action in the order they were
+registered, each with what it is bound to now. A system reads an action through the `Controls`
+system parameter (`controls.just_pressed(PAUSE)`), or runs on its press with
+`action_just_pressed(PAUSE)`, and never names a `KeyCode` itself. `report_shared_keys` logs two
+actions registered on one key as the game starts, found by the pure `shared_default`. On
+`main` the actions are Pause (`overlays.rs`, Esc) and, in dev builds, the FPS overlay (`main.rs`,
+F2); a branch adds its own.
+An action also has a `Page`, the game's or the dev tools', and a label that page lists it under.
+One with no label, Pause, is not listed and never changes: the `swap` refuses its key and a
+saved binding for it is ignored. `Controls::pressed` says whether an action is held.
+
+A `Binding` is a key or a mouse button. There is one way to change one: the pure `swap`, which
+gives whoever held the new binding the one the action gave up, so no two actions ever share a
+key and none is left without. `settings.ron` keeps only the bindings that differ from their
+defaults (`changed`), so a default changed in a later version still reaches a player who never
+touched it. `Bindings::load` lays the saved ones over the defaults through the same `swap`, in
+the order the actions were registered: a file edited by hand, or a default that moved onto a
+key the player had given another action, still loads with one key an action. A name this build
+does not have is set aside and written back by `Bindings::saved` as it was, since one file
+serves every branch and both the dev and the release build: opening Settings on `main` must not
+erase what was bound on `3d/player`. Writing a `KeyCode` to the file needs `bevy_input`'s
+`serialize` feature, which `Cargo.toml` names on a line of its own, the same on every branch.
 
 **`src/i18n.rs`** is what language the game speaks and the words for it. `Language` is a
 resource and the only copy of the current language. `Translations` holds one Fluent bundle per

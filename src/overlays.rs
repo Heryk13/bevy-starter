@@ -1,7 +1,7 @@
-use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
+use crate::input::{Action, ActionName, Binding, Page, action_just_pressed, register_action};
 use crate::save::take_pause_picture;
 use crate::screens::Pause;
 use crate::ui::blur::GlassLayers;
@@ -13,6 +13,13 @@ mod settings;
 
 // ==== Config =================================================================
 
+// ---- pause: the way out of every panel, and into the pause menu -------------
+const PAUSE: ActionName = ActionName("pause");
+// Esc, and never another key: it closes every panel, so a player who could move it could
+// lose the way out of the menus
+const PAUSE_KEY: KeyCode = KeyCode::Escape;
+
+// ---- overlays ---------------------------------------------------------------
 // room left above it on purpose, for anything that must draw over an overlay
 const OVERLAY_Z_INDEX: GlobalZIndex = GlobalZIndex(100);
 
@@ -31,10 +38,17 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins(saves::plugin);
     app.add_plugins(settings::plugin);
     app.add_observer(close_overlay);
-    app.add_systems(
-        Update,
-        apply_esc_action.run_if(input_just_pressed(KeyCode::Escape)),
+    register_action(
+        app,
+        Action {
+            name: PAUSE,
+            default: Binding::Key(PAUSE_KEY),
+            page: Page::Game,
+            // no label: Esc is not listed, since it cannot change
+            label: None,
+        },
     );
+    app.add_systems(Update, apply_esc_action.run_if(action_just_pressed(PAUSE)));
     app.init_resource::<GlassLayers>();
     app.world_mut()
         .resource_mut::<GlassLayers>()

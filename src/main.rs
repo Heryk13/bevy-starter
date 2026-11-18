@@ -5,8 +5,6 @@
 use bevy::dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
 #[cfg(feature = "dev")]
 use bevy::dev_tools::render_debug::RenderDebugOverlayPlugin;
-#[cfg(feature = "dev")]
-use bevy::input::common_conditions::input_just_pressed;
 use bevy::log::{DEFAULT_FILTER, LogPlugin};
 use bevy::prelude::*;
 
@@ -14,6 +12,7 @@ mod assets;
 mod disk;
 mod fade;
 mod i18n;
+mod input;
 mod overlays;
 mod save;
 mod screens;
@@ -23,9 +22,11 @@ mod ui;
 
 // the game's name, on the window and the menu; a proper noun, so never translated
 pub(crate) const GAME_TITLE: &str = "Bevy Starter";
-// shows and hides the FPS overlay in dev builds
+// shows and hides the FPS overlay in dev builds: the action, and the key it starts on
 #[cfg(feature = "dev")]
-const FPS_TOGGLE_KEY: KeyCode = KeyCode::F3;
+const FPS_OVERLAY: input::ActionName = input::ActionName("fps_overlay");
+#[cfg(feature = "dev")]
+const FPS_OVERLAY_KEY: KeyCode = KeyCode::F2;
 
 // ==== App ====================================================================
 
@@ -60,13 +61,24 @@ fn main() {
     #[cfg(feature = "dev")]
     app.add_plugins(FpsOverlayPlugin::default());
     #[cfg(feature = "dev")]
+    input::register_action(
+        &mut app,
+        input::Action {
+            name: FPS_OVERLAY,
+            default: input::Binding::Key(FPS_OVERLAY_KEY),
+            page: input::Page::Dev,
+            label: Some("FPS Overlay"),
+        },
+    );
+    #[cfg(feature = "dev")]
     app.add_systems(
         Update,
-        toggle_fps_overlay.run_if(input_just_pressed(FPS_TOGGLE_KEY)),
+        toggle_fps_overlay.run_if(input::action_just_pressed(FPS_OVERLAY)),
     );
 
     // ---- game ---------------------------------------------------------------
     app.add_plugins(i18n::plugin);
+    app.add_plugins(input::plugin);
     app.add_plugins(save::plugin);
     app.add_plugins(screens::plugin);
     app.add_plugins(ui::plugin);
