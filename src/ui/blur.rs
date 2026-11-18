@@ -117,8 +117,9 @@ pub(crate) struct ScreensCoveredSystems;
 
 // ==== Components =============================================================
 
-/// Marks a UI root that floats over the screens: an overlay, the pause menu, a dialog. It is
-/// drawn by the camera of its layer, and while any is alive the screens behind are blurred.
+/// Marks a UI root that floats over the screens: an overlay, the pause menu, a dialog, a dev
+/// window. It is drawn by the camera of its layer, and while any that blocks the pointer is
+/// alive the screens behind are blurred.
 #[derive(Component)]
 pub(crate) struct Floating;
 
@@ -347,31 +348,34 @@ fn generate_level_images(
 /// Sends a new `Floating` root to the camera of its layer, the one with the same
 /// `GlobalZIndex`, and draws it as glass over that layer's blurred copy. Every other root goes
 /// to the screen camera, the default UI camera. Each root gets a material of its own, since
-/// each fades in on its own.
+/// each fades in on its own. A root that lets the pointer through gets none: it floats over
+/// a game that goes on, which stays sharp under it, and only its windows are glass.
 fn target_layer_camera(
     add: On<Add<Floating>>,
     mut commands: Commands,
     cameras: Query<(Entity, &LayerCamera, &GlassCopies)>,
-    z_indexes: Query<&GlobalZIndex>,
+    roots: Query<(&GlobalZIndex, Option<&Pickable>)>,
     reduce_transparency: Res<ReduceTransparency>,
     mut materials: ResMut<Assets<GlassMaterial>>,
 ) {
     // floating_root always brings one, so a root without it was not built from there
-    let Ok(z_index) = z_indexes.get(add.entity) else {
+    let Ok((z_index, pickable)) = roots.get(add.entity) else {
         return;
     };
     let Some((camera, _, copies)) = cameras.iter().find(|(_, layer, _)| layer.0 == *z_index) else {
         warn!("no glass layer {z_index:?}: register it in GlassLayers");
         return;
     };
+    let mut root = commands.entity(add.entity);
+    root.insert(UiTargetCamera(camera));
+    if lets_pointer_through(pickable) {
+        return;
+    }
     let Some(copy) = copies.backdrop_copy() else {
         return;
     };
     let material = GlassMaterial::backdrop(copy.clone(), reduce_transparency.0);
-    commands.entity(add.entity).insert((
-        UiTargetCamera(camera),
-        MaterialNode(materials.add(material)),
-    ));
+    root.insert(MaterialNode(materials.add(material)));
 }
 
 /// Gives each new card a glass of its own, reading its layer's card copy, which is blurrier
@@ -408,10 +412,18 @@ fn give_card_glass(
 /// Points every open glass of a layer, each root's and its card's, at the copies its camera
 /// was just given. A resize remakes the copies with new handles, and the old ones are written
 /// no more, so a panel left open through it would otherwise freeze on the blur from before.
+/// A root with no glass of its own, one that lets the pointer through, still has its cards.
 fn retarget_open_glass(
     insert: On<Insert<GlassCopies>>,
     cameras: Query<(&LayerCamera, &GlassCopies)>,
-    roots: Query<(&GlobalZIndex, &MaterialNode<GlassMaterial>, &Children), With<Floating>>,
+    roots: Query<
+        (
+            &GlobalZIndex,
+            Option<&MaterialNode<GlassMaterial>>,
+            &Children,
+        ),
+        With<Floating>,
+    >,
     cards: Query<&MaterialNode<GlassMaterial>, With<Card>>,
     mut materials: ResMut<Assets<GlassMaterial>>,
 ) {
@@ -426,7 +438,7 @@ fn retarget_open_glass(
         if *z_index != layer_camera.0 {
             continue;
         }
-        if let Some(mut material) = materials.get_mut(&root_glass.0) {
+        if let Some(mut material) = root_glass.and_then(|glass| materials.get_mut(&glass.0)) {
             material.copy = backdrop_copy.clone();
         }
         for card_glass in cards.iter_many(children).flatten() {
@@ -487,18 +499,21 @@ fn activate_layer_cameras(
 
 /// Marks each layer frozen while the background is still and the layer has settled. A copy
 /// kept from before that would hold a root below half faded in, or the button that opened
-/// the layer still lit, for as long as the layer stays open. In `PostUpdate`, so the
-/// entrances `animate_entrances` moved during `Update` already count.
+/// the layer still lit, for as long as the layer stays open. A root that lets the pointer
+/// through never settles: whatever is under it can still be hovered and pressed, so nothing
+/// promises it stays as it was. In `PostUpdate`, so the entrances `animate_entrances` moved
+/// during `Update` already count.
 fn freeze_settled_layers(
     frozen_background: Res<FrozenBackground>,
     cameras: Query<(&LayerCamera, &mut FrozenLayer)>,
-    roots: Query<(&GlobalZIndex, &Entrance), With<Floating>>,
+    roots: Query<(&GlobalZIndex, &Entrance, Option<&Pickable>), With<Floating>>,
 ) {
     for (layer_camera, mut frozen_layer) in cameras {
-        let entrances = roots
-            .iter()
-            .map(|(z_index, entrance)| (*z_index, entrance.is_finished()));
-        frozen_layer.frozen = frozen_background.0 && is_settled(layer_camera.0, entrances);
+        let still_roots = roots.iter().map(|(z_index, entrance, pickable)| {
+            let still = entrance.is_finished() && !lets_pointer_through(pickable);
+            (*z_index, still)
+        });
+        frozen_layer.frozen = frozen_background.0 && is_settled(layer_camera.0, still_roots);
     }
 }
 
@@ -796,13 +811,20 @@ fn lay_over(top: LinearRgba, bottom: LinearRgba) -> LinearRgba {
 }
 
 /// Tells whether a layer has settled: every root at or below it, each given as its layer and
-/// whether its entrance has finished, is fully in. A root above it is drawn over the layer and
+/// whether it has stopped changing, is still. A root above it is drawn over the layer and
 /// never reaches its copy, so it does not hold the layer back.
 fn is_settled(layer: GlobalZIndex, roots: impl IntoIterator<Item = (GlobalZIndex, bool)>) -> bool {
     roots
         .into_iter()
         .filter(|(root_layer, _)| root_layer.0 <= layer.0)
-        .all(|(_, finished)| finished)
+        .all(|(_, still)| still)
+}
+
+/// Tells whether a root lets the pointer through to what is under it, as one that floats over
+/// a game that goes on does: such a root has no backdrop, and never lets its layer freeze.
+/// A node with no `Pickable` blocks the pointer, as Bevy's picking reads it.
+fn lets_pointer_through(pickable: Option<&Pickable>) -> bool {
+    pickable.is_some_and(|pickable| !pickable.should_block_lower)
 }
 
 /// Tells whether the screens are wholly hidden, from each layer given as whether it is open,
@@ -927,6 +949,21 @@ mod tests {
     fn a_root_coming_in_above_does_not_hold_the_layer() {
         let roots = [(LOWER_LAYER, true), (LAYER, true), (UPPER_LAYER, false)];
         assert!(is_settled(LAYER, roots));
+    }
+
+    #[test]
+    fn a_root_that_ignores_the_pointer_lets_it_through() {
+        assert!(lets_pointer_through(Some(&Pickable::IGNORE)));
+    }
+
+    #[test]
+    fn a_root_with_no_pickable_blocks_the_pointer() {
+        assert!(!lets_pointer_through(None));
+    }
+
+    #[test]
+    fn a_root_that_is_pickable_blocks_the_pointer() {
+        assert!(!lets_pointer_through(Some(&Pickable::default())));
     }
 
     // a layer as `are_screens_covered` takes it: open, frozen, showing a copy it kept
