@@ -2,13 +2,13 @@
 #![cfg_attr(not(feature = "dev"), windows_subsystem = "windows")]
 
 #[cfg(feature = "dev")]
-use bevy::dev_tools::fps_overlay::{FpsOverlayConfig, FpsOverlayPlugin};
-#[cfg(feature = "dev")]
 use bevy::dev_tools::render_debug::RenderDebugOverlayPlugin;
 use bevy::log::{DEFAULT_FILTER, LogPlugin};
 use bevy::prelude::*;
 
 mod assets;
+#[cfg(feature = "dev")]
+mod dev_tools;
 mod disk;
 mod fade;
 mod i18n;
@@ -22,11 +22,6 @@ mod ui;
 
 // the game's name, on the window and the menu; a proper noun, so never translated
 pub(crate) const GAME_TITLE: &str = "Bevy Starter";
-// shows and hides the FPS overlay in dev builds: the action, and the key it starts on
-#[cfg(feature = "dev")]
-const FPS_OVERLAY: input::ActionName = input::ActionName("fps_overlay");
-#[cfg(feature = "dev")]
-const FPS_OVERLAY_KEY: KeyCode = KeyCode::F2;
 
 // ==== App ====================================================================
 
@@ -59,22 +54,7 @@ fn main() {
 
     // ---- dev tools, left out of release builds ------------------------------
     #[cfg(feature = "dev")]
-    app.add_plugins(FpsOverlayPlugin::default());
-    #[cfg(feature = "dev")]
-    input::register_action(
-        &mut app,
-        input::Action {
-            name: FPS_OVERLAY,
-            default: input::Binding::Key(FPS_OVERLAY_KEY),
-            page: input::Page::Dev,
-            label: Some("FPS Overlay"),
-        },
-    );
-    #[cfg(feature = "dev")]
-    app.add_systems(
-        Update,
-        toggle_fps_overlay.run_if(input::action_just_pressed(FPS_OVERLAY)),
-    );
+    app.add_plugins(dev_tools::plugin);
 
     // ---- game ---------------------------------------------------------------
     app.add_plugins(i18n::plugin);
@@ -94,11 +74,4 @@ fn main() {
 /// float. Its image is what gets blurred behind a floating panel.
 fn spawn_screen_camera(mut commands: Commands) {
     commands.spawn((Camera2d, IsDefaultUiCamera));
-}
-
-/// Shows or hides the FPS overlay, its frame time graph along with its text.
-#[cfg(feature = "dev")]
-fn toggle_fps_overlay(mut config: ResMut<FpsOverlayConfig>) {
-    config.enabled = !config.enabled;
-    config.frame_time_graph_config.enabled = config.enabled;
 }
