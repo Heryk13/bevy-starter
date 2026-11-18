@@ -57,7 +57,7 @@ flowchart LR
 | ----------- | ----------------------------------------------------------------------- |
 | `main`      | The template for any game                                               |
 | `3d/base`   | A test level (`playroom.glb`) under a sky and a glaring sun             |
-| `3d/player` | Physics, and a player walking the level in first person                  |
+| `3d/player` | Physics, a player in first person, and the 3D dev tools (F6, F7)        |
 | `2d/base`   | A test room seen from above, drawn in tiles from an ASCII map           |
 
 Each branch's `docs/specs/` holds the designs built on it and what is still to come.
