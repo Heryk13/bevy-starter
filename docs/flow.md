@@ -629,8 +629,8 @@ registered, each with what it is bound to now. A system reads an action through 
 system parameter (`controls.just_pressed(PAUSE)`), or runs on its press with
 `action_just_pressed(PAUSE)`, and never names a `KeyCode` itself. `report_shared_keys` logs two
 actions registered on one key as the game starts, found by the pure `shared_default`. On
-`main` the actions are Pause (`overlays.rs`, Esc) and, in dev builds, the FPS overlay (`main.rs`,
-F2); a branch adds its own.
+`main` the actions are Pause (`overlays.rs`, Esc) and, in dev builds, the FPS overlay
+(`dev_tools/fps.rs`, F2); a branch adds its own.
 An action also has a `Page`, the game's or the dev tools', and a label that page lists it under.
 One with no label, Pause, is not listed and never changes: the `swap` refuses its key and a
 saved binding for it is ignored. `Controls::pressed` says whether an action is held.

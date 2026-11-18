@@ -57,6 +57,9 @@ assets/             game assets, loaded at runtime
 src/
   main.rs           app entry point
   assets.rs         reading a loaded folder's images, shared by the screens
+  dev_tools.rs      the tools a game is made with, left out of release builds
+  dev_tools/
+    fps.rs          the FPS overlay and its key
   disk.rs           the data folder and safe file writes, shared
   fade.rs           the fade timing every screen shares
   i18n.rs           languages, translations and the UI font, shared
