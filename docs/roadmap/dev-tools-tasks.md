@@ -2,33 +2,47 @@
 
 Roadmap row 2, built on `main`. The decisions and their reasons live in the spec,
 `docs/specs/dev-tools/design.md`; this file only breaks its implementation order into tasks
-small enough for one sitting each, with the facts each task needs.
+small enough for one sitting each, with the facts each task needs. The windows as agreed are
+in `docs/roadmap/ui/mockup.html`, blocks "2" and "2 + 7".
 
-**To redo before starting.** These tasks were written before rows 0 and 1 joined the roadmap.
-Once those are built, the spec is revised and these tasks with it: step 3's `dev_window()`
-becomes row 0's glass pieces (no `SURFACE` fill), and the `*_KEY` constants become default
-bindings of actions registered with row 1. Steps 1, 2 and 5 (the move, F2, `just profile`)
-stand as they are.
+Rewritten on 2026-11-18, when the spec was revised for rows 0 and 1: the first version had a
+flat `dev_window()`, a `DevKeys` resource and `*_KEY` constants read straight off the keyboard.
 
 ## How to read this
 
 - **Step** = one commit. Its title is the commit message.
-- **Who**: *you* writes the Rust; *Claude* does pure moves, docs, doc comments and separators;
-  *both* is a review together (the checklist in `CLAUDE.md`: every name, the order of sections
-  and systems, `just check`).
-- **Facts**: the names you cannot guess (types, methods, modules), checked in the Bevy 0.20
-  source. Assembling them is the task.
+- **Who**: *Claude* writes each step in pieces and the user reads and runs it, the way the
+  Look and the key bindings were built; *you* is a `just run`, which only the user's eyes can
+  do; *both* is the review at the end of a step (the checklist in `CLAUDE.md`: every name, the
+  order of sections and systems, `just check`). A step may go back to the user writing the
+  Rust: that is settled in one line at its start.
+- **Facts**: the names that cannot be guessed (types, methods, modules), checked in the Bevy
+  0.20.0 source and in this repository on 2026-11-18.
+- **Where**: step 1 is written on `main` itself, since it edits `main.rs`, which differs on
+  `3d/player`. Steps 2 to 5 are written and tried uncommitted on `3d/player`, where the level
+  moves under the windows, then `just tools/sync main "<message>"` commits each on `main` and
+  merges it down the tree.
+- **Nothing unused, in either build.** `just check` refuses code nobody calls, in the dev
+  build and in the release one, which leaves the whole `dev_tools` module out. So whatever
+  only the dev tools reach for outside their module is re-exported behind
+  `#[cfg(feature = "dev")]`, and each piece lands in the task that first uses it.
 - A task is done when `just check` passes, except where it says the next task makes it pass.
 - Mark a task done by changing its `[ ]` to `[x]`.
 
-## The keys at a glance
+## Departures from the spec, to record in its "What changed while building it"
 
-| Key | Tool | Step |
-|-----|------|------|
-| F1  | keys panel | 3 |
-| F2  | FPS (moved from F3) | 2 |
-| F4  | slow motion; Numpad − / + while its window is open | 4 |
-| —   | `just profile` | 5 |
+None yet.
+
+## The actions at a glance
+
+| Action | Default | Label on the Dev page and the panel | Step |
+|--------|---------|-------------------------------------|------|
+| `fps_overlay` | F2 | FPS Overlay (exists since row 1) | 1 moves it |
+| `keys_panel` | F1 | Keys Panel (not listed on the panel itself) | 3 |
+| `slow_motion` | F4 | Slow Motion | 4 |
+| `slow_motion_slower` | Numpad − | Slower | 4 |
+| `slow_motion_faster` | Numpad + | Faster | 4 |
+| —   | — | `just profile` | 5 |
 
 The other dev keys belong to later rows: the roadmap's Keys table lists them.
 
@@ -36,52 +50,51 @@ The other dev keys belong to later rows: the roadmap's Keys table lists them.
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 1.1 Move the FPS constant, system and plugin lines out of `main.rs` into `src/dev_tools.rs` + `src/dev_tools/fps.rs` | Claude | a pure move; `main.rs` keeps `#[cfg(feature = "dev")] mod dev_tools;` and the `add_plugins` line |
-| [ ] | 1.2 `just run`: F3 still hides and shows the FPS; review; commit | both | |
+| [ ] | 1.1 On `main`: move `FPS_OVERLAY`, `FPS_OVERLAY_KEY`, the `register_action` call, `toggle_fps_overlay` and the `FpsOverlayPlugin` line out of `main.rs` into `src/dev_tools.rs` + `src/dev_tools/fps.rs` | Claude | a pure move; `main.rs` keeps `#[cfg(feature = "dev")] mod dev_tools;` and the `add_plugins` line; disabling `RenderDebugOverlayPlugin` stays, it configures `DefaultPlugins` |
+| [ ] | 1.2 `docs/flow.md` and `docs/template.md`: wherever they say the FPS overlay lives in `main.rs` | Claude | grep `toggle_fps_overlay`, `FPS_OVERLAY` |
+| [ ] | 1.3 `just run` on `main`: F2 still hides and shows the FPS, Settings' Dev page still lists it; review; sync | both | the merge into `3d/player` conflicts in `main.rs` on the dev tools block: keep `PhysicsDebugPlugin` there, as the spec says |
 
-## Step 2: `feat: show the FPS on F2`
+## Step 2: `refactor: hand out the card's glass on its own`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 2.1 Move the FPS to F2 | you | `KeyCode::F2` |
-| [ ] | 2.2 `just run`: F2 toggles it, F3 does nothing; review; commit | both | |
+| [ ] | 2.1 `src/ui/panel.rs`: the rim (`BorderGradient`), the shadow, `entrance_transform(0.0)` and `Card` become one bundle, and `card()` is its `Node` plus that bundle | Claude | the bundle stays `pub(super)` and is not re-exported yet: step 3 is its first user outside, and an export nobody uses fails `just check`; the rim only shows on a `Node` with a border, which stays the caller's |
+| [ ] | 2.2 `just run`: the pause menu, an overlay and a dialog look as before; review; sync | both | |
 
 ## Step 3: `feat: list the dev keys on F1`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 3.1 `DevKeys` resource in `dev_tools.rs`: a list of (key, description) | you | `#[derive(Resource, Default)]`; the description is `&'static str` |
-| [ ] | 3.2 `fps.rs` registers its F2 line from its plugin | you | `app.init_resource::<DevKeys>()` (does nothing if it already exists), then `app.world_mut().resource_mut::<DevKeys>()` |
-| [ ] | 3.3 `DEV_TOOLS_Z_INDEX` (300) and `dev_window()` in `dev_tools.rs` | you | `Node { position_type: PositionType::Absolute, .. }`, `BackgroundColor(SURFACE)`, `BorderColor::all(BORDER)`, `Pickable::IGNORE`, `GlobalZIndex`; colors and sizes from `ui.rs` |
-| [ ] | 3.4 Config in `keys_panel.rs`: the F1 key and the panel's distance from the top (under the FPS) | you | `KeyCode::F1`; the distance is tuned by eye in 3.7 |
-| [ ] | 3.5 System on F1: spawn the panel with one row per line, or despawn it if it is open | you | `input_just_pressed(KEY)` in `bevy::input::common_conditions`; `Option<Single<Entity, With<KeysPanel>>>` tells open from closed; a key's name is `format!("{key:?}")` |
-| [ ] | 3.6 `DEV_TOOLS_Z_INDEX` row in `docs/flow.md`'s z-index table | Claude | |
-| [ ] | 3.7 `just run`: F1 opens it under the FPS, listing F2; clicks go through it; review; commit | both | |
+| [ ] | 3.1 `src/ui/blur.rs`: a floating root that lets the pointer through gets no backdrop (`target_layer_camera`), keeps its windows on a resize (`retarget_open_glass`) and never lets its layer freeze (`freeze_settled_layers`, through a pure function with its test) | Claude | `Pickable { should_block_lower, is_hoverable }` in `bevy::picking`, `Pickable::IGNORE` is both `false`; an `Add` observer sees every component of the bundle that brought `Floating`; none of it is dev-only, so nothing here is behind `cfg` |
+| [ ] | 3.2 `src/dev_tools.rs`: `DEV_TOOLS_Z_INDEX` (300) pushed onto `GlassLayers`, `dev_root()`, `dev_window()`; the card's glass bundle re-exported through `src/ui.rs` behind `#[cfg(feature = "dev")]` | Claude | `floating_root(z)` and `GlassLayers` are already `pub(crate)`; a window goes straight under its root, where `give_card_glass` reads the layer; nobody calls these until 3.4, which makes `just check` pass |
+| [ ] | 3.3 `keycap()` and `binding_legend()` in `src/overlays/settings/controls.rs` become `pub(crate)`, re-exported through `settings.rs` and `overlays.rs` behind `#[cfg(feature = "dev")]` | Claude | `paint_slots` and `press_held_keycaps` already reach every `KeycapLegend` and `KeycapFace` in the world while Settings is open: say so in a comment on each |
+| [ ] | 3.4 `src/dev_tools/keys_panel.rs`: the `KEYS_PANEL` action (F1, "Keys Panel"), a system that spawns the panel or despawns it, a title with `Icon::Keyboard`, one line per `Bindings::listed(Page::Dev)` except its own | Claude | `action_just_pressed(KEYS_PANEL)`; `Option<Single<Entity, With<KeysPanel>>>` tells open from closed; a node with no `Pickable` blocks the pointer (`bevy_ui-0.20.*/src/picking_backend.rs`), so every node of a window needs `Pickable::IGNORE`, the keycaps' and the texts' included |
+| [ ] | 3.5 `docs/flow.md`: the `DEV_TOOLS_Z_INDEX` row in the z-index table, the no-backdrop rule beside the layers; `docs/template.md`: the new files | Claude | |
+| [ ] | 3.6 `just run`: F1 opens the panel under the FPS, listing the FPS on F2, and closes it; the game under it is sharp and takes clicks through it; it stays sharp over the pause menu; a key changed on the Dev page changes on the open panel; Reduce Transparency; a resize with it open. Tune its place and its tint; review; sync | both | whether a window wants a clearer glass than a card's is decided here, as the spec leaves it |
 
 ## Step 4: `feat: slow the game down on F4`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 4.1 Config in `slow_motion.rs`: the F4 key, `SLOW_MOTION_STEPS = [1.0, 0.5, 0.25, 0.1]`, the two Numpad keys | you | `KeyCode::NumpadSubtract`, `KeyCode::NumpadAdd` |
-| [ ] | 4.2 Two pure functions: one step slower, one step faster, both stopping at the ends | you | find the current speed in the steps with a tolerance (`(a - b).abs() < EPSILON`), not `==` |
-| [ ] | 4.3 Four tests (listed in the spec's Tests) | you | floats compared with a tolerance |
-| [ ] | 4.4 F4 opens the window, or closes it and sets the speed back to 1× | you | `ResMut<Time<Virtual>>`, `.set_relative_speed(1.0)` |
-| [ ] | 4.5 − / + system, only while the window is open: new speed, then the window's text | you | `run_if(any_with_component::<SlowMotionWindow>)`; `.relative_speed()` reads the current one; `Text` holds the string |
-| [ ] | 4.6 `slow_motion.rs` registers its F4 line | you | same as 3.2 |
-| [ ] | 4.7 `just run`: physics slows, the pause blur does not; closing brings 1× back; review; commit | both | |
+| [ ] | 4.1 `src/dev_tools/slow_motion.rs`: `SLOW_MOTION_STEPS = [1.0, 0.5, 0.25, 0.1]`, the pure functions (one step slower, one step faster, how many segments are lit) and the five tests of the spec | Claude | find the current speed among the steps with a tolerance, never `==`; nobody calls them until 4.2 |
+| [ ] | 4.2 The three actions; Slow Motion opens the capsule, or closes it and sets the speed back to 1×; Slower and Faster step it only while the capsule is open | Claude | `ResMut<Time<Virtual>>`, `.set_relative_speed(f32)`, `.relative_speed()` (`bevy_time-0.20.0/src/virt.rs`); `run_if(any_with_component::<...>)`; `KeyCode::NumpadSubtract`, `KeyCode::NumpadAdd` |
+| [ ] | 4.3 The capsule: the hourglass, the speed, the bar of steps, the two keycaps; one system rewrites the speed and the bar when the speed changes | Claude | `icon(Icon::Hourglass)` from `src/ui.rs` is sized by `ICON_SIZE_PX` (22): a HUD's icon is 32 px, so its `TextFont` is set here |
+| [ ] | 4.4 `key_legend` in `controls.rs` spells the two Numpad keys `Num −` and `Num +`, with their test | Claude | today they read `Num Subtract` and `Num Add`, Bevy's names less the prefix |
+| [ ] | 4.5 `docs/template.md`: the file; `README.md` waits for step 6 | Claude | |
+| [ ] | 4.6 `just run`: in gameplay + and − step the speed and the capsule follows; the pause menu still comes in at normal speed; closing brings 1× back; closed, + and − do nothing; the keys panel lists the three; review; sync | both | |
 
 ## Step 5: `build: profile with just profile`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 5.1 `/profiles` in `.gitignore`, next to `/target` and `/dist` | you | |
-| [ ] | 5.2 `profile` recipe in the `justfile`: create `profiles/`, run the game with Chrome tracing into a dated file there | you | `--features bevy/trace_chrome`; the env var `TRACE_CHROME` takes the file's path; the recipes run in `sh`, so `$(date +...)` works, as `release` already uses `rm` and `cp` |
-| [ ] | 5.3 `just profile`, play a little, close, drag the file into `ui.perfetto.dev`; commit | both | the file is only written when the game closes |
+| [ ] | 5.1 `/profiles` in `.gitignore`, next to `/target` and `/dist` | Claude | |
+| [ ] | 5.2 `profile` recipe in the `justfile`: create `profiles/`, run the game with Chrome tracing into a dated file there | Claude | `--features bevy/trace_chrome`; the env var `TRACE_CHROME` takes the file's path (`bevy_log-0.20.0/src/lib.rs`); the recipes run in `sh`, so `$(date +...)` works, as `release` already uses `rm` and `cp` |
+| [ ] | 5.3 `just profile`, play a little, close, drag the file into `ui.perfetto.dev`; sync | you | the file is only written when the game closes |
 
-## Step 6: `docs: document the dev tools`
+## Step 6: `docs: mark the dev tools spec built`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 6.1 `README.md`: the line naming F3 for the FPS, `just profile` in the commands table, the `dev` feature row | Claude | |
-| [ ] | 6.2 `docs/template.md`: the new files; spec status to built | Claude | |
-| [ ] | 6.3 Commit; merge `main` → `3d/base` → `3d/player` and `main` → `2d/base`; push | both | |
+| [ ] | 6.1 `README.md`: the dev keys (F1, F4 beside F2), `just profile` in the commands table, the `dev` feature row | Claude | |
+| [ ] | 6.2 The spec's status and its "What changed while building it" from the Departures above; the roadmap's row 2 and its table of pieces (popover and HUD shown, the regions still waiting) | Claude | |
+| [ ] | 6.3 Sync; `just run` on `main` and on `2d/base` | you | every step before was seen on `3d/player` only, step 1 aside |
