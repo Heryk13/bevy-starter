@@ -50,8 +50,8 @@ The other dev keys belong to later rows: the roadmap's Keys table lists them.
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 1.1 On `main`: move `FPS_OVERLAY`, `FPS_OVERLAY_KEY`, the `register_action` call, `toggle_fps_overlay` and the `FpsOverlayPlugin` line out of `main.rs` into `src/dev_tools.rs` + `src/dev_tools/fps.rs` | Claude | a pure move; `main.rs` keeps `#[cfg(feature = "dev")] mod dev_tools;` and the `add_plugins` line; disabling `RenderDebugOverlayPlugin` stays, it configures `DefaultPlugins` |
-| [ ] | 1.2 `docs/flow.md` and `docs/template.md`: wherever they say the FPS overlay lives in `main.rs` | Claude | grep `toggle_fps_overlay`, `FPS_OVERLAY` |
+| [x] | 1.1 On `main`: move `FPS_OVERLAY`, `FPS_OVERLAY_KEY`, the `register_action` call, `toggle_fps_overlay` and the `FpsOverlayPlugin` line out of `main.rs` into `src/dev_tools.rs` + `src/dev_tools/fps.rs` | Claude | a pure move; `main.rs` keeps `#[cfg(feature = "dev")] mod dev_tools;` and the `add_plugins` line; disabling `RenderDebugOverlayPlugin` stays, it configures `DefaultPlugins` |
+| [x] | 1.2 `docs/flow.md` and `docs/template.md`: wherever they say the FPS overlay lives in `main.rs` | Claude | grep `toggle_fps_overlay`, `FPS_OVERLAY` |
 | [ ] | 1.3 `just run` on `main`: F2 still hides and shows the FPS, Settings' Dev page still lists it; review; sync | both | the merge into `3d/player` conflicts in `main.rs` on the dev tools block: keep `PhysicsDebugPlugin` there, as the spec says |
 
 ## Step 2: `refactor: hand out the card's glass on its own`
