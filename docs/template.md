@@ -60,6 +60,21 @@ src/
   assets.rs         reading a loaded folder's images, shared by the screens
   dev_tools.rs      the tools a game is made with, left out of release builds
   dev_tools/
+    file_explorer.rs  Numpad 0: a drawer browsing the gallery, the assets and a trash
+    file_explorer/
+      actions.rs    every change to the disk, dragging, files dropped from the OS
+      dialog.rs     the layer of the explorer's questions and right-click menu
+      drawer.rs     the slide, the height and the grip that resizes it
+      list.rs       the folder shown, a row an entry
+      listing.rs    reading the disk: folders, Recents, sizes, dates, kinds
+      menu.rs       the right-click menus
+      preview.rs    the selected picture, decoded on another thread
+      rename.rs     renaming in place, and the names refused
+      scroll.rs     the faint scrollbars
+      title_bar.rs  the close button, the places, the path
+      trash.rs      Trash: deleted entries, trash.ron, restore, delete for good
+      tree.rs       the place's folders and files as a tree
+      usage.rs      where an asset is used, asked before changing it
     fps.rs          the FPS overlay and its key
     keys_panel.rs   F1: a window listing every dev key
     photo_mode.rs   F3: the game frozen, the dev windows hidden, a bar of its keys

@@ -126,4 +126,4 @@ block "3" in `docs/roadmap/ui/mockup.html`.
 |---|------|-----|-------|
 | [x] | 5.1 `README.md` (the dev keys: F3, E in it); `docs/flow.md` (`Pause::Photo` beside the pause menu, the Esc rule, time frozen on leaving `Pause::Off`, `gallery/`); `docs/template.md` (the file) | Claude | |
 | [x] | 5.2 The spec's status and "What changed while building it", the roadmap's row 3 and its table of pieces (glass bar, notification) | Claude | |
-| [ ] | 5.3 Sync; `just run` on `main` and on `2d/base` | you | |
+| [x] | 5.3 Sync; `just run` on `main` and on `2d/base` | you | |

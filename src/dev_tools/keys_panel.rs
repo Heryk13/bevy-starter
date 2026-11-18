@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::{DEV_TOOLS_Z_INDEX, DevUi, dev_window, spawn_dev_window};
+use super::{DEV_TOOLS_Z_INDEX, DevUi, InnerKeys, dev_window, spawn_dev_window};
 use crate::input::{
     Action, ActionName, Binding, Bindings, Page, action_just_pressed, register_action,
 };
@@ -14,7 +14,7 @@ use crate::ui::{Icon, SMALL_FONT_SIZE_PX, TEXT, font, icon, muted_text};
 const KEYS_PANEL: ActionName = ActionName("keys_panel");
 const KEYS_PANEL_KEY: KeyCode = KeyCode::F1;
 
-// ---- words: English, as every dev tool's, since release builds leave them out --
+// ---- words: English, as every dev tool's, never read in a release build -----
 const KEYS_PANEL_LABEL: &str = "Keys Panel";
 const KEYS_PANEL_TITLE: &str = "Dev Tools";
 
@@ -101,14 +101,15 @@ fn spawn_keys_panel_hint(mut commands: Commands, bindings: Res<Bindings>) {
 }
 
 /// Opens the keys panel in the hint's place, or closes it and brings the hint back. It lists
-/// every dev action but its own, in the order they were registered, each beside the key it is
-/// bound to now; a key changed on Settings' Dev page while it is open changes on it too
-/// (`paint_slots`).
+/// every dev action but its own and the inner keys of a tool, which the tool shows once it is
+/// open, in the order they were registered, each beside the key it is bound to now; a key
+/// changed on Settings' Dev page while it is open changes on it too (`paint_slots`).
 fn toggle_keys_panel(
     mut commands: Commands,
     open: Option<Single<Entity, With<KeysPanel>>>,
     mut hints: Query<&mut Node, With<KeysPanelHint>>,
     bindings: Res<Bindings>,
+    inner_keys: Res<InnerKeys>,
 ) {
     let opening = open.is_none();
     for mut hint in &mut hints {
@@ -125,7 +126,7 @@ fn toggle_keys_panel(
     // collected, since the lines are spawned after this borrow of the bindings ends
     let lines: Vec<_> = bindings
         .listed(Page::Dev)
-        .filter(|(action, _, _)| *action != KEYS_PANEL)
+        .filter(|(action, _, _)| *action != KEYS_PANEL && !inner_keys.0.contains(action))
         .map(|(action, words, binding)| key_line(action, words, binding))
         .collect();
     let window = (

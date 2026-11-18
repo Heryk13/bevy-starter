@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use super::{dev_window, spawn_dev_window};
+use super::{dev_window, register_inner_key, spawn_dev_window};
 use crate::input::{
     Action, ActionName, Binding, Bindings, Controls, Page, action_just_pressed, register_action,
 };
@@ -10,7 +10,7 @@ use crate::ui::{ACCENT, BODY_FONT_SIZE_PX, Icon, TEXT, custom_icon, font};
 
 // ==== Config =================================================================
 
-// ---- actions: the capsule's own key, and the two that step it while it is open --
+// ---- actions: the capsule's key, and the two that step it while it is open --
 const SLOW_MOTION: ActionName = ActionName("slow_motion");
 const SLOW_MOTION_KEY: KeyCode = KeyCode::F4;
 const SLOWER: ActionName = ActionName("slow_motion_slower");
@@ -18,18 +18,18 @@ const SLOWER_KEY: KeyCode = KeyCode::NumpadSubtract;
 const FASTER: ActionName = ActionName("slow_motion_faster");
 const FASTER_KEY: KeyCode = KeyCode::NumpadAdd;
 
-// ---- words: English, as every dev tool's, since release builds leave them out --
+// ---- words: English, as every dev tool's, never read in a release build -----
 const SLOW_MOTION_LABEL: &str = "Slow Motion";
 const SLOWER_LABEL: &str = "Slower";
 const FASTER_LABEL: &str = "Faster";
 
-// ---- speeds: from the fastest to the slowest, as the bar lights them ---------
+// ---- speeds: from the fastest to the slowest, as the bar lights them --------
 const SLOW_MOTION_STEPS: [f32; 4] = [1.0, 0.5, 0.25, 0.1];
 // how near a speed read back must be to a step to count as it, since an `f32` that went
 // through `Time<Virtual>` may not equal the constant bit for bit
 const SPEED_TOLERANCE: f32 = 1e-3;
 
-// ---- capsule: the top right corner, an hourglass, the speed, a bar of steps --
+// ---- capsule: top right, an hourglass, the speed, a bar of steps ------------
 const CAPSULE_TOP_PX: f32 = 16.0;
 const CAPSULE_RIGHT_PX: f32 = 16.0;
 const CAPSULE_GAP_PX: f32 = 14.0;
@@ -70,6 +70,9 @@ pub(super) fn plugin(app: &mut App) {
             },
         );
     }
+    // the capsule shows these two once it is open, and they do nothing before
+    register_inner_key(app, SLOWER);
+    register_inner_key(app, FASTER);
     app.add_systems(
         Update,
         (
