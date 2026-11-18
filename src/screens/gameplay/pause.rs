@@ -43,6 +43,11 @@ pub(super) fn plugin(app: &mut App) {
         (spawn_pause_menu, pause_time, freeze_background),
     );
     app.add_systems(OnExit(Pause::On), (unpause_time, unfreeze_background));
+    // photo mode freezes the game the same way, only without the menu
+    #[cfg(feature = "dev")]
+    app.add_systems(OnEnter(Pause::Photo), (pause_time, freeze_background));
+    #[cfg(feature = "dev")]
+    app.add_systems(OnExit(Pause::Photo), (unpause_time, unfreeze_background));
     app.add_observer(activate_pause_button.run_if(in_state(Pause::On)));
     app.add_observer(confirm_quit.run_if(in_state(Pause::On)));
     app.add_observer(show_save_status.run_if(in_state(Pause::On)));
@@ -56,13 +61,17 @@ pub(super) fn plugin(app: &mut App) {
 
 // ==== State ==================================================================
 
-/// Whether the game is frozen. It only exists during gameplay, and starts `Off`.
+/// Whether the game is frozen, and how: under the pause menu, or in photo mode, a dev tool.
+/// It only exists during gameplay, and starts `Off`.
 #[derive(SubStates, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 #[source(Screen = Screen::Gameplay)]
 pub(crate) enum Pause {
     #[default]
     Off,
     On,
+    // only dev builds have photo mode, and a variant nothing builds fails `just check`
+    #[cfg(feature = "dev")]
+    Photo,
 }
 
 // ==== Components =============================================================

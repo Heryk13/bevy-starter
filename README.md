@@ -29,8 +29,9 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies
 - Dev tools in dev builds, each on a key you can change in Settings: a list of the dev keys
-  (F1, waiting in the corner), the FPS overlay (F2) and slow motion (F4, stepped with
-  Numpad − and +); and asset hot reloading
+  (F1, waiting in the corner), the FPS overlay (F2), photo mode (F3: the game frozen with
+  every dev window hidden, E saves a PNG of it into the data folder's `gallery/`) and slow
+  motion (F4, stepped with Numpad − and +); and asset hot reloading
 - Fast linking on Windows with `rust-lld`
 - Release packaging into a ready-to-ship `dist/` folder
 - Third-party license notices generated on every release

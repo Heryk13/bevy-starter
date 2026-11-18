@@ -27,7 +27,7 @@ Agreed on 2026-11-07.
 | 0  | **Liquid Glass UI**: the whole template's look, the game's own UI (menu, pause, overlays, dialogs) and the dev tools' alike; glass panels that blur what is behind each one, the Lucide icon font, the shared pieces (popover, HUD, bar, list, buttons, alert) | `main` | built: glass and look. No pieces spec: the dev tools' pieces, the regions and the keycaps each come with the first row that shows one (2026-11-18) | `glass/design.md`, `glass-tasks.md`, `look/design.md`, `look-tasks.md` | agreed so far: "The look" below, its spike measured; two specs built (glass, look); first, so every tool is born with the look; supersedes the `ui-style` look |
 | 1  | **Key bindings**: a Controls page in Settings to change the keys (gamepads left for later) | base in `main`, then each branch registers its own actions | built: keys and mouse buttons; gamepads and menu navigation left for later | `key-bindings/design.md`, `key-bindings-tasks.md` | agreed so far: below; right after the look, so every later row reads a bound key, never a fixed `KeyCode` |
 | 2  | **Dev tools base**: keys panel (F1), FPS (F2), slow motion (F4), `just profile` (`trace_chrome`) | `main` | built 2026-11-18, plus F1 waiting in the corner while the panel is closed | `dev-tools/design.md`, `dev-tools-tasks.md` | rows 0 and 1 are built |
-| 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | | | agreed so far: below |
+| 3  | **Photo mode** (F3): freeze, hide the dev UI, free camera, E takes a photo | `main` | built 2026-11-18, plus a flash and a click on E; the free cameras still to come | `photo-mode/design.md`, `photo-mode-tasks.md` | agreed so far: below; the free cameras come with rows 5 and 6 |
 | 4  | **File explorer** (Numpad 0): the photos and videos, like the Windows explorer | `main` | | | agreed so far: below; was photo mode's gallery |
 | 5  | **Dev tools 3D**: physics debug view (F6), fly (F7), photo mode's 3D free camera | `3d/player` | | | agreed so far: below; `hide_body_debug_collider` goes |
 | 6  | **2D player**: a square that walks, no animation, and photo mode's 2D free camera | `2d/player` (new) | | | agreed so far: below; the CLI asks without or with the player module |
@@ -230,7 +230,7 @@ names its roadmap row.
      | popover | 2, the keys panel (F1): built as `dev_window()` in `dev_tools.rs` |
      | HUD and its capsule with a bar of steps | 2, slow motion (F4): built in `slow_motion.rs`; the FPS stays Bevy's own overlay |
      | the regions: blur only where glass is | put off again by row 2: its windows exist only in dev builds; they wait for a glass a released game shows while playing |
-     | glass bar, notification | 3, photo mode's hint and "Photo saved" |
+     | glass bar, notification | 3, photo mode's hint and "Photo saved": built in `photo_mode.rs` and `photo_mode/photo.rs` |
      | Finder window, list | 4, the file explorer |
      | alert with an icon | the scenes' unsaved dialog |
 - **Tried on `3d/player`, committed on `main`**, agreed on 2026-11-08: on `main` nothing moves
@@ -311,6 +311,9 @@ It works like the Windows explorer, with no buttons except "+ Folder":
 **Physics debug view (F6).** Shows and hides the outline of every collider, the player's
 capsule included: from first person its line shows from inside, which is enough to measure
 the hitbox. Starts off. `hide_body_debug_collider` is deleted.
+Found while building row 3 (2026-11-18): the collider outlines show in photo mode's photos,
+since they are gizmos, not a `DevUi` window. Photo mode hides them too once this row brings
+their key, as it hides the FPS.
 
 **Fly (F7).** For going high and far, to judge how far the map can be seen (fog, clouds).
 

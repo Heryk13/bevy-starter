@@ -48,6 +48,7 @@ makes the first commit. The steps below are the manual path, and what is left af
 
 ```
 assets/             game assets, loaded at runtime
+  dev_tools/        photo mode's shutter click, for dev builds
   fonts/            Noto Sans JP, the font of every text, and its license
   gameplay/         playroom.glb, the test level every 3D game starts from
   intro/            the intro's soundtrack
@@ -66,6 +67,9 @@ src/
   dev_tools/
     fps.rs          the FPS overlay and its key
     keys_panel.rs   F1: a window listing every dev key
+    photo_mode.rs   F3: the game frozen, the dev windows hidden, a bar of its keys
+    photo_mode/
+      photo.rs      E: a PNG of the game alone in gallery/, a flash, a click, a notice
     slow_motion.rs  F4: the game slowed down, stepped with Numpad − and +
   disk.rs           the data folder and safe file writes, shared
   fade.rs           the fade timing every screen shares
