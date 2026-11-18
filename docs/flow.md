@@ -71,7 +71,25 @@ That is why the menu music keeps playing while Settings is open.
         +--[Settings]--------> Overlay::Settings --Close / Esc--> back to Pause::On
         +--[Quit to Menu]----> (dialog, if progress is unsaved) --Yes--> Screen::Menu
         +--[Quit to Desktop]-> (dialog, if progress is unsaved) --Yes--> AppExit::Success
+
+  Pause::Off --F3, in dev builds--> Pause::Photo --F3 / Esc--> Pause::Off
 ```
+
+**Photo mode** (`src/dev_tools/photo_mode.rs`, dev builds only) is the third value of `Pause`,
+`Photo`, behind `#[cfg(feature = "dev")]` as the variant nothing in a release build builds. It
+freezes the game as the pause menu does, without the menu: `pause.rs` runs the same
+`pause_time` and `freeze_background` on `OnEnter(Pause::Photo)` and their pairs on `OnExit`.
+F3 enters it only from `Pause::Off` (the pure `photo_key_target`), and F3 or Esc leaves it.
+Entering hides every root marked `DevUi` (every dev window, by `spawn_dev_window`, and the F1
+hint), and `fps.rs` turns the FPS off, keeping whether it showed; leaving brings both back.
+The other dev keys do nothing meanwhile (`.run_if(not(in_state(Pause::Photo)))`). Photo mode
+shows its own windows, marked `PhotoModeUi`: a bar of its keys at the bottom. E
+(`photo_mode/photo.rs`) hides those for one frame, takes a `Screenshot` of the window in that
+frame, and when it arrives shows them again, flashes the window's edges, plays a click, and
+writes the PNG on another thread into `gallery/` in the data folder, named by its time in UTC
+(`2026-11-18_14-32-05.png`, `_2` for a second photo in the same second). A "Photo saved"
+notice comes once the file is written. On `3d/player`, leaving `Pause::Off` frees the cursor
+and stops the look, as under the pause menu, until row 5's free camera.
 
 A dialog is not a state: it is an entity drawn over whatever asked the question, the pause menu
 or the save list, and No or Esc despawns it and leaves what is underneath as it was.
@@ -423,6 +441,7 @@ menu over it. The whole Esc rule lives in one pure function beside it,
 2. an overlay is open → close it (back to the pause menu, if paused)
 3. gameplay is paused → resume
 4. gameplay is running → pause
+5. gameplay is in photo mode, in dev builds → back to the running game
 
 It reads `Option<Res<State<Pause>>>`, because `Pause` does not exist outside gameplay. Esc does
 nothing else in `Menu` or `Loading`, and in `Splash` and `Intro` it is a skip key, which moves
@@ -573,14 +592,14 @@ Seven files at the top of `src/`, each named after its domain, each used by more
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
-| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `muted_text()`, `icon()`, `sized_icon()` and `Icon`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `icon_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()`, and in dev builds `card_glass()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions; the dev tools' windows are glass like a card |
+| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `muted_text()`, `icon()`, `custom_icon()` and `Icon`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `icon_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()`, and in dev builds `card_glass()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions; the dev tools' windows are glass like a card |
 | `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()`, `ReduceTransparency`, `ScreensCovered` with `ScreensCoveredSystems` | the pause menu, every overlay and every dialog float, and in dev builds the dev tools' windows |
 | `src/input.rs` | `ActionName`, `Action`, `Binding`, `register_action()`, `Controls`, `action_just_pressed()`, `Bindings`, `SavedBindings` | Esc and the dev tools' keys are read as actions, and the settings file keeps the changed bindings; every feature that reads a key registers one |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
 | `src/fade.rs` | the `Fade` struct and `alpha()`, `approach()` | the splash, the menu veil, the slideshow, the save status line, card entrances; `approach` eases the buttons |
 | `src/assets.rs` | `images_in()` | the splash, the loading screen and the intro read folders |
 | `src/save.rs`, with `save/picture.rs` | `Session`, `GameData`, `SaveFinished`, `has_unsaved_progress()`, `autosave_is_due()`, `loaded_session()`, `SaveData`, `SaveEntry`, `newest_ready()`, `saves_on_disk()`, `read_save()`, `write_save()`, `delete_save_files()`, `is_autosave()`; re-exported from picture.rs: `PausePicture`, `take_pause_picture()`, `take_save_picture()`, `save_pause_picture()`, `read_save_picture()`, `PICTURE_ASPECT_RATIO` | gameplay counts play time and autosaves, the pause menu asks before quitting, the menu continues the newest save, the save lists read, write and delete saves, Esc takes the picture a save carries |
-| `src/disk.rs` | `game_data_dir()`, `write_atomic()` | saves, their pictures and settings all live in the data folder and are written atomically |
+| `src/disk.rs` | `game_data_dir()`, `write_atomic()` | saves, their pictures, settings and photo mode's photos all live in the data folder and are written atomically |
 
 **`src/ui.rs`** is the look of the whole game, split the usual way: `ui.rs` keeps the palette,
 the type and the text widgets, `ui/button.rs` the buttons, `ui/panel.rs` the floating roots,

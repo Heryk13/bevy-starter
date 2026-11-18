@@ -156,7 +156,8 @@ enum EscAction {
 }
 
 /// Returns what Esc does: it closes a dialog first, then an overlay, and with neither open
-/// it pauses or resumes gameplay. Outside gameplay, where `pause` is `None`, it does nothing.
+/// it pauses or resumes gameplay, or leaves photo mode. Outside gameplay, where `pause` is
+/// `None`, it does nothing.
 fn esc_action(dialog_open: bool, overlay: Overlay, pause: Option<Pause>) -> EscAction {
     if dialog_open {
         EscAction::CloseDialog
@@ -166,6 +167,9 @@ fn esc_action(dialog_open: bool, overlay: Overlay, pause: Option<Pause>) -> EscA
         match pause {
             Some(Pause::On) => EscAction::SetPause(Pause::Off),
             Some(Pause::Off) => EscAction::SetPause(Pause::On),
+            // out of photo mode and back to the game, not into the pause menu
+            #[cfg(feature = "dev")]
+            Some(Pause::Photo) => EscAction::SetPause(Pause::Off),
             None => EscAction::Nothing,
         }
     }
@@ -199,6 +203,13 @@ mod tests {
     fn esc_pauses_a_running_game() {
         let action = esc_action(false, Overlay::None, Some(Pause::Off));
         assert_eq!(action, EscAction::SetPause(Pause::On));
+    }
+
+    #[cfg(feature = "dev")]
+    #[test]
+    fn esc_leaves_photo_mode_for_the_running_game() {
+        let action = esc_action(false, Overlay::None, Some(Pause::Photo));
+        assert_eq!(action, EscAction::SetPause(Pause::Off));
     }
 
     #[test]

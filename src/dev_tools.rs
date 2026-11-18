@@ -5,6 +5,7 @@ use crate::ui::{BORDER_PX, card_glass, floating_root};
 
 mod fps;
 mod keys_panel;
+mod photo_mode;
 mod slow_motion;
 
 // ==== Config =================================================================
@@ -30,7 +31,12 @@ pub(super) fn plugin(app: &mut App) {
         .0
         .push(DEV_TOOLS_Z_INDEX);
     // in the order of their keys, which is the order the keys panel and the Dev page list them
-    app.add_plugins((keys_panel::plugin, fps::plugin, slow_motion::plugin));
+    app.add_plugins((
+        keys_panel::plugin,
+        fps::plugin,
+        photo_mode::plugin,
+        slow_motion::plugin,
+    ));
 }
 
 // ==== Windows ================================================================
@@ -47,6 +53,7 @@ fn spawn_dev_window(commands: &mut Commands, root_marker: impl Bundle, window: i
         .spawn((
             floating_root(DEV_TOOLS_Z_INDEX),
             Pickable::IGNORE,
+            DevUi,
             root_marker,
             children![window],
         ))
@@ -71,3 +78,12 @@ fn dev_window(place: Node) -> impl Bundle {
         card_glass(),
     )
 }
+
+// ==== Components =============================================================
+
+/// Marks the root of anything the dev tools draw, so photo mode can hide it all and take
+/// the game alone. Every dev window has it from `spawn_dev_window`; a root spawned any other
+/// way puts it on itself, and the key that opens it does nothing in photo mode
+/// (`.run_if(not(in_state(Pause::Photo)))`), so nothing hidden opens behind a photo.
+#[derive(Component)]
+struct DevUi;
