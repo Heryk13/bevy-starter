@@ -28,7 +28,9 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   [Lucide](https://lucide.dev) icons by name
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies
-- FPS overlay, shown and hidden with F2, and asset hot reloading in dev builds
+- Dev tools in dev builds, each on a key you can change in Settings: a list of the dev keys
+  (F1, waiting in the corner), the FPS overlay (F2) and slow motion (F4, stepped with
+  Numpad − and +); and asset hot reloading
 - Fast linking on Windows with `rust-lld`
 - Release packaging into a ready-to-ship `dist/` folder
 - Third-party license notices generated on every release
@@ -92,7 +94,13 @@ check, and ask before pushing.
 | `just fix`     | Apply clippy fixes and format the code                 |
 | `just check`   | Check formatting and lints, and run the tests          |
 | `just test`    | Run the tests only                                     |
+| `just profile` | Run the game recording how long each system takes      |
 | `just release` | Build an optimized release and package it into `dist/` |
+
+`just profile` writes a dated file into `profiles/` when the game closes. To read it, open
+[ui.perfetto.dev](https://ui.perfetto.dev) in any browser and drag the file in: it shows the
+time every system took, frame by frame. Traced builds are slower than normal ones, so compare
+systems with each other, and keep runs short, since the file grows fast.
 
 - Turning this template into your own game: [docs/template.md](docs/template.md)
 - Development loop and code conventions: [CONTRIBUTING.md](CONTRIBUTING.md)
@@ -101,7 +109,7 @@ check, and ask before pushing.
 
 | Feature | Default | Description                                                                          |
 | ------- | ------- | ------------------------------------------------------------------------------------ |
-| `dev`   | yes     | Dynamic linking, FPS overlay, asset hot reloading and a console window on Windows    |
+| `dev`   | yes     | Dynamic linking, the dev tools, asset hot reloading and a console window on Windows |
 
 Release builds must disable it with `--no-default-features`, which `just release` already does.
 A binary built with `dev` depends on the Bevy dynamic library and won't run on other machines.

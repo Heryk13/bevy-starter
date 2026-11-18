@@ -1,6 +1,6 @@
 # Dev tools: a keys panel, the FPS, slow motion and a profiler
 
-Status: **approved** on 2026-11-18 as revised that day; not built yet. First written before rows
+Status: **built** on `main` on 2026-11-18, merged down to every branch. First written before rows
 0 and 1 of the roadmap existed; the revision redraws the windows as glass (row 0) and reads
 every key as a registered action (row 1), which already moved the FPS to F2.
 Date: 2026-11-07
@@ -294,4 +294,31 @@ commit that quietly does a row's work hides it from that row's review.
 
 ## What changed while building it
 
-Nothing yet.
+- **The card's glass bundle is `card_glass()`, private until step 3.** Step 2 had it
+  `pub(super)`; with `card()` its only caller, private said so, and step 3 opened it along
+  with its re-export.
+- **`dev_root()` became `spawn_dev_window(commands, root_marker, window)`.** Bevy's picking
+  stops at any node with no `Pickable`, and a keycap is built with children of its own, which
+  the caller cannot reach. So the function spawns the root with the window under it and then
+  gives every node `Pickable::IGNORE` with `insert_recursive::<Children>`; the root still
+  carries it as it spawns, where `blur.rs` reads it. `dev_window()` no longer brings its own.
+- **F1 waits in the panel's place while it is closed**, asked by the user once the panel ran:
+  the panel's keycap beside "Dev Tools", so not even F1 has to be remembered. It is a plain
+  root on the screen camera, as Bevy's FPS overlay is, not a dev window: an open layer blurs
+  every frame, and the hint has no glass to blur for, so the pause menu blurs it like the FPS.
+  It takes no click, and follows a rebinding through `paint_slots` like every keycap.
+- **The panel sits 116 px from the top**: Bevy's FPS overlay is its 32 px text over a graph
+  twice that tall, about 104 px, whose sizes it keeps private.
+- **A HUD's icon comes from a new `sized_icon(icon, size_px)` in `ui.rs`**, which `icon()` is
+  now built on. The plan had the capsule set its own `TextFont`, but a bundle cannot hold the
+  same component twice, so the size has to come in where the icon is made.
+- **The capsule is a row inside the window**: `dev_window()` lays its children in a column,
+  and the fields it sets win over the caller's `place`, so the hourglass, the speed, the bar
+  and the keys sit in one row node under it.
+- **Slower and faster need no index**: each takes the first step past the speed in its
+  direction, or stays where it is, so a speed between two steps moves to the next step on its
+  side. A sixth test covers a speed read back a little off its step.
+- **`just profile` says where to read its file**, asked by the user: the recipe prints the
+  file's path and https://ui.perfetto.dev when the game closes, and the README explains it
+  beside the commands.
+- **Steps 5 and 6 landed as one commit**, the user's call, to sync less.
