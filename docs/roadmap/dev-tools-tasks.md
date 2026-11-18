@@ -46,6 +46,17 @@ flat `dev_window()`, a `DevKeys` resource and `*_KEY` constants read straight of
   every frame, and the hint has no glass to blur for, so the pause menu blurs it like the FPS.
   It takes no click, as the spec has every dev window, and follows a rebinding through
   `paint_slots` like every keycap.
+- **A HUD's icon comes from a new `sized_icon(icon, size_px)` in `ui.rs`** (found while
+  building 4.3), which `icon()` is now built on. Task 4.3 had the capsule set its own
+  `TextFont`, but a bundle cannot hold the same component twice, so the size has to come in
+  where the icon is made.
+- **The capsule is a row inside the window** (decided while building 4.3): `dev_window()`
+  lays its children in a column, and the fields it sets win over the caller's `place`, so the
+  hourglass, the speed, the bar and the keys sit in one row node under it.
+- **Slower and faster need no index** (decided while building 4.1): each takes the first step
+  past the speed in its direction, or stays where it is, so a speed between two steps (one set
+  by other code) moves to the next step on its side. A sixth test covers a speed read back a
+  little off its step.
 - **The panel sits 116 px from the top**, not just under a guessed FPS line: Bevy's overlay
   is its 32 px text over a graph twice that tall, about 104 px.
 
@@ -92,11 +103,11 @@ The other dev keys belong to later rows: the roadmap's Keys table lists them.
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 4.1 `src/dev_tools/slow_motion.rs`: `SLOW_MOTION_STEPS = [1.0, 0.5, 0.25, 0.1]`, the pure functions (one step slower, one step faster, how many segments are lit) and the five tests of the spec | Claude | find the current speed among the steps with a tolerance, never `==`; nobody calls them until 4.2 |
-| [ ] | 4.2 The three actions; Slow Motion opens the capsule, or closes it and sets the speed back to 1×; Slower and Faster step it only while the capsule is open | Claude | `ResMut<Time<Virtual>>`, `.set_relative_speed(f32)`, `.relative_speed()` (`bevy_time-0.20.0/src/virt.rs`); `run_if(any_with_component::<...>)`; `KeyCode::NumpadSubtract`, `KeyCode::NumpadAdd` |
-| [ ] | 4.3 The capsule: the hourglass, the speed, the bar of steps, the two keycaps; one system rewrites the speed and the bar when the speed changes | Claude | `icon(Icon::Hourglass)` from `src/ui.rs` is sized by `ICON_SIZE_PX` (22): a HUD's icon is 32 px, so its `TextFont` is set here |
-| [ ] | 4.4 `key_legend` in `controls.rs` spells the two Numpad keys `Num −` and `Num +`, with their test | Claude | today they read `Num Subtract` and `Num Add`, Bevy's names less the prefix |
-| [ ] | 4.5 `docs/template.md`: the file; `README.md` waits for step 6 | Claude | |
+| [x] | 4.1 `src/dev_tools/slow_motion.rs`: `SLOW_MOTION_STEPS = [1.0, 0.5, 0.25, 0.1]`, the pure functions (one step slower, one step faster, how many segments are lit) and the five tests of the spec | Claude | find the current speed among the steps with a tolerance, never `==`; nobody calls them until 4.2 |
+| [x] | 4.2 The three actions; Slow Motion opens the capsule, or closes it and sets the speed back to 1×; Slower and Faster step it only while the capsule is open | Claude | `ResMut<Time<Virtual>>`, `.set_relative_speed(f32)`, `.relative_speed()` (`bevy_time-0.20.0/src/virt.rs`); `run_if(any_with_component::<...>)`; `KeyCode::NumpadSubtract`, `KeyCode::NumpadAdd` |
+| [x] | 4.3 The capsule: the hourglass, the speed, the bar of steps, the two keycaps; one system rewrites the speed and the bar when the speed changes | Claude | `icon(Icon::Hourglass)` from `src/ui.rs` is sized by `ICON_SIZE_PX` (22): a HUD's icon is 32 px, so its `TextFont` is set here |
+| [x] | 4.4 `key_legend` in `controls.rs` spells the two Numpad keys `Num −` and `Num +`, with their test | Claude | today they read `Num Subtract` and `Num Add`, Bevy's names less the prefix |
+| [x] | 4.5 `docs/template.md`: the file; `README.md` waits for step 6 | Claude | |
 | [ ] | 4.6 `just run`: in gameplay + and − step the speed and the capsule follows; the pause menu still comes in at normal speed; closing brings 1× back; closed, + and − do nothing; the keys panel lists the three; review; sync | both | |
 
 ## Step 5: `build: profile with just profile`

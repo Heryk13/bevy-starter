@@ -57,6 +57,7 @@ src/
   dev_tools/
     fps.rs          the FPS overlay and its key
     keys_panel.rs   F1: a window listing every dev key
+    slow_motion.rs  F4: the game slowed down, stepped with Numpad − and +
   disk.rs           the data folder and safe file writes, shared
   fade.rs           the fade timing every screen shares
   i18n.rs           languages, translations and the UI font, shared
