@@ -31,7 +31,9 @@ flat `dev_window()`, a `DevKeys` resource and `*_KEY` constants read straight of
 
 ## Departures from the spec, to record in its "What changed while building it"
 
-None yet.
+- **The card's glass bundle is `card_glass()`, private until step 3** (decided while building
+  2.1). Task 2.1 had it `pub(super)`; with `card()` its only caller, private says so, and step
+  3 opens it along with its re-export.
 
 ## The actions at a glance
 
@@ -58,7 +60,7 @@ The other dev keys belong to later rows: the roadmap's Keys table lists them.
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 2.1 `src/ui/panel.rs`: the rim (`BorderGradient`), the shadow, `entrance_transform(0.0)` and `Card` become one bundle, and `card()` is its `Node` plus that bundle | Claude | the bundle stays `pub(super)` and is not re-exported yet: step 3 is its first user outside, and an export nobody uses fails `just check`; the rim only shows on a `Node` with a border, which stays the caller's |
+| [x] | 2.1 `src/ui/panel.rs`: the rim (`BorderGradient`), the shadow, `entrance_transform(0.0)` and `Card` become one bundle, and `card()` is its `Node` plus that bundle | Claude | the bundle stays `pub(super)` and is not re-exported yet: step 3 is its first user outside, and an export nobody uses fails `just check`; the rim only shows on a `Node` with a border, which stays the caller's |
 | [ ] | 2.2 `just run`: the pause menu, an overlay and a dialog look as before; review; sync | both | |
 
 ## Step 3: `feat: list the dev keys on F1`
