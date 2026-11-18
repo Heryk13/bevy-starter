@@ -1,9 +1,8 @@
 # Dev tools: a keys panel, the FPS, slow motion and a profiler
 
-Status: **designed**, not started. To revise before building, since two rows now come first:
-row 0 (the Liquid Glass UI) redraws the windows below, written here with the flat `ui.rs` look;
-row 1 (key bindings) makes the keys rebindable, so the `*_KEY` constants below become the
-default bindings of registered actions, and the keys panel shows the bound key.
+Status: **approved** on 2026-11-18 as revised that day; not built yet. First written before rows
+0 and 1 of the roadmap existed; the revision redraws the windows as glass (row 0) and reads
+every key as a registered action (row 1), which already moved the FPS to F2.
 Date: 2026-11-07
 Bevy: 0.20.0
 Roadmap: row 2 of `docs/roadmap/roadmap.md`; its tasks are in
@@ -25,15 +24,17 @@ find what costs time.
 
 | Question | Decision |
 | --- | --- |
-| Keys | F1 keys panel, F2 FPS, F4 slow motion. The others belong to later rows (F3 photo mode, F5 camera switch, F6 physics debug view, F7 fly, F8 speed, Numpad 0 file explorer), listed in the roadmap's Keys table |
-| Keys panel | Top-left, under the FPS. Lists every dev key except F1 itself. Starts closed |
-| FPS | The overlay `main` already has; only its key moves from F3 to F2. Starts on, as today |
-| Slow motion | Top-right window showing the speed (`0.25×`). Numpad − and + step through 1×, 0.5×, 0.25×, 0.1× |
-| Slow motion's keys | − and + only work while its window is open, so they never steal a key from the game |
+| Keys | F1 keys panel, F2 FPS, F4 slow motion, as default bindings of actions on Settings' Dev page, where each can be changed. The others belong to later rows, listed in the roadmap's Keys table |
+| Keys panel | Top-left, under the FPS. Lists every dev action except its own, each beside the key it is bound to now. Starts closed |
+| The list | The actions themselves: `Bindings::listed(Page::Dev)`. No list of its own (below) |
+| FPS | Bevy's overlay, as `main` has it, already on F2 as an action since row 1. Only moves to its own file. Starts on |
+| Slow motion | Top-right capsule: an hourglass, the speed (`0.25×`), a bar of steps, and the two keys that step it. Numpad − and + step through 1×, 0.5×, 0.25×, 0.1× |
+| Slow motion's keys | Two actions of their own, Slower and Faster, read only while the capsule is open, so they never steal a key from the game |
 | Closing slow motion | Puts the speed back at 1×, so nobody forgets the game slowed down |
 | What slows down | Gameplay and physics (`Time<Virtual>`). The UI and the pause menu count `Time<Real>` and do not. Sound does not |
 | Faster than 1× | Out. It would only earn its place with rewind, which is out too |
 | Layout | Keys panel on the left under the FPS, slow motion on the right: layout "B" of the mockups |
+| Look | Glass, as every card: the windows float on a layer of their own, with no backdrop behind them (below). `docs/roadmap/ui/mockup.html`, blocks "2" and "2 + 7" |
 | Profiler | `just profile` with Bevy's `trace_chrome`, not Tracy (below) |
 | Where traces go | `profiles/`, ignored by git |
 | Text | English in the code, not locale keys, for every dev tool (confirmed by the user; below) |
@@ -44,7 +45,15 @@ find what costs time.
   is on; the marker it needs to find them arrives with it.
 - **Clicking the dev windows.** They are read-outs: no buttons, and they never take a click
   from the game underneath (`Pickable::IGNORE`, as Bevy's FPS overlay does).
-- **Remembering which windows were open** between runs, and rebinding the keys.
+- **Remembering which windows were open** between runs.
+- **An icon beside each line of the keys panel**, which the mockup shows. An action carries no
+  icon, and one more field on every action, read only by this panel, would be dead code in a
+  release build. The panel's title keeps its icon.
+- **The regions** (blur only where glass is), which the roadmap had put off to the first glass
+  smaller than the screen over a running game. That is these windows, but they exist only in
+  dev builds, and the whole chain measured about 0.03 ms a frame on the full screen
+  (`docs/specs/glass/design.md`). They wait for a glass a released game shows while playing.
+- **A glass FPS.** Bevy's overlay stays as it is, text and graph, as in the mockup.
 - **Tracy.** Its viewer is a separate download whose version must follow Bevy's, against the
   rule that the repository runs as cloned with nothing installed outside cargo.
 
@@ -54,10 +63,10 @@ find what costs time.
 
 | File | Holds |
 | --- | --- |
-| `src/dev_tools.rs` | the plugin, `DevKeys`, `dev_window()`, `DEV_TOOLS_Z_INDEX` |
-| `src/dev_tools/fps.rs` | `FPS_TOGGLE_KEY`, `toggle_fps_overlay`, the `FpsOverlayPlugin` (moved out of `main.rs`) |
-| `src/dev_tools/keys_panel.rs` | F1 and the panel |
-| `src/dev_tools/slow_motion.rs` | F4, the window, the steps and their pure functions |
+| `src/dev_tools.rs` | the plugin, `DEV_TOOLS_Z_INDEX` and its glass layer, `dev_root()`, `dev_window()` |
+| `src/dev_tools/fps.rs` | the `FPS_OVERLAY` action and its default key, `toggle_fps_overlay`, the `FpsOverlayPlugin` (moved out of `main.rs`) |
+| `src/dev_tools/keys_panel.rs` | the `KEYS_PANEL` action and the panel |
+| `src/dev_tools/slow_motion.rs` | the three actions, the capsule, the steps and their pure functions |
 
 `main.rs` keeps `mod dev_tools;` and `app.add_plugins(dev_tools::plugin)`, both behind
 `#[cfg(feature = "dev")]`. Disabling `RenderDebugOverlayPlugin` stays in `main.rs`: it is
@@ -67,49 +76,101 @@ configuration of `DefaultPlugins`, which `main.rs` builds.
 the same reason `ui.rs` and `save.rs` sit there. It is split the `screens.rs` way, `dev_tools.rs`
 next to `dev_tools/`, never `mod.rs`.
 
-### The keys list: each tool adds its own line
+Three files outside it change, each as little as the windows need:
 
-`DevKeys` is a resource holding the lines the panel shows, each a `KeyCode` and a short
-description. Every tool's plugin calls `init_resource::<DevKeys>()` and pushes its own line,
-so the plugins can run in any order, and a tool added later, here or in a branch below
-(`3d/player`'s physics debug view), never edits a central list. `init_resource` does nothing
-when the resource is already there.
+| File | Change |
+| --- | --- |
+| `src/ui/blur.rs` | a floating root that lets the pointer through gets no backdrop, and its layer is never frozen |
+| `src/ui/panel.rs` | the card's rim, shadow and glass marker become a bundle of their own, which `card()` is built from and `dev_window()` reuses |
+| `src/overlays/settings/controls.rs` | `keycap()` and `binding_legend()` reach the keys panel; two legends added (`Num −`, `Num +`) |
 
-The panel shows the lines in the order they were pushed, so `dev_tools.rs` adds its plugins
-in key order (FPS, then slow motion). A key's name comes from its `Debug` form
-(`format!("{key:?}")` writes `F2`).
+### The keys list: the actions are the list
 
-### The windows
+The first version of this design had a `DevKeys` resource each tool pushed a line into. Row 1
+built that list already: every tool registers an `Action` with `page: Page::Dev` and a
+`label`, and `Bindings::listed(Page::Dev)` returns them in the order they were registered,
+each with the binding it has now. The keys panel reads that and skips its own action. So a
+tool added later, here or in a branch below (`3d/player`'s physics debug view), appears on
+the panel and on Settings' Dev page by registering once, and no second list can disagree
+with the first.
 
-`dev_window()` in `dev_tools.rs` is the one look both windows share: an absolute `Node` with
-padding, `ui.rs`'s `SURFACE` fill and `BORDER`, a rounded corner, `Pickable::IGNORE` and
-`GlobalZIndex(DEV_TOOLS_Z_INDEX)`. Text uses `ui.rs`'s `SMALL_FONT_SIZE_PX`, `TEXT`, and
-`ACCENT` for the title.
+`dev_tools.rs` adds its plugins in key order (FPS, then slow motion), which is the order the
+panel shows.
 
-They are not built from `floating_root()` and `card()`, though the Bevy patterns say floating
-UI is: those are centered panels with a blur behind and a backdrop that blocks the game, and
-these are corner read-outs that must leave the game playable. The code carries that reason
-in a comment.
+### The keycap
 
-They carry no `UiTargetCamera`, so they render on the screen camera (`IsDefaultUiCamera`), like
-Bevy's FPS overlay. When the pause menu opens, the blur covers them along with the FPS: they
-stay readable enough, and keeping them sharp would mean a third camera. Roadmap row 8 (screen
-recording) adds that camera later, so its videos leave the dev UI out; until then they stay
-here.
+Each line of the panel shows its key as the keycap of Settings' Controls page: `keycap(action,
+binding_legend(binding))` from `src/overlays/settings/controls.rs`. The panel is its second
+user, and with two the code stays with the first (`CONTRIBUTING.md`, Splitting files): the two
+functions become `pub(crate)` and are re-exported through `settings.rs` and `overlays.rs`
+behind `#[cfg(feature = "dev")]`, since nothing in a release build reaches for them from
+outside. The third user (photo mode's hint, row 3) moves the keycap to `src/ui/`.
+
+A keycap's legend follows a binding changed while the panel is open with no code here:
+`paint_slots` rewrites every `KeycapLegend` in the world when `Bindings` changes, and it runs
+while Settings is open, the only place a binding changes. The code says so where it relies
+on it.
+
+`key_legend` spells `NumpadSubtract` and `NumpadAdd` as Bevy names them (`Num Subtract`), so
+they get named legends: `Num −` and `Num +`.
+
+### The windows: glass with no backdrop
+
+Everything that floats today is a modal: `floating_root()` covers the window, takes every
+click, and `blur.rs` draws the blurred, dimmed screen on it. A dev window is the first thing
+that floats over a game that keeps running. Its root is the same `floating_root()`, on a
+layer of its own, plus `Pickable::IGNORE`, and `blur.rs` learns one rule from that:
+
+**A floating root that lets the pointer through has no backdrop.** What is under it stays
+sharp, live and clickable. So:
+
+- `target_layer_camera` sends such a root to its layer's camera and gives it no glass of its
+  own; its windows still get theirs, from the layer's card copy.
+- `freeze_settled_layers` never freezes a layer with such a root open: nothing promises that
+  what shows under it is still (Settings open under the keys panel, say). A layer never
+  frozen never counts as covering the screens, so `ScreensCovered` stays right as it is.
+- `retarget_open_glass` reaches the windows of a root that has no glass itself, so they
+  follow a resize.
+
+The rule reads `Pickable` instead of a marker of its own on purpose: a marker only the dev
+tools insert would be dead code in a release build, and the two always go together anyway,
+since a backdrop that dims the game while clicks pass through it would be a bug.
+
+`dev_root()` in `dev_tools.rs` is that root: `floating_root(DEV_TOOLS_Z_INDEX)` and
+`Pickable::IGNORE`. `dev_window()` is the one look both windows share: an absolute `Node`
+with its own padding and corner, the glass bundle of `panel.rs` (rim, shadow, the `Card`
+marker that brings the glass), and `Pickable::IGNORE`. Each tool spawns a root with its
+window straight under it, where `give_card_glass` looks for the layer. They come in with the
+entrance every floating root has.
+
+A window starts with the card's glass. Whether it needs a clearer tint of its own over a
+running game is seen in the game, in the step that first shows one, and if so it is a named
+constant beside `DEV_TOOLS_Z_INDEX`.
+
+While a dev window is open its layer is blurred every frame, the pause menu included: about
+0.03 ms on the full screen, in dev builds only. Under Reduce Transparency the windows are the
+solid surface, as every card.
 
 They belong to no state: a key spawns them on any screen, and the same key despawns them. So
 they carry no `DespawnOnExit`.
 
 ### Z order
 
-`DEV_TOOLS_Z_INDEX` is 300, above the dialog (200), so no screen root on the same camera covers
-a dev window. It gets its row in `docs/flow.md`'s table. Bevy's FPS overlay uses its own
-`FPS_OVERLAY_ZINDEX` (`i32::MAX - 32`, `bevy_dev_tools-0.20.0/src/fps_overlay.rs:37`).
+`DEV_TOOLS_Z_INDEX` is 300, above the dialog (200), and is pushed onto `GlassLayers` from the
+plugin, so the windows are drawn by a camera of their own over every other layer: sharp over
+the pause menu, and with whatever is open under them blurred in their glass. It gets its row
+in `docs/flow.md`'s table. Roadmap row 8 (screen recording) wanted a camera that leaves the
+dev UI out of its videos: this is that camera.
+
+Bevy's FPS overlay is not ours to move: it stays on the screen camera with its own
+`FPS_OVERLAY_ZINDEX` (`i32::MAX - 32`, `bevy_dev_tools-0.20.0/src/fps_overlay.rs:37`), and the
+pause menu blurs it as today.
 
 ## FPS
 
-`toggle_fps_overlay` stays as it is, `FPS_TOGGLE_KEY` becomes `KeyCode::F2`, and `fps.rs`
-pushes the F2 line. `FpsOverlayConfig::enabled` starts `true`, so it is on at start, as today.
+Nothing changes but where it lives: the `FPS_OVERLAY` action, `FPS_OVERLAY_KEY`,
+`toggle_fps_overlay` and the plugin line move from `main.rs` to `dev_tools/fps.rs`.
+`FpsOverlayConfig::enabled` starts `true`, so it is on at start, as today.
 
 The keys panel sits at a fixed distance from the top, under the FPS, and does not move up when
 F2 hides it (Claude's call): following the FPS would mean a system reading `FpsOverlayConfig`
@@ -120,12 +181,23 @@ for a gap that only shows while both are in use.
 `SLOW_MOTION_STEPS` lists the speeds from fastest to slowest: `[1.0, 0.5, 0.25, 0.1]`. Two pure
 functions take the current speed and return the next one: one step slower, stopping at the
 last step, and one step faster, stopping at 1×. They find the current speed among the steps
-with a small tolerance, since an `f32` read back may not equal the constant bit for bit.
+with a small tolerance, since an `f32` read back may not equal the constant bit for bit. A
+third tells how many segments of the bar are lit: one at 1×, one more per step slower.
 
-- F4 spawns the window, or despawns it and calls `Time<Virtual>::set_relative_speed(1.0)`.
-- One system reads `KeyCode::NumpadSubtract` and `KeyCode::NumpadAdd`, only while the window
-  exists (`run_if(any_with_component::<...>)`), sets the relative speed, and rewrites the
-  window's text.
+Three actions on the Dev page: Slow Motion (F4), Slower (Numpad −), Faster (Numpad +).
+
+- Slow Motion spawns the capsule, or despawns it and calls
+  `Time<Virtual>::set_relative_speed(1.0)`.
+- One system reads Slower and Faster, only while the capsule exists
+  (`run_if(any_with_component::<...>)`), sets the relative speed, and rewrites the capsule's
+  speed and bar.
+
+The capsule holds the hourglass (`Icon::Hourglass`, at the HUD's 32 px), the speed, the bar,
+and the two keys as keycaps, which follow their bindings like the panel's.
+
+Roadmap row 7 (speed) steps with the same two keys, "whichever window is open". Two actions
+cannot share a default key, so that row moves Slower and Faster up to `dev_tools.rs` and
+reads them too. Until then they are slow motion's.
 
 Facts it rests on:
 
@@ -136,9 +208,11 @@ Facts it rests on:
 - The pause menu calls `Time<Virtual>::pause()` and `unpause()`, which leave the relative
   speed alone: a slowed game paused and resumed is still slowed.
 - Bevy's audio plays in real time, so sound keeps its pitch and speed with nothing to do.
+- `Controls` hears nothing while Settings waits for a key, so the key pressed to bind an
+  action never also opens a window.
 
 Known edges, left alone (Claude's call): anything that counts `Res<Time>` slows down too while
-the window is open. Outside gameplay, that is the splash screen if its timers do. In gameplay,
+the capsule is open. Outside gameplay, that is the splash screen if its timers do. In gameplay,
 it is `count_play_time` (`src/screens/gameplay.rs`): a slowed session saves less play time
 than the clock on the wall, the same way the pause menu stops it. Play time is game time, and
 slow motion is a dev tool used on purpose.
@@ -163,8 +237,9 @@ browser.
 
 Every word the player reads is a locale key, but no player reads these: release builds are
 made with `--no-default-features`, which leaves the whole `dev_tools` module out. So the
-descriptions and titles are English literals, and the code says why where they live. Putting
-them in every `main.ftl` would add keys the game never ships.
+labels and titles are English literals, and the code says why where they live. Putting
+them in every `main.ftl` would add keys the game never ships. An action's label is the same
+words on the keys panel and on Settings' Dev page.
 
 ## Tests
 
@@ -174,6 +249,10 @@ In `slow_motion.rs`, under `// ==== Tests ====`, comparing floats with a toleran
 - slower stops at the slowest step
 - faster stops at 1×
 - one step faster from the slowest step is the one before it
+- the bar lights one segment at 1× and every segment at the slowest step
+
+In `blur.rs`: a layer with a root that lets the pointer through open is not frozen over a
+still background. In `controls.rs`: the two Numpad legends.
 
 The keys panel and the FPS have no logic of their own to test: they read the ECS and spawn
 nodes.
@@ -182,27 +261,36 @@ nodes.
 
 Every step compiles, passes `just check` and runs. One commit per step.
 
-1. **Move.** The FPS code out of `main.rs` into `dev_tools.rs` and `dev_tools/fps.rs`. Only a
-   move. *Try:* F3 still hides and shows the FPS.
-2. **FPS on F2.** *Try:* F2 hides and shows it, F3 does nothing.
-3. **Keys panel.** `DevKeys`, `dev_window()`, `DEV_TOOLS_Z_INDEX`, the panel on F1, the F2 line.
-   *Try:* F1 opens the panel under the FPS, listing F2; F1 again closes it; clicks go through
-   it to the game.
-4. **Slow motion.** The steps, the two pure functions and their tests, the window on F4, the
-   Numpad keys, the F4 line. *Try:* in gameplay, + and − step the speed and the window
-   follows; the pause menu's blur still ramps at normal speed; closing the window brings 1×
-   back; with the window closed, + and − do nothing.
+1. **Move.** The FPS action, key, system and plugin line out of `main.rs` into `dev_tools.rs`
+   and `dev_tools/fps.rs`. Only a move. *Try:* F2 still hides and shows the FPS, and Settings'
+   Dev page still lists it.
+2. **The card's glass on its own.** `panel.rs` hands out the rim, the shadow and the `Card`
+   marker as one bundle, and `card()` is built from it. *Try:* the pause menu, an overlay and
+   a dialog look as before.
+3. **Keys panel.** The no-backdrop rule in `blur.rs` and its test, `DEV_TOOLS_Z_INDEX` and its
+   layer, `dev_root()`, `dev_window()`, the keycap's re-exports, the `KEYS_PANEL` action and
+   the panel, the z-index row in `docs/flow.md`. *Try:* F1 opens the panel under the FPS,
+   listing the FPS on F2; F1 again closes it; the game under it is sharp and takes clicks
+   through it; it stays sharp over the pause menu; a key changed on the Dev page changes on
+   the open panel; Reduce Transparency and a resize with it open.
+4. **Slow motion.** The steps, the pure functions and their tests, the three actions, the
+   capsule, the two Numpad legends. *Try:* in gameplay, + and − step the speed and the
+   capsule follows; the pause menu still comes in at normal speed; closing the capsule brings
+   1× back; with it closed, + and − do nothing; the panel lists the three.
 5. **Profiler.** `/profiles` in `.gitignore`, the `profile` recipe. *Try:* `just profile`, play
    a little, close: a dated file is in `profiles/` and opens in `ui.perfetto.dev`.
-6. **Docs.** `README.md` (the dev keys line that names F3 today, `just profile` in the commands
-   table, the `dev` feature row), `docs/flow.md` (the z-index row), `docs/template.md` (the new
-   files), and this spec's status. Then merge down: `main` into `3d/base` into `3d/player`,
-   and `main` into `2d/base`.
+6. **Docs.** `README.md` (the dev keys, `just profile` in the commands table, the `dev` feature
+   row), `docs/flow.md` (the no-backdrop rule beside the layers), `docs/template.md` (the new
+   files), the roadmap's row and its table of pieces, and this spec's status.
 
-Merging into `3d/player` conflicts in `main.rs`: that branch adds `PhysicsDebugPlugin` to the
-same dev tools block step 1 moves out. The merge keeps it in `main.rs`, as it is (Claude's
-call); moving it into `dev_tools` and giving it a key is roadmap row 5, and a merge commit
-that quietly does a row's work hides it from that row's review.
+Step 1 is written on `main` itself, not tried on `3d/player` first as the glass was: it edits
+`main.rs`, which differs between the two, and a pure move has nothing to look at behind a
+panel. Steps 2 to 4 are tried on `3d/player`, where the level moves under the windows.
+
+Merging step 1 into `3d/player` conflicts in `main.rs`: that branch adds `PhysicsDebugPlugin`
+to the same dev tools block step 1 moves out. The merge keeps it in `main.rs`, as it is
+(Claude's call); moving it into `dev_tools` and giving it a key is roadmap row 5, and a merge
+commit that quietly does a row's work hides it from that row's review.
 
 ## What changed while building it
 
