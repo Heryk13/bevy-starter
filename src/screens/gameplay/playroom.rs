@@ -26,7 +26,8 @@ const ROOM_MAP: &str = "
 const TILE_SCALE: u32 = 4;
 
 // ---- derived: a tile on screen, in px ---------------------------------------
-const TILE_DISPLAY_PX: u32 = TILE_ART_PX * TILE_SCALE;
+// what a branch that walks the room measures by: its body, how near an edge the camera follows
+pub(crate) const TILE_DISPLAY_PX: u32 = TILE_ART_PX * TILE_SCALE;
 
 // ==== Plugin =================================================================
 
