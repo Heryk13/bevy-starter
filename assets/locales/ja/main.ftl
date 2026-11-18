@@ -27,6 +27,7 @@ dialog-no = いいえ
 dialog-quit-without-saving = セーブせずに終了しますか？
 dialog-overwrite-save = このデータに上書きしますか？
 dialog-delete-save = このデータを削除しますか？
+dialog-reset-controls = すべての操作をデフォルトに戻しますか？
 
 ## overlays
 
@@ -38,6 +39,11 @@ settings-fullscreen = フルスクリーン
 settings-reduce-transparency = 透明度を下げる
 settings-volume = 音量
 settings-language = 言語
+settings-page-general = 一般
+settings-page-controls = 操作
+controls-listening = キーを押してください…
+controls-cancel-hint = Escでキャンセル
+controls-reset = デフォルトに戻す
 
 ## save and load
 

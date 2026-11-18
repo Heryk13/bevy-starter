@@ -500,6 +500,7 @@ version = "1.0.0"
 dependencies = [
  "avian3d",
  "bevy",
+ "bevy_input",
  "fluent-bundle",
  "fluent-syntax",
  "icu_provider",
@@ -1180,6 +1181,7 @@ dependencies = [
  "bevy_reflect",
  "derive_more",
  "log",
+ "serde",
  "smol_str",
  "thiserror 2.0.21",
 ]

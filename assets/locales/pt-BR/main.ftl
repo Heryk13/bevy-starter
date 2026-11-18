@@ -26,6 +26,7 @@ dialog-no = Não
 dialog-quit-without-saving = Sair sem salvar?
 dialog-overwrite-save = Sobrescrever este jogo salvo?
 dialog-delete-save = Apagar este jogo salvo?
+dialog-reset-controls = Restaurar todos os controles para o padrão?
 
 ## overlays
 
@@ -37,6 +38,11 @@ settings-fullscreen = Tela Cheia
 settings-reduce-transparency = Reduzir Transparência
 settings-volume = Volume
 settings-language = Idioma
+settings-page-general = Geral
+settings-page-controls = Controles
+controls-listening = Pressione uma tecla…
+controls-cancel-hint = Esc cancela
+controls-reset = Restaurar Padrões
 
 ## save and load
 

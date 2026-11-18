@@ -12,7 +12,7 @@ pub(super) const SCREEN_DIM: Color = Color::srgba(0.0, 0.0, 0.0, 0.35);
 
 // ---- cards ------------------------------------------------------------------
 const CARD_PADDING_PX: f32 = 32.0;
-const CARD_GAP_PX: f32 = 16.0;
+pub(crate) const CARD_GAP_PX: f32 = 16.0;
 const CARD_RADIUS_PX: f32 = 26.0;
 const CARD_SHADOW_COLOR: Color = Color::srgba(0.0, 0.0, 0.0, 0.5);
 const CARD_SHADOW_OFFSET_PX: f32 = 12.0;
