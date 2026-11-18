@@ -520,6 +520,8 @@ fn key_legend(key: KeyCode) -> String {
         KeyCode::ArrowDown => "↓",
         KeyCode::ArrowLeft => "←",
         KeyCode::ArrowRight => "→",
+        KeyCode::NumpadSubtract => "Num −",
+        KeyCode::NumpadAdd => "Num +",
         _ => "",
     };
     if !named.is_empty() {
@@ -617,6 +619,15 @@ mod tests {
     #[test]
     fn a_numpad_key_says_so() {
         assert_eq!(binding_legend(Binding::Key(KeyCode::Numpad0)), "Num 0");
+    }
+
+    #[test]
+    fn a_numpad_sign_reads_as_its_sign() {
+        assert_eq!(
+            binding_legend(Binding::Key(KeyCode::NumpadSubtract)),
+            "Num −"
+        );
+        assert_eq!(binding_legend(Binding::Key(KeyCode::NumpadAdd)), "Num +");
     }
 
     #[test]

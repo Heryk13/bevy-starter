@@ -103,9 +103,15 @@ pub(crate) fn muted_text(size_px: f32) -> impl Bundle {
 /// icon font, so whatever colors a text colors it: a button's ink reaches it as it reaches
 /// a label.
 pub(crate) fn icon(icon: Icon) -> impl Bundle {
+    sized_icon(icon, ICON_SIZE_PX)
+}
+
+/// Returns an icon of the given size, for one that stands alone instead of beside text, as
+/// in a HUD.
+pub(crate) fn sized_icon(icon: Icon, size_px: f32) -> impl Bundle {
     (
         Text::new(char::from(icon)),
-        TextFont::from_font_size(ICON_SIZE_PX).with_font(ICON_FONT),
+        TextFont::from_font_size(size_px).with_font(ICON_FONT),
         TextColor(TEXT),
     )
 }

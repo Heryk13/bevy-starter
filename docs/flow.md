@@ -592,7 +592,7 @@ Seven files at the top of `src/`, each named after its domain, each used by more
 
 | File | What it holds | Why it is shared |
 | --- | --- | --- |
-| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `muted_text()`, `icon()` and `Icon`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `icon_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()`, and in dev builds `card_glass()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions; the dev tools' windows are glass like a card |
+| `src/ui.rs`, with `ui/button.rs` and `ui/panel.rs` | the palette and type sizes, `font()`, `label()`, `muted_text()`, `icon()`, `sized_icon()` and `Icon`, `heading()`; re-exported from its parts: `button()`, `menu_button()`, `row_button()`, `icon_button()`, `ButtonKind` (button.rs, with `paint_buttons` and `play_button_sounds`), `floating_root()`, `card()`, `dialog()`, and in dev builds `card_glass()` (panel.rs, with `animate_entrances` and `close_dialog`) | every screen, overlay and dialog is drawn from these; saves, deleting and quitting all ask questions; the dev tools' windows are glass like a card |
 | `src/ui/blur.rs` | `GlassLayers` and a camera per layer, `Floating`, `GlassCopies`, the Kawase passes, `GlassMaterial`, `FrozenBackground` with `freeze_background()` and `unfreeze_background()`, `ReduceTransparency`, `ScreensCovered` with `ScreensCoveredSystems` | the pause menu, every overlay and every dialog float, and in dev builds the dev tools' windows |
 | `src/input.rs` | `ActionName`, `Action`, `Binding`, `register_action()`, `Controls`, `action_just_pressed()`, `Bindings`, `SavedBindings` | Esc and the dev tools' keys are read as actions, and the settings file keeps the changed bindings; every feature that reads a key registers one |
 | `src/i18n.rs` | `Language`, `Translations`, `Localized`, `translate_texts`, `language_from_locale()`, the UI font | every text in every screen and overlay |
@@ -641,8 +641,9 @@ system parameter (`controls.just_pressed(PAUSE)`), or runs on its press with
 `action_just_pressed(PAUSE)`, and never names a `KeyCode` itself. `report_shared_keys` logs two
 actions registered on one key as the game starts, found by the pure `shared_default`. On
 `main` the actions are Pause (`overlays.rs`, Esc) and, in dev builds, the keys panel
-(`dev_tools/keys_panel.rs`, F1) and the FPS overlay (`dev_tools/fps.rs`, F2); a branch adds its
-own. The keys panel lists the Dev page's actions, each on the keycap of the Controls page
+(`dev_tools/keys_panel.rs`, F1), the FPS overlay (`dev_tools/fps.rs`, F2) and slow motion
+(`dev_tools/slow_motion.rs`, F4, with Numpad − and + read only while its capsule is open); a
+branch adds its own. The keys panel lists the Dev page's actions, each on the keycap of the Controls page
 (`keycap()` and `binding_legend()`, re-exported from `overlays.rs` in dev builds); while it is
 closed, its own key waits in its place on the screen camera (`spawn_keys_panel_hint`).
 An action also has a `Page`, the game's or the dev tools', and a label that page lists it under.
