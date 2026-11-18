@@ -224,7 +224,9 @@ drawn over the sun. Physics is avian3d, whose `PhysicsPlugins` sit in `main.rs` 
 are built, `ColliderConstructorHierarchyReady` triggers `spawn_player` (`gameplay/player.rs`):
 a dynamic capsule with its rotation locked, where the `Session` left it, and adding its `Player`
 triggers `spawn_first_person_camera` (`player/first_person.rs`), the level's camera as the
-body's child at eye height. `walk_player` turns WASD into the body's velocity across the ground,
+body's child at eye height. `walk_player` turns the four walk actions (`MOVE_FORWARD`, `MOVE_BACK`, `MOVE_LEFT`,
+`MOVE_RIGHT`, which `player.rs` registers on W, S, A and D and the Controls page of Settings
+lets the player rebind) into the body's velocity across the ground,
 `look_around` turns the body for the yaw and tilts the camera for the pitch, and both run only in
 `Pause::Off`, whose `OnEnter` and `OnExit` lock and free the cursor. Everything about the camera
 is in `first_person.rs`, and every line outside it that names it ends with

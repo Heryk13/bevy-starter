@@ -4,6 +4,7 @@ use avian3d::prelude::{
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+use crate::input::{Action, ActionName, Binding, Controls, Page, register_action};
 use crate::save::Session;
 use crate::screens::gameplay::playroom::PlayroomCamera;
 use crate::screens::{Pause, Screen};
@@ -24,6 +25,20 @@ const PLAYER_HEIGHT_M: f32 = 1.8;
 // velocity and keeps it the same at any frame rate
 const PLAYER_WALK_SPEED_M_PER_S: f32 = 4.4;
 
+// ---- walk actions: what the player rebinds on the Controls page -------------
+const MOVE_FORWARD: ActionName = ActionName("move_forward");
+const MOVE_BACK: ActionName = ActionName("move_back");
+const MOVE_LEFT: ActionName = ActionName("move_left");
+const MOVE_RIGHT: ActionName = ActionName("move_right");
+// each with the key it starts on and the translation key of its label, in the order the
+// page lists them
+const WALK_ACTIONS: [(ActionName, KeyCode, &str); 4] = [
+    (MOVE_FORWARD, KeyCode::KeyW, "action-move-forward"),
+    (MOVE_BACK, KeyCode::KeyS, "action-move-back"),
+    (MOVE_LEFT, KeyCode::KeyA, "action-move-left"),
+    (MOVE_RIGHT, KeyCode::KeyD, "action-move-right"),
+];
+
 // ---- spawn: where a new game starts -----------------------------------------
 // how far above the floor the soles start, so the body is seen to drop and land, and
 // a floor a little above the origin never swallows it
@@ -43,6 +58,17 @@ const PLAYER_SPAWN_POINT: Vec3 = Vec3::new(0.0, PLAYER_SPAWN_HEIGHT_M, 0.0);
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
+    for (name, key, label) in WALK_ACTIONS {
+        register_action(
+            app,
+            Action {
+                name,
+                default: Binding::Key(key),
+                page: Page::Game,
+                label: Some(label),
+            },
+        );
+    }
     app.add_observer(spawn_player.run_if(in_state(Screen::Gameplay)));
     app.add_plugins(first_person::plugin); // camera: first-person
     // walk_player reads the yaw that the camera's look writes, with no order between them:
@@ -113,24 +139,22 @@ fn spawn_player(
     ));
 }
 
-/// Walks the player with WASD where the body faces. Only the velocity across the ground is
-/// set, so letting go stops the body at once, and its height is left to gravity.
-fn walk_player(
-    keys: Res<ButtonInput<KeyCode>>,
-    body: Single<(&Transform, &mut LinearVelocity), With<Player>>,
-) {
+/// Walks the player where the body faces, by the four walk actions, which start on W, S, A
+/// and D. Only the velocity across the ground is set, so letting go stops the body at once,
+/// and its height is left to gravity.
+fn walk_player(controls: Controls, body: Single<(&Transform, &mut LinearVelocity), With<Player>>) {
     let (transform, mut velocity) = body.into_inner();
     let mut input = Vec2::ZERO;
-    if keys.pressed(KeyCode::KeyW) {
+    if controls.pressed(MOVE_FORWARD) {
         input.y += 1.0;
     }
-    if keys.pressed(KeyCode::KeyS) {
+    if controls.pressed(MOVE_BACK) {
         input.y -= 1.0;
     }
-    if keys.pressed(KeyCode::KeyA) {
+    if controls.pressed(MOVE_LEFT) {
         input.x -= 1.0;
     }
-    if keys.pressed(KeyCode::KeyD) {
+    if controls.pressed(MOVE_RIGHT) {
         input.x += 1.0;
     }
     let walk = walk_velocity(input, transform.rotation);
