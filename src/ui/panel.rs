@@ -90,6 +90,16 @@ pub(crate) fn card(width_px: f32) -> impl Bundle {
             border_radius: BorderRadius::all(px(CARD_RADIUS_PX)),
             ..default()
         },
+        card_glass(),
+    )
+}
+
+/// Returns what makes a node a sheet of glass: the lit rim, the shadow under it, the place
+/// its entrance starts from, and the `Card` marker that brings its glass. The node brings
+/// its own size, padding, corner and border, which the rim is drawn on: without a border the
+/// rim does not show.
+fn card_glass() -> impl Bundle {
+    (
         BorderGradient::from(LinearGradient::to_bottom_right(vec![
             ColorStop::new(CARD_RIM_LIGHT, percent(0)),
             ColorStop::new(CARD_RIM_FADING, percent(CARD_RIM_FADING_STOP_PERCENT)),
