@@ -10,8 +10,6 @@ use crate::ui::{BORDER, BORDER_PX, Icon, SMALL_FONT_SIZE_PX, TEXT, font, icon};
 
 mod photo;
 
-use photo::{TAKE_PHOTO, TAKE_PHOTO_LABEL};
-
 // ==== Config =================================================================
 
 // enters and leaves photo mode: the action, and the key it starts on. Esc leaves too,
@@ -25,7 +23,7 @@ const EXIT_WORDS: &str = "Exit";
 
 // ---- hint bar: the bottom centre, what each key does ------------------------
 const BAR_BOTTOM_PX: f32 = 24.0;
-// between the two halves and the divider
+// between a hint and the divider beside it
 const BAR_GAP_PX: f32 = 14.0;
 // between an icon, its keycap and its words
 const BAR_PART_GAP_PX: f32 = 8.0;
@@ -38,6 +36,7 @@ const DIVIDER_HEIGHT_PX: f32 = 26.0;
 /// `pause.rs` freezes the game on entering `Pause::Photo`, as it does for the pause menu.
 /// Taking the photo itself is `photo.rs`'s.
 pub(super) fn plugin(app: &mut App) {
+    app.init_resource::<PhotoHints>();
     register_action(
         app,
         Action {
@@ -57,6 +56,25 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnExit(Pause::Photo), show_dev_ui);
 }
 
+// ==== Hints ==================================================================
+
+/// One part of photo mode's bar: an icon, the actions whose keycaps it shows side by side,
+/// and what they do.
+#[derive(Clone, Copy)]
+pub(super) struct PhotoHint {
+    pub(super) icon: Icon,
+    pub(super) actions: &'static [ActionName],
+    pub(super) words: &'static str,
+}
+
+/// Adds `hint` to photo mode's bar, after those added before it and before Exit, which always
+/// ends the bar. Called from the plugin of the tool whose keys work in photo mode, so a branch
+/// adds its own, a free camera's, without changing this file.
+pub(super) fn register_photo_hint(app: &mut App, hint: PhotoHint) {
+    app.init_resource::<PhotoHints>();
+    app.world_mut().resource_mut::<PhotoHints>().0.push(hint);
+}
+
 // ==== Components =============================================================
 
 /// Marks the root of what photo mode itself shows, its bar, its flash and its notice: kept
@@ -64,6 +82,12 @@ pub(super) fn plugin(app: &mut App) {
 /// taken.
 #[derive(Component)]
 struct PhotoModeUi;
+
+// ==== Resources ==============================================================
+
+/// The hints the tools registered for photo mode's bar, in the order they did.
+#[derive(Resource, Default)]
+struct PhotoHints(Vec<PhotoHint>);
 
 // ==== Systems ================================================================
 
@@ -85,9 +109,26 @@ fn hide_dev_ui(mut roots: Query<&mut Visibility, (With<DevUi>, Without<PhotoMode
     }
 }
 
-/// Spawns the bar at the bottom centre saying what each key does in photo mode, each beside
-/// the keycap of its binding; it goes when photo mode ends.
-fn spawn_hint_bar(mut commands: Commands, bindings: Res<Bindings>) {
+/// Spawns the bar at the bottom centre saying what each key does in photo mode, each hint
+/// beside the keycaps of its bindings and a line between two; it goes when photo mode ends.
+fn spawn_hint_bar(mut commands: Commands, bindings: Res<Bindings>, hints: Res<PhotoHints>) {
+    // the legends read now: the hints are spawned later, as the bar is
+    let parts: Vec<(PhotoHint, Vec<String>)> = bar_hints(&hints.0)
+        .into_iter()
+        .map(|hint| {
+            let legends = hint
+                .actions
+                .iter()
+                .map(|&action| {
+                    bindings
+                        .binding(action)
+                        .map(binding_legend)
+                        .unwrap_or_default()
+                })
+                .collect();
+            (hint, legends)
+        })
+        .collect();
     let window = (
         // left to the root's centring along the bottom edge
         dev_window(Node {
@@ -100,18 +141,16 @@ fn spawn_hint_bar(mut commands: Commands, bindings: Res<Bindings>) {
                 column_gap: px(BAR_GAP_PX),
                 ..default()
             },
-            children![
-                hint(Icon::Camera, TAKE_PHOTO, TAKE_PHOTO_LABEL, &bindings),
-                (
-                    Node {
-                        width: px(BORDER_PX),
-                        height: px(DIVIDER_HEIGHT_PX),
-                        ..default()
-                    },
-                    BackgroundColor(BORDER),
-                ),
-                hint(Icon::LogOut, PHOTO_MODE, EXIT_WORDS, &bindings),
-            ],
+            // spawned with the bar, not after it: `spawn_dev_window` lets the pointer through
+            // everything the window holds as it spawns
+            Children::spawn(SpawnWith(move |bar: &mut ChildSpawner| {
+                for (index, (hint, legends)) in parts.into_iter().enumerate() {
+                    if index > 0 {
+                        bar.spawn(divider());
+                    }
+                    spawn_hint(bar, hint, legends);
+                }
+            })),
         )],
     );
     spawn_dev_window(
@@ -130,23 +169,46 @@ fn show_dev_ui(mut roots: Query<&mut Visibility, With<DevUi>>) {
 
 // ==== Helpers ================================================================
 
-/// Returns one half of the hint bar: an icon, the keycap of `action`'s binding, its words.
-fn hint(symbol: Icon, action: ActionName, words: &'static str, bindings: &Bindings) -> impl Bundle {
-    let legend = bindings
-        .binding(action)
-        .map(binding_legend)
-        .unwrap_or_default();
+/// Returns the hints the bar shows: those the tools registered, in order, then Exit.
+fn bar_hints(registered: &[PhotoHint]) -> Vec<PhotoHint> {
+    let exit = PhotoHint {
+        icon: Icon::LogOut,
+        actions: &[PHOTO_MODE],
+        words: EXIT_WORDS,
+    };
+    registered.iter().copied().chain([exit]).collect()
+}
+
+/// Spawns one hint into the bar: its icon, a keycap for each of its actions, labelled with
+/// `legends`, and its words.
+fn spawn_hint(bar: &mut ChildSpawner, hint: PhotoHint, legends: Vec<String>) {
+    bar.spawn(Node {
+        align_items: AlignItems::Center,
+        column_gap: px(BAR_PART_GAP_PX),
+        ..default()
+    })
+    .with_children(|part| {
+        part.spawn(icon(hint.icon));
+        for (&action, legend) in hint.actions.iter().zip(legends) {
+            part.spawn(keycap(action, legend));
+        }
+        part.spawn((
+            Text::new(hint.words),
+            font(SMALL_FONT_SIZE_PX),
+            TextColor(TEXT),
+        ));
+    });
+}
+
+/// Returns the upright line between two hints.
+fn divider() -> impl Bundle {
     (
         Node {
-            align_items: AlignItems::Center,
-            column_gap: px(BAR_PART_GAP_PX),
+            width: px(BORDER_PX),
+            height: px(DIVIDER_HEIGHT_PX),
             ..default()
         },
-        children![
-            icon(symbol),
-            keycap(action, legend),
-            (Text::new(words), font(SMALL_FONT_SIZE_PX), TextColor(TEXT)),
-        ],
+        BackgroundColor(BORDER),
     )
 }
 
@@ -179,5 +241,19 @@ mod tests {
     #[test]
     fn photo_key_does_nothing_over_the_pause_menu() {
         assert_eq!(photo_key_target(Pause::On), None);
+    }
+
+    #[test]
+    fn the_bar_lists_the_hints_in_the_order_registered_and_exit_last() {
+        let hint = |words| PhotoHint {
+            icon: Icon::Camera,
+            actions: &[],
+            words,
+        };
+        let words: Vec<&str> = bar_hints(&[hint("Take Photo"), hint("Move")])
+            .iter()
+            .map(|hint| hint.words)
+            .collect();
+        assert_eq!(words, ["Take Photo", "Move", EXIT_WORDS]);
     }
 }
