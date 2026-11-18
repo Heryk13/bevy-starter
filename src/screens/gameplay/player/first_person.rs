@@ -1,5 +1,3 @@
-#[cfg(feature = "dev")]
-use avian3d::debug_render::DebugRender;
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
@@ -37,8 +35,6 @@ const FIRST_PERSON_PITCH_LIMIT_RAD: f32 = FIRST_PERSON_PITCH_LIMIT_DEG.to_radian
 /// this file and every line marked `// camera: first-person`.
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(spawn_first_person_camera.run_if(in_state(Screen::Gameplay)));
-    #[cfg(feature = "dev")]
-    app.add_observer(hide_body_debug_collider.run_if(in_state(Screen::Gameplay)));
     // every frame and on every screen: the cursor must come back the moment a modal opens
     // over the running game, or the game is left, whatever left it
     app.add_systems(Update, hold_cursor);
@@ -62,13 +58,6 @@ fn spawn_first_person_camera(add: On<Add<Player>>, mut commands: Commands, sessi
             .with_rotation(Quat::from_rotation_x(session.game.player.pitch)),
         ChildOf(add.entity),
     ));
-}
-
-/// Hides the body's own collider from the physics debug view, since the camera sits inside
-/// it and would see its outline as a line down the middle of the screen.
-#[cfg(feature = "dev")]
-fn hide_body_debug_collider(add: On<Add<Player>>, mut commands: Commands) {
-    commands.entity(add.entity).insert(DebugRender::none());
 }
 
 /// Hides the cursor and holds it in place while the game runs with no modal open over it, so
@@ -117,9 +106,16 @@ fn look_around(
 // ==== Helpers ================================================================
 
 /// Tells whether the cursor is held for looking around: only while the game runs, `pause`
-/// being `Off`, and no modal is open over it. Outside gameplay `pause` is `None`.
+/// being `Off`, or in photo mode, whose free camera turns with the mouse, and no modal is
+/// open over it. Outside gameplay `pause` is `None`.
 fn is_cursor_locked(pause: Option<Pause>, modal_open: bool) -> bool {
-    pause == Some(Pause::Off) && !modal_open
+    let looking = match pause {
+        Some(Pause::Off) => true,
+        #[cfg(feature = "dev")]
+        Some(Pause::Photo) => true,
+        _ => false,
+    };
+    looking && !modal_open
 }
 
 /// Returns the pitch after the mouse moves `delta_y_px` down the screen, held inside the
@@ -179,5 +175,11 @@ mod tests {
     #[test]
     fn the_cursor_is_free_outside_gameplay() {
         assert!(!is_cursor_locked(None, false));
+    }
+
+    #[cfg(feature = "dev")]
+    #[test]
+    fn the_cursor_is_held_in_photo_mode_for_its_free_camera() {
+        assert!(is_cursor_locked(Some(Pause::Photo), false));
     }
 }

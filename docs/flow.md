@@ -270,8 +270,9 @@ lets the player rebind) into the body's velocity across the ground,
 `look_around` turns the body for the yaw and tilts the camera for the pitch, and both run only in
 `Pause::Off`; `look_around` also stops while a modal is open over the running game, the file
 explorer say. `hold_cursor` keeps the cursor locked exactly then, the game running with no
-modal open (the pure `is_cursor_locked`), and free the rest of the time, so the pause menu,
-photo mode, a modal and the menus all get it back. A modal is whatever Esc closes first, the
+modal open, and in dev builds in photo mode too, whose free camera turns with the mouse (the
+pure `is_cursor_locked`), and free the rest of the time, so the pause menu, a modal and the
+menus all get it back. A modal is whatever Esc closes first, the
 `ClosesOnEsc` of `ui.rs`, so it never names the explorer, and a dev window the pointer goes
 through (the keys panel, slow motion) leaves the cursor held. Everything about the camera
 is in `first_person.rs`, and every line outside it that names it ends with
@@ -292,6 +293,18 @@ that shortcut goes through `Screen::Loading` with `LoadingDestination::Gameplay`
 straight to `Screen::Gameplay`: the playroom needs the `GameplayAssets` only the loading screen
 inserts, and `unload_gameplay_assets` removes them again when gameplay ends. Esc lives in
 `src/overlays.rs` with the rest of the Esc rule.
+
+**The 3D dev tools**, on `3d/player` and in dev builds only, reach the body and the camera
+through `Player`, `PlayroomCamera`, the walk actions and `walk_input`, all `pub(crate)`.
+F6 (`dev_tools/physics_debug.rs`, which adds avian's `PhysicsDebugPlugin`) shows and hides the
+outline of every collider, the capsule's included; it starts off, and photo mode hides it,
+keeping whether it showed. F7 (`dev_tools/fly.rs`) puts `Flying`, `GravityScale(0.0)` and
+`ColliderDisabled` on the body, and `fly_player`, after `walk_player`, sets its whole velocity
+where the camera looks; Rise and Sink (Space, Left Shift) move it straight up and down, and F7
+again takes the three off, so the body falls. Photo mode's free camera
+(`dev_tools/free_camera.rs`) keeps the camera's `Transform` in a `FreeCameraHome` as photo mode
+begins, turns and moves it in its parent's space while photo mode lasts, by the mouse, the walk
+actions, Rise and Sink, on `Time<Real>`, and puts it back as photo mode ends.
 
 **Where the game's own state goes.** `Session::game` is a `GameData`, the struct in `save.rs` that
 holds what the game keeps in a save: the world, the player, their progress. So far it holds

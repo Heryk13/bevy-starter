@@ -26,10 +26,10 @@ const PLAYER_HEIGHT_M: f32 = 1.8;
 const PLAYER_WALK_SPEED_M_PER_S: f32 = 4.4;
 
 // ---- walk actions: what the player rebinds on the Controls page -------------
-const MOVE_FORWARD: ActionName = ActionName("move_forward");
-const MOVE_BACK: ActionName = ActionName("move_back");
-const MOVE_LEFT: ActionName = ActionName("move_left");
-const MOVE_RIGHT: ActionName = ActionName("move_right");
+pub(crate) const MOVE_FORWARD: ActionName = ActionName("move_forward");
+pub(crate) const MOVE_BACK: ActionName = ActionName("move_back");
+pub(crate) const MOVE_LEFT: ActionName = ActionName("move_left");
+pub(crate) const MOVE_RIGHT: ActionName = ActionName("move_right");
 // each with the key it starts on and the translation key of its label, in the order the
 // page lists them
 const WALK_ACTIONS: [(ActionName, KeyCode, &str); 4] = [
@@ -110,9 +110,10 @@ impl Default for PlayerState {
 
 // ==== Components =============================================================
 
-/// Marks the player's body, the one entity the camera, walking and the save act on.
+/// Marks the player's body, the one entity the camera, walking and the save act on, and in
+/// dev builds the fly tool.
 #[derive(Component)]
-struct Player;
+pub(crate) struct Player;
 
 // ==== Systems ================================================================
 
@@ -142,22 +143,12 @@ fn spawn_player(
 /// Walks the player where the body faces, by the four walk actions, which start on W, S, A
 /// and D. Only the velocity across the ground is set, so letting go stops the body at once,
 /// and its height is left to gravity.
-fn walk_player(controls: Controls, body: Single<(&Transform, &mut LinearVelocity), With<Player>>) {
+pub(crate) fn walk_player(
+    controls: Controls,
+    body: Single<(&Transform, &mut LinearVelocity), With<Player>>,
+) {
     let (transform, mut velocity) = body.into_inner();
-    let mut input = Vec2::ZERO;
-    if controls.pressed(MOVE_FORWARD) {
-        input.y += 1.0;
-    }
-    if controls.pressed(MOVE_BACK) {
-        input.y -= 1.0;
-    }
-    if controls.pressed(MOVE_LEFT) {
-        input.x -= 1.0;
-    }
-    if controls.pressed(MOVE_RIGHT) {
-        input.x += 1.0;
-    }
-    let walk = walk_velocity(input, transform.rotation);
+    let walk = walk_velocity(walk_input(&controls), transform.rotation);
     velocity.x = walk.x;
     velocity.z = walk.z;
 }
@@ -178,6 +169,16 @@ fn record_player_state(
 }
 
 // ==== Helpers ================================================================
+
+/// Returns what the four walk actions ask for: right and forward, one per key held, each
+/// against its opposite. Fly and photo mode's free camera read the same keys.
+pub(crate) fn walk_input(controls: &Controls) -> Vec2 {
+    let axis = |positive, negative| {
+        f32::from(u8::from(controls.pressed(positive)))
+            - f32::from(u8::from(controls.pressed(negative)))
+    };
+    Vec2::new(axis(MOVE_RIGHT, MOVE_LEFT), axis(MOVE_FORWARD, MOVE_BACK))
+}
 
 /// Returns the velocity the keys ask for, on the ground and turned to where the body faces:
 /// `input` is right and forward, one per key, made one long first so a diagonal is no

@@ -85,11 +85,14 @@ src/
       trash.rs      Trash: deleted entries, trash.ron, restore, delete for good
       tree.rs       the place's folders and files as a tree
       usage.rs      where an asset is used, asked before changing it
+    fly.rs          F7: the player flies through everything, Space and Shift up and down
     fps.rs          the FPS overlay and its key
+    free_camera.rs  photo mode's free camera, back where it was as photo mode ends
     keys_panel.rs   F1: a window listing every dev key
     photo_mode.rs   F3: the game frozen, the dev windows hidden, a bar of its keys
     photo_mode/
       photo.rs      E: a PNG of the game alone in gallery/, a flash, a click, a notice
+    physics_debug.rs  F6: the outline of every collider, the player's capsule included
     slow_motion.rs  F4: the game slowed down, stepped with Numpad − and +
   disk.rs           the data folder and safe file writes, shared
   fade.rs           the fade timing every screen shares

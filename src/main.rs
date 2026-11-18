@@ -1,8 +1,6 @@
 // hide the console window on Windows release builds
 #![cfg_attr(not(feature = "dev"), windows_subsystem = "windows")]
 
-#[cfg(feature = "dev")]
-use avian3d::prelude::PhysicsDebugPlugin;
 use avian3d::prelude::PhysicsPlugins;
 #[cfg(feature = "dev")]
 use bevy::dev_tools::render_debug::RenderDebugOverlayPlugin;
@@ -59,9 +57,6 @@ fn main() {
     // ---- dev tools, left out of release builds ------------------------------
     #[cfg(feature = "dev")]
     app.add_plugins(dev_tools::plugin);
-    // draws every collider's outline, to check them against the level
-    #[cfg(feature = "dev")]
-    app.add_plugins(PhysicsDebugPlugin);
 
     // ---- game ---------------------------------------------------------------
     app.add_plugins(i18n::plugin);

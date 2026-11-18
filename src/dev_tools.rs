@@ -7,9 +7,12 @@ use crate::ui::blur::GlassLayers;
 use crate::ui::{BORDER_PX, card_glass, floating_root};
 
 mod file_explorer;
+mod fly;
 mod fps;
+mod free_camera;
 mod keys_panel;
 mod photo_mode;
+mod physics_debug;
 mod slow_motion;
 
 // ==== Config =================================================================
@@ -52,6 +55,10 @@ pub(super) fn plugin(app: &mut App) {
         fps::plugin,
         photo_mode::plugin,
         slow_motion::plugin,
+        physics_debug::plugin,
+        fly::plugin,
+        // no key of its own: photo mode's, after photo mode and fly, whose hint and keys it adds
+        free_camera::plugin,
         file_explorer::plugin,
     ));
 }
