@@ -6,6 +6,7 @@ use crate::save::{
 };
 
 pub(crate) mod pause;
+pub(crate) mod player;
 pub(crate) mod playroom;
 
 // ==== Plugin =================================================================
@@ -19,6 +20,7 @@ pub(super) fn plugin(app: &mut App) {
     app.init_resource::<Session>();
     app.add_observer(start_game_from_gameplay.run_if(in_state(Screen::Gameplay)));
     app.add_plugins(pause::plugin);
+    app.add_plugins(player::plugin);
     app.add_plugins(playroom::plugin);
     app.add_systems(
         Update,

@@ -43,6 +43,10 @@ settings-page-controls = Controles
 controls-listening = Pressione uma tecla…
 controls-cancel-hint = Esc cancela
 controls-reset = Restaurar Padrões
+action-move-up = Mover para Cima
+action-move-down = Mover para Baixo
+action-move-left = Mover para a Esquerda
+action-move-right = Mover para a Direita
 
 ## save and load
 

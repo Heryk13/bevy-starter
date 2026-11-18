@@ -44,6 +44,10 @@ settings-page-controls = 操作
 controls-listening = キーを押してください…
 controls-cancel-hint = Escでキャンセル
 controls-reset = デフォルトに戻す
+action-move-up = 上へ移動
+action-move-down = 下へ移動
+action-move-left = 左へ移動
+action-move-right = 右へ移動
 
 ## save and load
 

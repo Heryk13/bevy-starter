@@ -44,6 +44,10 @@ settings-page-controls = Controls
 controls-listening = Press a key…
 controls-cancel-hint = Esc cancels
 controls-reset = Reset to Defaults
+action-move-up = Move Up
+action-move-down = Move Down
+action-move-left = Move Left
+action-move-right = Move Right
 
 ## save and load
 

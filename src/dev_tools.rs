@@ -8,6 +8,7 @@ use crate::ui::{BORDER_PX, card_glass, floating_root};
 
 mod file_explorer;
 mod fps;
+mod free_camera;
 mod keys_panel;
 mod photo_mode;
 mod slow_motion;
@@ -52,6 +53,8 @@ pub(super) fn plugin(app: &mut App) {
         fps::plugin,
         photo_mode::plugin,
         slow_motion::plugin,
+        // no key of its own: photo mode's, after photo mode, whose bar it adds to
+        free_camera::plugin,
         file_explorer::plugin,
     ));
 }

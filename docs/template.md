@@ -76,6 +76,7 @@ src/
       tree.rs       the place's folders and files as a tree
       usage.rs      where an asset is used, asked before changing it
     fps.rs          the FPS overlay and its key
+    free_camera.rs  photo mode's 2D free camera: pans and zooms, back as photo mode ends
     keys_panel.rs   F1: a window listing every dev key
     photo_mode.rs   F3: the game frozen, the dev windows hidden, a bar of its keys
     photo_mode/
@@ -100,9 +101,10 @@ src/
       veil.rs       black cover that fades the menu in and out
     loading.rs      loading screen: slideshow and progress bar
     intro.rs        intro: frame sequence with its soundtrack
-    gameplay.rs     the game itself, the playroom so far
+    gameplay.rs     the game itself, the playroom and its player so far
     gameplay/
       pause.rs      pause state and pause menu, freezing game time
+      player.rs     a square that walks the room, the camera following it near an edge
       playroom.rs   the test room: an ASCII map drawn in tiles
   save.rs           the game in progress and the save files, shared
   save/

@@ -268,6 +268,21 @@ lines. `TilemapChunkTileData::from_y_down_tiles` flips the rows into the bottom-
 draws. Each tile is `TILE_ART_PX` times `TILE_SCALE` wide on screen. No camera of its own: the
 screen camera draws the room, so the blur under the pause menu sees it with no extra work.
 
+On `2d/player` a player walks it (`gameplay/player.rs`): `spawn_player` puts a white square one
+tile big (`TILE_DISPLAY_PX`) at the session's position, the middle of the room in a new game,
+and `walk_player` moves it by the four walk actions (`MOVE_UP`, `MOVE_DOWN`, `MOVE_LEFT`,
+`MOVE_RIGHT`, on W, S, A and D, rebound on the Controls page) at `PLAYER_WALK_SPEED_PX_PER_S`,
+through walls and crates, with no collisions. `follow_player` pushes the screen camera (the one
+`IsDefaultUiCamera`) just enough to keep the body a tile from every edge of the window, by the
+pure `followed`; the room fits the window with a tile to spare, so the view moves only once the
+body walks out through a wall. The UI is laid out on the screen, so moving the camera moves no
+panel, and `bring_camera_home` puts it back at the origin as gameplay ends. All three run in
+`Pause::Off`, with `record_player_state`, which keeps the position in `GameData::player`.
+Photo mode's 2D free camera (`dev_tools/free_camera.rs`, dev builds) keeps the camera's
+`Transform` and orthographic scale in a `FreeCameraHome` as photo mode begins, pans it by the
+walk actions and zooms it by the mouse wheel, read as it is since a wheel is no binding, and
+puts both back as photo mode ends.
+
 The `Session` arrives with `StartGame`, fresh or loaded, and `count_play_time` adds each
 frame's virtual time to it, so the pause menu never counts as play. The resource is also
 created at startup: a default `Session` is a valid new game, so gameplay can be entered without
