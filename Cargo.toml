@@ -15,6 +15,10 @@ fluent-bundle = "0.16"
 # not used directly: its `logging` feature sends parley's known warning about Japanese
 # text through `log`, where main.rs filters it; without it, debug builds `eprintln!` it
 icu_provider = { version = "2.3.1", features = ["logging"] }
+# not used directly either: its `serialize` feature lets a key be written to the settings
+# file, which keeps the bindings the player changed. a line of its own, and not `serialize`
+# on bevy's line, so that it is the same on every branch. it follows bevy's version
+bevy_input = { version = "0.20.0", default-features = false, features = ["serialize"] }
 # the icons: every Lucide icon by name, and the font that draws them, built into the
 # binary. it depends on nothing, bevy included, so it never holds an upgrade back
 lucide-icons = "1.74.0"

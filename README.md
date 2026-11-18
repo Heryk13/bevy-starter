@@ -9,6 +9,9 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   New Game, Continue (only when a save can be loaded), Load Game, Settings, Credits, Quit
 - Credits and Settings overlays over the running screen: fullscreen toggle, Reduce
   Transparency (flat panels, no blur), volume slider and language, remembered between runs
+- Key bindings: a feature registers its actions by name and never reads a key itself; the ones
+  a player may change are listed on a Controls page in Settings, each rebound to another key or
+  mouse button, remembered between runs
 - English, Brazilian Portuguese and Japanese, switched live from Settings, following the OS
   language on the first run; translations in `assets/locales/`, drawn in Noto Sans JP
 - Loading screen with a progress bar over the real asset load and a shuffled slideshow
@@ -25,7 +28,7 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   [Lucide](https://lucide.dev) icons by name
 - Screen flow driven by Bevy states
 - Fast dev builds: dynamic linking and optimized dependencies
-- FPS overlay, shown and hidden with F3, and asset hot reloading in dev builds
+- FPS overlay, shown and hidden with F2, and asset hot reloading in dev builds
 - Fast linking on Windows with `rust-lld`
 - Release packaging into a ready-to-ship `dist/` folder
 - Third-party license notices generated on every release

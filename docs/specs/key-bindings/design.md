@@ -1,7 +1,8 @@
 # Key bindings: a Controls page that changes the keys
 
-Status: **approved** — written and approved 2026-11-18, not built yet. Its tasks are in
-`docs/roadmap/key-bindings-tasks.md`.
+Status: **built** — written, approved and built on 2026-11-18, in the seven steps of
+`docs/roadmap/key-bindings-tasks.md`: steps 1 to 5 on `main`, step 6 on `3d/player`. Gamepads
+and moving through the menus with the keyboard are left for later (see "Out of scope").
 Date: 2026-11-18
 Bevy: 0.20.0
 
@@ -325,4 +326,42 @@ registrations are written once, in their final shape.
 
 ## What changed while building it
 
-Nothing yet.
+Built in the seven steps of `docs/roadmap/key-bindings-tasks.md`, written by Claude in one
+sitting on 2026-11-18 at the user's request, each step checked with `just check` as it was
+finished. The task numbers below are that file's.
+
+- **A slot paints itself, at once** (decided while building 4.1). Task 4.1 gave a slot the
+  white fill of a `Choice` button, which `paint_buttons` eases; but a slot has three faces
+  (at rest, under the pointer, listening) and shows words in place of its keycap, so
+  `paint_slots` in `controls.rs` paints it, as `paint_menu_words` paints the menu, and with
+  no ease.
+- **What listens is a field of `Bindings`, not a resource of its own** (decided while
+  building 4.2). `Controls` already asks `Bindings` what an action is bound to, so asking it
+  whether one is being chosen needs no second resource in every reader.
+- **The press that starts the listening is never taken as the answer** (found while building
+  4.4). `take_pressed_binding` waits a frame after a slot starts to listen: a tap
+  that presses and lets go within one frame would otherwise bind Mouse 1 on the spot.
+- **Reset to Defaults is put in the card's footer by its page** (decided while building 5.1).
+  The footer belongs to the panel and holds Close; a page of controls inserts its button
+  before Close, with a margin that takes the room between the two, and it goes when the page
+  does. `SettingsFooter` marks the row.
+- **The language's control and the row of pages share `segment` and `set_segment`** (decided
+  while building 3.1), where the language had `language_segment` and its own painting.
+- **Two tests open Settings in a real app** (added in 3.1). A page is spawned by another
+  state's `OnEnter` than the panel's and asks for the panel's body, an order no pure function
+  can hold: `settings_opens_on_the_general_page_inside_the_panel` does.
+- **"Press a key..." is translated on the Dev page too** (decided while building 4.1). The
+  slot is one widget for both pages, and its words are the game's: only a dev tool's own
+  label is English.
+- **Right-hand modifier keys say so** (decided while building 3.5): `R Shift`, `R Ctrl`,
+  `R Alt`. A keyboard prints the same word on both, but they are two keys to bind.
+- **No slot keeps listening after the panel closes** (added in 4.4). Nothing can close the
+  panel while a slot listens, since Esc is silenced and the shield takes every click; an
+  `OnExit` system stops the listening all the same, so no action could ever stay deaf.
+- **A key the OS cannot name is not heard** (found in the review after step 7). A slot keeps
+  listening through a `KeyCode::Unidentified`, which has nothing to print on a keycap. The
+  same review added a test that opens the Controls page in a real app, and one that no
+  action is heard while a slot listens.
+- **Two commits, not seven** (decided at the sync). The seven steps were written in one
+  sitting and run in the game together, so they landed as one commit on `main`, steps 1 to 5
+  and 7, and one on `3d/player`, step 6.
