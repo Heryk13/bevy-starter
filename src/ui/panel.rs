@@ -98,7 +98,7 @@ pub(crate) fn card(width_px: f32) -> impl Bundle {
 /// its entrance starts from, and the `Card` marker that brings its glass. The node brings
 /// its own size, padding, corner and border, which the rim is drawn on: without a border the
 /// rim does not show.
-fn card_glass() -> impl Bundle {
+pub(crate) fn card_glass() -> impl Bundle {
     (
         BorderGradient::from(LinearGradient::to_bottom_right(vec![
             ColorStop::new(CARD_RIM_LIGHT, percent(0)),

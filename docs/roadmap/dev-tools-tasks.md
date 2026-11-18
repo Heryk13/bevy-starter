@@ -34,6 +34,20 @@ flat `dev_window()`, a `DevKeys` resource and `*_KEY` constants read straight of
 - **The card's glass bundle is `card_glass()`, private until step 3** (decided while building
   2.1). Task 2.1 had it `pub(super)`; with `card()` its only caller, private says so, and step
   3 opens it along with its re-export.
+- **`dev_root()` became `spawn_dev_window(commands, root_marker, window)`** (found while
+  building 3.4). Bevy's picking stops at any node with no `Pickable`, and a keycap is built
+  with children of its own, which the caller cannot reach. So the function spawns the root
+  with the window under it and then gives every node `Pickable::IGNORE` with
+  `insert_recursive::<Children>`; the root still carries it as it spawns, where `blur.rs`
+  reads it. `dev_window()` no longer brings its own.
+- **F1 waits in the panel's place while it is closed** (asked by the user while building 3.4):
+  the panel's keycap beside "Dev Tools", so not even F1 has to be remembered. It is a plain
+  root on the screen camera, as Bevy's FPS overlay is, not a dev window: an open layer blurs
+  every frame, and the hint has no glass to blur for, so the pause menu blurs it like the FPS.
+  It takes no click, as the spec has every dev window, and follows a rebinding through
+  `paint_slots` like every keycap.
+- **The panel sits 116 px from the top**, not just under a guessed FPS line: Bevy's overlay
+  is its 32 px text over a graph twice that tall, about 104 px.
 
 ## The actions at a glance
 
@@ -54,25 +68,25 @@ The other dev keys belong to later rows: the roadmap's Keys table lists them.
 |---|------|-----|-------|
 | [x] | 1.1 On `main`: move `FPS_OVERLAY`, `FPS_OVERLAY_KEY`, the `register_action` call, `toggle_fps_overlay` and the `FpsOverlayPlugin` line out of `main.rs` into `src/dev_tools.rs` + `src/dev_tools/fps.rs` | Claude | a pure move; `main.rs` keeps `#[cfg(feature = "dev")] mod dev_tools;` and the `add_plugins` line; disabling `RenderDebugOverlayPlugin` stays, it configures `DefaultPlugins` |
 | [x] | 1.2 `docs/flow.md` and `docs/template.md`: wherever they say the FPS overlay lives in `main.rs` | Claude | grep `toggle_fps_overlay`, `FPS_OVERLAY` |
-| [ ] | 1.3 `just run` on `main`: F2 still hides and shows the FPS, Settings' Dev page still lists it; review; sync | both | the merge into `3d/player` conflicts in `main.rs` on the dev tools block: keep `PhysicsDebugPlugin` there, as the spec says |
+| [x] | 1.3 `just run` on `main`: F2 still hides and shows the FPS, Settings' Dev page still lists it; review; sync | both | the merge into `3d/player` conflicts in `main.rs` on the dev tools block: keep `PhysicsDebugPlugin` there, as the spec says |
 
 ## Step 2: `refactor: hand out the card's glass on its own`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
 | [x] | 2.1 `src/ui/panel.rs`: the rim (`BorderGradient`), the shadow, `entrance_transform(0.0)` and `Card` become one bundle, and `card()` is its `Node` plus that bundle | Claude | the bundle stays `pub(super)` and is not re-exported yet: step 3 is its first user outside, and an export nobody uses fails `just check`; the rim only shows on a `Node` with a border, which stays the caller's |
-| [ ] | 2.2 `just run`: the pause menu, an overlay and a dialog look as before; review; sync | both | |
+| [x] | 2.2 `just run`: the pause menu, an overlay and a dialog look as before; review; sync | both | |
 
 ## Step 3: `feat: list the dev keys on F1`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 3.1 `src/ui/blur.rs`: a floating root that lets the pointer through gets no backdrop (`target_layer_camera`), keeps its windows on a resize (`retarget_open_glass`) and never lets its layer freeze (`freeze_settled_layers`, through a pure function with its test) | Claude | `Pickable { should_block_lower, is_hoverable }` in `bevy::picking`, `Pickable::IGNORE` is both `false`; an `Add` observer sees every component of the bundle that brought `Floating`; none of it is dev-only, so nothing here is behind `cfg` |
-| [ ] | 3.2 `src/dev_tools.rs`: `DEV_TOOLS_Z_INDEX` (300) pushed onto `GlassLayers`, `dev_root()`, `dev_window()`; the card's glass bundle re-exported through `src/ui.rs` behind `#[cfg(feature = "dev")]` | Claude | `floating_root(z)` and `GlassLayers` are already `pub(crate)`; a window goes straight under its root, where `give_card_glass` reads the layer; nobody calls these until 3.4, which makes `just check` pass |
-| [ ] | 3.3 `keycap()` and `binding_legend()` in `src/overlays/settings/controls.rs` become `pub(crate)`, re-exported through `settings.rs` and `overlays.rs` behind `#[cfg(feature = "dev")]` | Claude | `paint_slots` and `press_held_keycaps` already reach every `KeycapLegend` and `KeycapFace` in the world while Settings is open: say so in a comment on each |
-| [ ] | 3.4 `src/dev_tools/keys_panel.rs`: the `KEYS_PANEL` action (F1, "Keys Panel"), a system that spawns the panel or despawns it, a title with `Icon::Keyboard`, one line per `Bindings::listed(Page::Dev)` except its own | Claude | `action_just_pressed(KEYS_PANEL)`; `Option<Single<Entity, With<KeysPanel>>>` tells open from closed; a node with no `Pickable` blocks the pointer (`bevy_ui-0.20.*/src/picking_backend.rs`), so every node of a window needs `Pickable::IGNORE`, the keycaps' and the texts' included |
-| [ ] | 3.5 `docs/flow.md`: the `DEV_TOOLS_Z_INDEX` row in the z-index table, the no-backdrop rule beside the layers; `docs/template.md`: the new files | Claude | |
-| [ ] | 3.6 `just run`: F1 opens the panel under the FPS, listing the FPS on F2, and closes it; the game under it is sharp and takes clicks through it; it stays sharp over the pause menu; a key changed on the Dev page changes on the open panel; Reduce Transparency; a resize with it open. Tune its place and its tint; review; sync | both | whether a window wants a clearer glass than a card's is decided here, as the spec leaves it |
+| [x] | 3.1 `src/ui/blur.rs`: a floating root that lets the pointer through gets no backdrop (`target_layer_camera`), keeps its windows on a resize (`retarget_open_glass`) and never lets its layer freeze (`freeze_settled_layers`, through a pure function with its test) | Claude | `Pickable { should_block_lower, is_hoverable }` in `bevy::picking`, `Pickable::IGNORE` is both `false`; an `Add` observer sees every component of the bundle that brought `Floating`; none of it is dev-only, so nothing here is behind `cfg` |
+| [x] | 3.2 `src/dev_tools.rs`: `DEV_TOOLS_Z_INDEX` (300) pushed onto `GlassLayers`, `dev_root()`, `dev_window()`; the card's glass bundle re-exported through `src/ui.rs` behind `#[cfg(feature = "dev")]` | Claude | `floating_root(z)` and `GlassLayers` are already `pub(crate)`; a window goes straight under its root, where `give_card_glass` reads the layer; nobody calls these until 3.4, which makes `just check` pass |
+| [x] | 3.3 `keycap()` and `binding_legend()` in `src/overlays/settings/controls.rs` become `pub(crate)`, re-exported through `settings.rs` and `overlays.rs` behind `#[cfg(feature = "dev")]` | Claude | `paint_slots` and `press_held_keycaps` already reach every `KeycapLegend` and `KeycapFace` in the world while Settings is open: say so in a comment on each |
+| [x] | 3.4 `src/dev_tools/keys_panel.rs`: the `KEYS_PANEL` action (F1, "Keys Panel"), a system that spawns the panel or despawns it, a title with `Icon::Keyboard`, one line per `Bindings::listed(Page::Dev)` except its own | Claude | `action_just_pressed(KEYS_PANEL)`; `Option<Single<Entity, With<KeysPanel>>>` tells open from closed; a node with no `Pickable` blocks the pointer (`bevy_ui-0.20.*/src/picking_backend.rs`), so every node of a window needs `Pickable::IGNORE`, the keycaps' and the texts' included |
+| [x] | 3.5 `docs/flow.md`: the `DEV_TOOLS_Z_INDEX` row in the z-index table, the no-backdrop rule beside the layers; `docs/template.md`: the new files | Claude | |
+| [x] | 3.6 `just run`: F1 waits under the FPS beside "Dev Tools"; it opens the panel in its place, listing the FPS on F2, and closes it; the game under it is sharp and takes clicks through it; it stays sharp over the pause menu; a key changed on the Dev page changes on the open panel; Reduce Transparency; a resize with it open. Tune its place and its tint; review; sync | both | whether a window wants a clearer glass than a card's is decided here, as the spec leaves it |
 
 ## Step 4: `feat: slow the game down on F4`
 
