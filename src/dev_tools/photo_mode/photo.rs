@@ -7,8 +7,11 @@ use std::io::Cursor;
 use std::path::Path;
 
 use super::PhotoModeUi;
-use crate::dev_tools::{DEV_TOOLS_Z_INDEX, dev_window, spawn_dev_window};
-use crate::disk::{game_data_dir, write_atomic};
+use crate::dev_tools::{
+    DEV_TOOLS_Z_INDEX, SECS_PER_DAY, SECS_PER_HOUR, SECS_PER_MINUTE, civil_from_days, dev_window,
+    gallery_dir, register_inner_key, spawn_dev_window,
+};
+use crate::disk::write_atomic;
 use crate::fade::Fade;
 use crate::input::{Action, ActionName, Binding, Page, action_just_pressed, register_action};
 use crate::save::unix_now;
@@ -23,13 +26,8 @@ const TAKE_PHOTO_KEY: KeyCode = KeyCode::KeyE;
 // English, as every dev tool's words: on the Dev page, the keys panel and photo mode's bar
 pub(super) const TAKE_PHOTO_LABEL: &str = "Take Photo";
 
-// ---- the file: a PNG in the folder the file explorer browses ----------------
-// in the game's data folder; the explorer calls it Gallery
-const GALLERY_DIR_NAME: &str = "gallery";
+// ---- the file: a PNG in the gallery, which the file explorer browses --------
 const PHOTO_EXTENSION: &str = "png";
-const SECS_PER_MINUTE: u64 = 60;
-const SECS_PER_HOUR: u64 = 60 * SECS_PER_MINUTE;
-const SECS_PER_DAY: u64 = 24 * SECS_PER_HOUR;
 
 // ---- flash and shutter: the moment the photo is taken -----------------------
 // quick in and out, as a camera's flash: a thin white frame at the window's very edge,
@@ -74,6 +72,8 @@ pub(super) fn plugin(app: &mut App) {
             label: Some(TAKE_PHOTO_LABEL),
         },
     );
+    // photo mode's bar shows it once photo mode is on, and it does nothing before
+    register_inner_key(app, TAKE_PHOTO);
     app.init_resource::<PhotosThisSecond>();
     // the last three run outside photo mode too: a photo still being written as photo mode
     // ends still says so, and its flash and notice still go
@@ -136,7 +136,7 @@ fn take_photo(
     mut own_ui: Query<&mut Visibility, With<PhotoModeUi>>,
     mut this_second: ResMut<PhotosThisSecond>,
 ) {
-    let Some(gallery) = game_data_dir().map(|dir| dir.join(GALLERY_DIR_NAME)) else {
+    let Some(gallery) = gallery_dir() else {
         error!("no data folder to keep photos in");
         return;
     };
@@ -412,28 +412,6 @@ fn photo_stamp(secs: u64) -> String {
     let minute = secs_today % SECS_PER_HOUR / SECS_PER_MINUTE;
     let second = secs_today % SECS_PER_MINUTE;
     format!("{year:04}-{month:02}-{day:02}_{hour:02}-{minute:02}-{second:02}")
-}
-
-/// Returns the year, month and day `days` days after 1970-01-01: Howard Hinnant's
-/// `civil_from_days`, the usual way to turn a day count into the Gregorian calendar, with
-/// its well-known constants. It counts from 0000-03-01, so a leap day falls at the end of a
-/// year, in eras of 400 years, which repeat exactly; days before 1970 never come here.
-fn civil_from_days(days: u64) -> (u64, u64, u64) {
-    let days = days + 719_468;
-    let era = days / 146_097;
-    let day_of_era = days - era * 146_097;
-    let year_of_era =
-        (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let month_from_march = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * month_from_march + 2) / 5 + 1;
-    let month = if month_from_march < 10 {
-        month_from_march + 3
-    } else {
-        month_from_march - 9
-    };
-    let year = year_of_era + era * 400 + u64::from(month <= 2);
-    (year, month, day)
 }
 
 /// Returns the file name of the `count`th photo taken in the second `stamp` names: the

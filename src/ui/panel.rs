@@ -49,6 +49,7 @@ pub(super) fn plugin(app: &mut App) {
     // no run_if: a floating root comes in, and a dialog closes, over any screen or overlay
     app.add_systems(Update, animate_entrances);
     app.add_observer(close_dialog);
+    app.add_observer(dismiss_dialog);
     app.init_resource::<GlassLayers>();
     app.world_mut()
         .resource_mut::<GlassLayers>()
@@ -130,6 +131,7 @@ pub(crate) fn dialog(
     (
         floating_root(DIALOG_Z_INDEX),
         Dialog,
+        ClosesOnEsc,
         children![(
             card(DIALOG_WIDTH_PX),
             children![
@@ -150,11 +152,26 @@ pub(crate) fn dialog(
     )
 }
 
+// ==== Events =================================================================
+
+/// Asks the modal at `entity`, one carrying `ClosesOnEsc`, to close, as Esc does. Each closes
+/// its own way: a dialog at once, a drawer by sliding away.
+#[derive(EntityEvent)]
+pub(crate) struct Dismiss {
+    pub(crate) entity: Entity,
+}
+
 // ==== Components =============================================================
 
-/// Marks the root of an open dialog, so it can be found and closed.
+/// Marks the root of an open dialog, so either of its answers can close it.
 #[derive(Component)]
-pub(crate) struct Dialog;
+struct Dialog;
+
+/// Marks the root of a modal that Esc closes before anything under it: a dialog, or a dev
+/// tool's window over the running game. Esc sends the topmost one, the highest
+/// `GlobalZIndex`, a `Dismiss`, one per press, and whatever carries this answers it.
+#[derive(Component)]
+pub(crate) struct ClosesOnEsc;
 
 /// Marks both dialog buttons: either answer closes the dialog.
 #[derive(Component)]
@@ -222,6 +239,13 @@ fn close_dialog(
 ) {
     if close_buttons.contains(activate.entity) {
         commands.despawn_all::<With<Dialog>>();
+    }
+}
+
+/// Despawns a dialog that Esc dismisses, as No would.
+fn dismiss_dialog(dismiss: On<Dismiss>, mut commands: Commands, dialogs: Query<(), With<Dialog>>) {
+    if dialogs.contains(dismiss.entity) {
+        commands.entity(dismiss.entity).despawn();
     }
 }
 
