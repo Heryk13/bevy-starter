@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use super::recording::RecordingState;
 use super::{DevUi, dev_window, spawn_dev_window};
 use crate::input::{
     Action, ActionName, Binding, Bindings, Page, action_just_pressed, register_action,
@@ -50,7 +51,11 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins(photo::plugin);
     app.add_systems(
         Update,
-        toggle_photo_mode.run_if(action_just_pressed(PHOTO_MODE)),
+        toggle_photo_mode
+            .run_if(action_just_pressed(PHOTO_MODE))
+            // the two tools never run together: a photo would freeze a recording, and hide
+            // its REC
+            .run_if(in_state(RecordingState::Off)),
     );
     app.add_systems(OnEnter(Pause::Photo), (hide_dev_ui, spawn_hint_bar));
     app.add_systems(OnExit(Pause::Photo), show_dev_ui);
