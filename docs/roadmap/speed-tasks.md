@@ -27,7 +27,7 @@ each task needs. The capsule's look is slow motion's (F4), with the `SportShoe` 
   one place out or in, or count places for the bar. That works the same whichever way the
   list runs, down for slow motion and up for speed, and `SPEED_TOLERANCE` went away with it.
 - **Each file tests its own list** (decided while building 1.1): `slow_motion.rs` tests the
-  helpers over `SLOW_MOTION_STEPS`, and `speed.rs` will test them over `SPEED_STEPS`, where
+  helpers over `SLOW_MOTION_STEPS`, and `speed.rs` tests them over `SPEED_STEPS`, where
   out goes up. The spec had every test run over both lists from `slow_motion.rs`, which would
   have needed the speed steps spelled a second time before `speed.rs` existed.
 - **The observer is `On<Remove<SpeedCapsule>>`** (checked for 1.3): in Bevy 0.20 `Remove` is a
@@ -44,6 +44,14 @@ each task needs. The capsule's look is slow motion's (F4), with the `SportShoe` 
   on the capsule's text, born with the capsule: a measurement never starts from where the
   body was when the capsule last closed, and nothing measures while it is closed. A reading
   that finds another body, as after loading a save, starts over instead of counting the jump.
+- **`speed` is a `pub(crate)` module** (found at the start of step 2): `player.rs` lives
+  under `screens/`, outside `dev_tools/`, and could not reach a private module, so a commit
+  of its own on `main` made it public to the crate before step 2.
+- **The `Speedometer` joins the body's bundle, not an `insert`** (decided while building
+  2.1): `let body = (...);`, then `#[cfg(feature = "dev")] let body = (body, Speedometer {..});`
+  and one `spawn`. A spawn kept in a variable for a `cfg`'d `insert` would leave a release
+  build with a variable and a `mut` nobody uses, which `just check` refuses. Both players do
+  it the same way.
 
 ## The actions at a glance
 
@@ -84,5 +92,5 @@ each task needs. The capsule's look is slow motion's (F4), with the `SportShoe` 
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 4.1 `README.md` (F8 in the dev keys), `docs/flow.md`, `docs/template.md` (how a game's own player connects to it), the roadmap's row 7, the spec's status and "What changed" | Claude | |
+| [x] | 4.1 `README.md` (F8 in the dev keys), `docs/flow.md`, `docs/template.md` (how a game's own player connects to it), the roadmap's row 7, the spec's status and "What changed" | Claude | |
 | [ ] | 4.2 Sync; `just run` on `main`, `3d/player` and `2d/player` | you | |
