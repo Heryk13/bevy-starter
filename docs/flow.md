@@ -113,6 +113,29 @@ Assets has something renamed, moved or deleted, `usage.rs` reads `src/` and the 
 `assets/` for its path, and when the code names it, asks first, listing each line. Its
 questions and its menu are a layer of their own over it, 310 (`dialog.rs`).
 
+**Screen recording** (`src/dev_tools/recording.rs` and its folder, dev builds only) is a
+state of its own, `RecordingState` (`Off`, `Bar`, `Countdown`, `On`), beside `Pause` and not
+inside it, since the pause menu may open while recording and is recorded as the game's own UI.
+
+```
+  Off --F9, in Pause::Off--> Bar --E / Record--> Countdown --zero--> On --E / F9--> Off
+                              |  (None timer) ------------------->  ^
+                              +--F9 / Esc--> Off      Countdown --F9--> Off
+```
+
+The bar (`bar.rs`) sits at the bottom, letting the pointer through around it, with
+`ClosesOnEsc`, so `3d/player` frees the cursor under it; its choices (`RecordingChoices`) last
+until the game closes. The countdown and the REC pill count `Time<Real>`. E is the `capture`
+action, shared with photo mode, which reads it only in `Pause::Photo`; F3 does nothing outside
+`RecordingState::Off`, and leaving gameplay goes back to `Off`, writing the file. While
+recording, the dev tools' layer's camera copies the frame under it, before it draws the dev
+UI, into an image read back at each frame of the video (`capture.rs`), so the video holds the
+game alone; for as long as it lasts, the FPS and the F1 hint, drawn by the screen camera
+otherwise, are lent to that layer (`lend_dev_layer`). `encoder.rs` writes H.264 and the sound's
+Opus into `gallery/<time>.mp4.part` on a thread of its own and renames it once whole, on stop
+and on `AppExit` alike; `sound.rs` hears the game's own process through Windows' process
+loopback.
+
 A dialog is not a state: it is an entity drawn over whatever asked the question, the pause menu
 or the save list, and No or Esc despawns it and leaves what is underneath as it was.
 
@@ -677,15 +700,18 @@ actions registered on one key as the game starts, found by the pure `shared_defa
 (`dev_tools/keys_panel.rs`, F1), the FPS overlay (`dev_tools/fps.rs`, F2), photo mode
 (`dev_tools/photo_mode.rs`, F3, with E taking a photo), slow motion
 (`dev_tools/slow_motion.rs`, F4, with Numpad − and + read only while its capsule is open),
-speed (`dev_tools/speed.rs`, F8, stepping its multiplier with the same Numpad − and +) and
-the file explorer (`dev_tools/file_explorer.rs`, Numpad 0); a branch adds its own. Slow
+speed (`dev_tools/speed.rs`, F8, stepping its multiplier with the same Numpad − and +),
+screen recording (`dev_tools/recording.rs`, F9, with E starting and stopping it) and the file
+explorer (`dev_tools/file_explorer.rs`, Numpad 0); a branch adds its own. E is one action,
+Capture (`CAPTURE` in `dev_tools.rs`), which photo mode and the recording each read in their
+own moment, as a key belongs to one action only. Slow
 motion's capsule and speed's share their place, their look (the `Step Capsule` section of
 `slow_motion.rs`) and their two keys, so opening either closes the other, and each puts its
 value back at 1× in an observer on its capsule's `Remove`, however it closed. The keys panel lists the Dev page's actions, each on the keycap of the Controls page
 (`keycap()` and `binding_legend()`, re-exported from `overlays.rs` in dev builds); while it is
 closed, its own key waits in its place on the screen camera (`spawn_keys_panel_hint`). It
 leaves out a tool's inner keys, the ones that only work once the tool is open and that the tool
-shows itself (Take Photo, Slower, Faster): each tool's plugin names its own with
+shows itself (Capture, Slower, Faster): each tool's plugin names its own with
 `register_inner_key` in `dev_tools.rs`, and the Dev page still lists them.
 An action also has a `Page`, the game's or the dev tools', and a label that page lists it under.
 One with no label, Pause, is not listed and never changes: the `swap` refuses its key and a

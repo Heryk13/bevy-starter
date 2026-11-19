@@ -125,9 +125,11 @@ pub(crate) struct Floating;
 
 /// Marks the camera that draws the `Floating` roots of one layer, the one named by this
 /// `GlobalZIndex`, above the screen camera and every lower layer. The render world tells the
-/// layer cameras apart by their `GlassCopies`, which no other camera has.
+/// layer cameras apart by their `GlassCopies`, which no other camera has. The screen
+/// recording finds the dev tools' camera by it, since that camera's frame, before it draws
+/// its own roots, is the game without the dev UI.
 #[derive(Component)]
-struct LayerCamera(GlobalZIndex);
+pub(crate) struct LayerCamera(pub(crate) GlobalZIndex);
 
 /// Whether a layer may keep the copy it already blurred: the background was called still, and
 /// every floating root at or below the layer has finished coming in, so nothing the layer
