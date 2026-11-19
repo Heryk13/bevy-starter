@@ -465,6 +465,7 @@ dependencies = [
  "rand",
  "ron",
  "serde",
+ "serde_json",
  "sys-locale",
  "unic-langid",
  "wasapi",

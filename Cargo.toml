@@ -7,8 +7,9 @@ publish = false
 [dependencies]
 # jpeg for photographic backgrounds, wav for short UI sounds.
 # bevy's defaults only cover png and ogg vorbis.
-# only the 3d, ui, audio, jpeg and wav features: the defaults would also build 2d
-bevy = { version = "0.20.0", default-features = false, features = ["3d", "ui", "audio", "jpeg", "wav"] }
+# only the 3d, ui, audio, jpeg and wav features: the defaults would also build 2d. And
+# area_light_luts, the table a RectLight, the sky portals' light, is drawn with
+bevy = { version = "0.20.0", default-features = false, features = ["3d", "ui", "audio", "jpeg", "wav", "area_light_luts"] }
 # the translations: fluent turns a key and its arguments into a sentence in the
 # player's language, unic-langid names the language for its plural rules
 fluent-bundle = "0.16"
@@ -27,6 +28,9 @@ rand = "0.10.3"
 # text format. both are already in the tree through bevy
 ron = "0.12.2"
 serde = { version = "1.0.229", features = ["derive"] }
+# the level's custom properties, which Blender writes into the .glb as JSON (`kind`,
+# `sky_light`). already in the tree through bevy's glTF loader
+serde_json = "1.0.151"
 # the OS language, followed on the first run. already in the tree through bevy
 sys-locale = "0.3.2"
 unic-langid = "0.9.6"
