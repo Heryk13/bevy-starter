@@ -4,6 +4,8 @@ use avian3d::prelude::{
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "dev")]
+use crate::dev_tools::speed::{SpeedMultiplier, Speedometer};
 use crate::input::{Action, ActionName, Binding, Controls, Page, register_action};
 use crate::save::Session;
 use crate::screens::gameplay::playroom::PlayroomCamera;
@@ -127,7 +129,7 @@ fn spawn_player(
     mut materials: ResMut<Assets<StandardMaterial>>,
     session: Res<Session>,
 ) {
-    commands.spawn((
+    let body = (
         RigidBody::Dynamic,
         Collider::capsule(PLAYER_RADIUS_M, PLAYER_SEGMENT_LENGTH_M),
         LockedAxes::ROTATION_LOCKED,
@@ -137,7 +139,11 @@ fn spawn_player(
             .with_rotation(Quat::from_rotation_y(session.game.player.yaw)),
         Player,
         DespawnOnExit(Screen::Gameplay),
-    ));
+    );
+    // on speed's capsule (F8), a dev tool's, so not in a release build
+    #[cfg(feature = "dev")]
+    let body = (body, Speedometer { unit: "m/s" });
+    commands.spawn(body);
 }
 
 /// Walks the player where the body faces, by the four walk actions, which start on W, S, A
@@ -146,9 +152,13 @@ fn spawn_player(
 pub(crate) fn walk_player(
     controls: Controls,
     body: Single<(&Transform, &mut LinearVelocity), With<Player>>,
+    #[cfg(feature = "dev")] multiplier: Res<SpeedMultiplier>,
 ) {
     let (transform, mut velocity) = body.into_inner();
     let walk = walk_velocity(walk_input(&controls), transform.rotation);
+    // speed's capsule (F8) steps it, a dev tool's, so a release build walks at 1×
+    #[cfg(feature = "dev")]
+    let walk = walk * multiplier.0;
     velocity.x = walk.x;
     velocity.z = walk.z;
 }

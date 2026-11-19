@@ -2,6 +2,7 @@ use avian3d::prelude::{ColliderDisabled, GravityScale, LinearVelocity};
 use bevy::prelude::*;
 
 use super::register_inner_key;
+use super::speed::SpeedMultiplier;
 use crate::input::{
     Action, ActionName, Binding, Controls, Page, action_just_pressed, register_action,
 };
@@ -26,8 +27,8 @@ const RISE_LABEL: &str = "Rise";
 const SINK_LABEL: &str = "Sink";
 
 // ---- speed ------------------------------------------------------------------
-// fast enough to cross the map and climb above it in a few seconds; row 7's speed
-// multiplier will multiply it, as it will walking's
+// fast enough to cross the map and climb above it in a few seconds; speed's multiplier
+// (F8) multiplies it, as it does walking's
 const FLY_SPEED_M_PER_S: f32 = 12.0;
 
 // ==== Plugin =================================================================
@@ -89,19 +90,20 @@ fn toggle_fly(mut commands: Commands, body: Single<(Entity, Has<Flying>), With<P
     }
 }
 
-/// Moves the flying body where the camera looks, by the walk actions, Rise and Sink; letting
-/// go stops it in the air.
+/// Moves the flying body where the camera looks, by the walk actions, Rise and Sink, as many
+/// times faster as speed's multiplier says; letting go stops it in the air.
 fn fly_player(
     controls: Controls,
     camera: Single<&GlobalTransform, With<PlayroomCamera>>,
     mut body: Single<&mut LinearVelocity, (With<Player>, With<Flying>)>,
+    multiplier: Res<SpeedMultiplier>,
 ) {
     body.0 = fly_velocity(
         walk_input(&controls),
         camera.rotation(),
         controls.pressed(RISE),
         controls.pressed(SINK),
-        FLY_SPEED_M_PER_S,
+        FLY_SPEED_M_PER_S * multiplier.0,
     );
 }
 
