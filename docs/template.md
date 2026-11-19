@@ -81,6 +81,7 @@ src/
     photo_mode/
       photo.rs      E: a PNG of the game alone in gallery/, a flash, a click, a notice
     slow_motion.rs  F4: the game slowed down, stepped with Numpad − and +
+    speed.rs        F8: the player's speed, and a multiplier for its walk
   disk.rs           the data folder and safe file writes, shared
   fade.rs           the fade timing every screen shares
   i18n.rs           languages, translations and the UI font, shared
@@ -126,6 +127,17 @@ README.md           what this is, requirements and commands
 CONTRIBUTING.md     development loop and code conventions
 CLAUDE.md           instructions for Claude Code
 ```
+
+### A player of your own on F8
+
+Speed's capsule shows whichever body carries a `Speedometer` from `dev_tools::speed`, and the
+game walks it as many times faster as `SpeedMultiplier` says. A game's own player connects to
+it in two places, each behind `#[cfg(feature = "dev")]`, since neither exists in a release
+build: the body spawns with `Speedometer { unit: "m/s" }` (any unit; `2d/player` writes
+`"px/s"`), and its walk multiplies its speed by the `SpeedMultiplier` resource. The speed is
+measured from the body's `GlobalTransform`, so the player writes nothing else. `3d/player`
+and `2d/player` do both in their `src/screens/gameplay/player.rs`. With no body carrying one,
+the capsule shows `—`.
 
 ## Assets
 
