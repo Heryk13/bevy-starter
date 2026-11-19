@@ -14,7 +14,8 @@ mod keys_panel;
 mod photo_mode;
 mod physics_debug;
 mod slow_motion;
-mod speed;
+// read by each player, which puts its body on the capsule and walks by the multiplier
+pub(crate) mod speed;
 
 // ==== Config =================================================================
 
