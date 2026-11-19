@@ -77,16 +77,16 @@ each task needs. The capsule's look is slow motion's (F4), with the `SportShoe` 
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 2.1 `player.rs`: the body spawns with `Speedometer { unit: "m/s" }`, and `walk_player` multiplies the walk by `SpeedMultiplier`, both behind `cfg(feature = "dev")` | Claude | `walk_player` in `src/screens/gameplay/player.rs` |
-| [ ] | 2.2 `fly.rs`: `fly_player` multiplies `FLY_SPEED_M_PER_S` by it, with no `cfg` | Claude | `fly.rs` is a dev tool itself |
-| [ ] | 2.3 `just run`: walking at 5× shows about 22 m/s, flying about 60 m/s; closing F8 puts both back. Review | both | |
+| [x] | 2.1 `player.rs`: the body spawns with `Speedometer { unit: "m/s" }`, and `walk_player` multiplies the walk by `SpeedMultiplier`, both behind `cfg(feature = "dev")` | Claude | `walk_player` in `src/screens/gameplay/player.rs` |
+| [x] | 2.2 `fly.rs`: `fly_player` multiplies `FLY_SPEED_M_PER_S` by it, with no `cfg` | Claude | `fly.rs` is a dev tool itself |
+| [x] | 2.3 `just run`: walking at 5× shows about 22 m/s, flying about 60 m/s; closing F8 puts both back. Review | both | |
 
 ## Step 3 (on `2d/player`): `feat: show the 2D player's speed on F8`
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 3.1 `player.rs`: the square spawns with `Speedometer { unit: "px/s" }`, and `walk_player` multiplies `PLAYER_WALK_SPEED_PX_PER_S` by `SpeedMultiplier`, both behind `cfg(feature = "dev")` | Claude | `walk_player` in `src/screens/gameplay/player.rs` |
-| [ ] | 3.2 `just run`: walking at 2× shows about 512 px/s, and the camera keeps up. Review | both | |
+| [x] | 3.1 `player.rs`: the square spawns with `Speedometer { unit: "px/s" }`, and `walk_player` multiplies `PLAYER_WALK_SPEED_PX_PER_S` by `SpeedMultiplier`, both behind `cfg(feature = "dev")` | Claude | `walk_player` in `src/screens/gameplay/player.rs` |
+| [x] | 3.2 `just run`: walking at 2× shows about 512 px/s, and the camera keeps up. Review | both | |
 
 ## Step 4: `docs: mark the speed spec built`
 
