@@ -31,7 +31,7 @@ Agreed on 2026-11-07.
 | 4  | **File explorer** (Numpad 0): the gallery (photos, videos) and the game's assets, like the Windows explorer | `main` | built 2026-11-19 | `file-explorer/design.md`, `file-explorer-tasks.md` | agreed so far: below; was photo mode's gallery |
 | 5  | **Dev tools 3D**: physics debug view (F6), fly (F7), photo mode's 3D free camera | `3d/player` | built 2026-11-19, plus `register_photo_hint` on `main` for photo mode's bar | `dev-tools-3d/design.md` | agreed so far: below; `hide_body_debug_collider` is gone |
 | 6  | **2D player**: a square that walks, no animation, and photo mode's 2D free camera | `2d/player` | built 2026-11-19, with `create-bevy-starter` 0.3.0 asking for it | `2d-player/design.md`, on `2d/player` | agreed so far: below; the CLI asks without or with the player module |
-| 7  | **Speed + UI** (F8) | base in `main`, then `2d/player` and `3d/player` | | | agreed so far: below |
+| 7  | **Speed + UI** (F8) | base in `main`, then `2d/player` and `3d/player` | building: spec approved 2026-11-19 | `speed/design.md`, `speed-tasks.md` | agreed so far: below |
 | 8  | **Screen recording** (F9): a countdown, then a blinking REC while it records, sound included | `main` | | | agreed so far: below |
 | 9  | **Lighting**: dark places really dark | `3d/base` | | | agreed so far: below; test in `DarkRoom`, `DarkCorridor`, `DarkRoom_LightSpot`; the sky light lights interiors evenly today |
 | 10 | **Character controller**: stairs, run, jump, crouch | `3d/player` | | | agreed so far: below; the capsule catches on the `Arena2F_Stair_*` steps; avian 0.8's `move_and_slide` is worth reading first |

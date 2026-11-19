@@ -12,6 +12,7 @@ mod free_camera;
 mod keys_panel;
 mod photo_mode;
 mod slow_motion;
+mod speed;
 
 // ==== Config =================================================================
 
@@ -55,6 +56,7 @@ pub(super) fn plugin(app: &mut App) {
         slow_motion::plugin,
         // no key of its own: photo mode's, after photo mode, whose bar it adds to
         free_camera::plugin,
+        speed::plugin,
         file_explorer::plugin,
     ));
 }
@@ -63,8 +65,8 @@ pub(super) fn plugin(app: &mut App) {
 
 /// Leaves `action` off the keys panel: a key that only works inside a tool already open,
 /// which shows it there (Take Photo on photo mode's bar, Slower and Faster on slow motion's
-/// capsule). Settings' Dev page still lists it, since it can still be changed. Called from
-/// the tool's plugin, so the keys panel never names another tool's keys.
+/// and speed's capsules). Settings' Dev page still lists it, since it can still be changed.
+/// Called from the tool's plugin, so the keys panel never names another tool's keys.
 fn register_inner_key(app: &mut App, action: ActionName) {
     app.init_resource::<InnerKeys>();
     app.world_mut().resource_mut::<InnerKeys>().0.push(action);
