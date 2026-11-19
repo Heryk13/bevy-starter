@@ -10,6 +10,7 @@ mod file_explorer;
 mod fps;
 mod keys_panel;
 mod photo_mode;
+mod recording;
 mod slow_motion;
 // read by each player, which puts its body on the capsule and walks by the multiplier
 pub(crate) mod speed;
@@ -26,11 +27,19 @@ const DEV_WINDOW_PADDING_Y_PX: f32 = 10.0;
 const DEV_WINDOW_RADIUS_PX: f32 = 22.0;
 const DEV_WINDOW_GAP_PX: f32 = 6.0;
 
-// ---- gallery: photo mode writes into it, the file explorer browses it -------
+// ---- capture: E takes a photo, and starts and stops a recording -------------
+// one action for both, since a key belongs to one action only, and each tool reads it in its
+// own moment: photo mode in `Pause::Photo`, recording while its bar is open or it records
+const CAPTURE: ActionName = ActionName("capture");
+const CAPTURE_KEY: KeyCode = KeyCode::KeyE;
+// English, as every dev tool's words: on the Dev page and the keys panel
+const CAPTURE_LABEL: &str = "Capture";
+
+// ---- gallery: photos and videos land in it, the file explorer browses it ----
 // in the game's data folder
 const GALLERY_DIR_NAME: &str = "gallery";
 
-// ---- dates: what a photo is named by, and what the explorer shows -----------
+// ---- dates: what photos and videos are named by, what the explorer shows ----
 const SECS_PER_MINUTE: u64 = 60;
 const SECS_PER_HOUR: u64 = 60 * SECS_PER_MINUTE;
 const SECS_PER_DAY: u64 = 24 * SECS_PER_HOUR;
@@ -55,6 +64,7 @@ pub(super) fn plugin(app: &mut App) {
         photo_mode::plugin,
         slow_motion::plugin,
         speed::plugin,
+        recording::plugin,
         file_explorer::plugin,
     ));
 }
@@ -62,7 +72,7 @@ pub(super) fn plugin(app: &mut App) {
 // ==== Inner Keys =============================================================
 
 /// Leaves `action` off the keys panel: a key that only works inside a tool already open,
-/// which shows it there (Take Photo on photo mode's bar, Slower and Faster on slow motion's
+/// which shows it there (Capture on photo mode's bar, Slower and Faster on slow motion's
 /// and speed's capsules). Settings' Dev page still lists it, since it can still be changed.
 /// Called from the tool's plugin, so the keys panel never names another tool's keys.
 fn register_inner_key(app: &mut App, action: ActionName) {
@@ -100,6 +110,28 @@ fn civil_from_days(days: u64) -> (u64, u64, u64) {
     };
     let year = year_of_era + era * 400 + u64::from(month <= 2);
     (year, month, day)
+}
+
+/// Returns the date and time, in UTC, `secs` seconds after 1970 began, as a photo's or a
+/// recording's name spells it: `2026-11-18_14-32-05`, which sorts in the order they were
+/// taken.
+fn file_stamp(secs: u64) -> String {
+    let (year, month, day) = civil_from_days(secs / SECS_PER_DAY);
+    let secs_today = secs % SECS_PER_DAY;
+    let hour = secs_today / SECS_PER_HOUR;
+    let minute = secs_today % SECS_PER_HOUR / SECS_PER_MINUTE;
+    let second = secs_today % SECS_PER_MINUTE;
+    format!("{year:04}-{month:02}-{day:02}_{hour:02}-{minute:02}-{second:02}")
+}
+
+/// Returns the name of the `count`th file with `extension` taken in the second `stamp`
+/// names: the stamp alone for the first, then `_2`, `_3`.
+fn numbered_file_name(stamp: &str, count: u32, extension: &str) -> String {
+    if count <= 1 {
+        format!("{stamp}.{extension}")
+    } else {
+        format!("{stamp}_{count}.{extension}")
+    }
 }
 
 // ==== Windows ================================================================
@@ -156,3 +188,46 @@ struct DevUi;
 /// The keys the keys panel leaves out, since the tool they work in shows them itself.
 #[derive(Resource, Default)]
 struct InnerKeys(Vec<ActionName>);
+
+// ==== Tests ==================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // checked against the Unix clock: 2024-01-01 is 1704067200, and the 29th of February is
+    // 59 days after it
+    const LEAP_DAY_SECS: u64 = 1_704_067_200 + 59 * SECS_PER_DAY;
+    // 2026-01-01 is 1767225600
+    const LAST_SECOND_OF_2025: u64 = 1_767_225_600 - 1;
+
+    #[test]
+    fn the_first_second_of_1970_is_its_first_day() {
+        assert_eq!(file_stamp(0), "1970-01-01_00-00-00");
+    }
+
+    #[test]
+    fn a_leap_day_is_named_as_one() {
+        let secs = LEAP_DAY_SECS + 12 * SECS_PER_HOUR + 34 * SECS_PER_MINUTE + 56;
+        assert_eq!(file_stamp(secs), "2024-02-29_12-34-56");
+    }
+
+    #[test]
+    fn the_last_second_of_a_year_stays_in_it() {
+        assert_eq!(file_stamp(LAST_SECOND_OF_2025), "2025-12-31_23-59-59");
+        assert_eq!(file_stamp(LAST_SECOND_OF_2025 + 1), "2026-01-01_00-00-00");
+    }
+
+    #[test]
+    fn a_second_file_in_the_same_second_gets_a_name_of_its_own() {
+        let stamp = "2026-11-18_14-32-05";
+        assert_eq!(
+            numbered_file_name(stamp, 1, "png"),
+            "2026-11-18_14-32-05.png"
+        );
+        assert_eq!(
+            numbered_file_name(stamp, 2, "mp4"),
+            "2026-11-18_14-32-05_2.mp4"
+        );
+    }
+}

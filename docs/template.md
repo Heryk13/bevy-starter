@@ -85,6 +85,12 @@ src/
     photo_mode.rs   F3: the game frozen, the dev windows hidden, a bar of its keys
     photo_mode/
       photo.rs      E: a PNG of the game alone in gallery/, a flash, a click, a notice
+    recording.rs    F9: a video of the game alone into gallery/, its states and REC
+    recording/
+      bar.rs        the bar: sound, frame rate, timer, Record
+      capture.rs    the frame copied under the dev UI, read back; start and stop
+      encoder.rs    H.264 and Opus into an .mp4, on a thread of its own
+      sound.rs      the game's own sound, through Windows' process loopback
     slow_motion.rs  F4: the game slowed down, stepped with Numpad − and +
     speed.rs        F8: the player's speed, and a multiplier for its walk
   disk.rs           the data folder and safe file writes, shared
