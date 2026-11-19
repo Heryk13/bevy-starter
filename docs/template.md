@@ -31,9 +31,10 @@ makes the first commit. The steps below are the manual path, and what is left af
    ```
    Every screen, overlay and the blur build with exactly these on 0.20.0, and ran with them on 0.19.1.
    For a 3D game `3d` takes the place of `2d`: it brings the glTF loader, the lit materials, the
-   atmosphere, SSAO, SMAA and `Bloom` the playroom uses.
+   atmosphere, SSAO, SMAA and `Bloom` the playroom uses. `area_light_luts` is the table its sky
+   portals' `RectLight` is drawn with (see [Lighting a level](#lighting-a-level)).
    ```toml
-   bevy = { version = "0.20.0", default-features = false, features = ["3d", "ui", "audio", "jpeg", "wav"] }
+   bevy = { version = "0.20.0", default-features = false, features = ["3d", "ui", "audio", "jpeg", "wav", "area_light_luts"] }
    ```
    `3d/base` and every branch below it already build with exactly this line, so a game started
    from them skips this step; only a 3D game started from `main` trims by hand. The playroom
@@ -128,6 +129,7 @@ src/
         first_person.rs  the camera at eye height, the mouse look and the cursor lock
       playroom.rs   the test level, its colliders, sun and sky, and the kit its cameras carry
       playroom/
+        lighting.rs   dark insides, lamps and the sky's light at openings, from the level's marks
         sun_glare.rs  the glare drawn over the sun, as a camera sees it
   save.rs           the game in progress and the save files, shared
   save/
@@ -163,6 +165,33 @@ build: the body spawns with `Speedometer { unit: "m/s" }` (any unit; `2d/player`
 measured from the body's `GlobalTransform`, so the player writes nothing else. `3d/player`
 and `2d/player` do both in their `src/screens/gameplay/player.rs`. With no body carrying one,
 the capsule shows `—`.
+
+### Lighting a level
+
+The sky lights every surface by the way it faces, ceilings or not, so a level's insides are
+marked in Blender, and `src/screens/gameplay/playroom/lighting.rs` lights them from the marks.
+A mark is an empty with a custom property `kind` (Object Properties → Custom Properties),
+the way the playroom already names a door `"door"`:
+
+- **`"interior"`**: a dark box, keeping the sky out. A Cube empty of display size 1, drawn
+  on the walls' inner faces, from the floor to the ceiling's underside; a room that is not a
+  box takes several, as the playroom's corridor takes three. An optional `sky_light` from
+  0.0 to 1.0 lets that much of the sky in (`House_Interior` has 0.01); without one, the box
+  takes `INTERIOR_SKY_LIGHT`. At most 8 boxes light a view at once.
+- **`"light_point"`**: a lamp, a point light with shadows where the empty is
+  (`LAMP_INTENSITY_LM`, `LAMP_RANGE_M`).
+- **`"sky_portal"`**: the sky's light coming in at a door or window. An Image empty with no
+  image, scaled to the opening and placed on the wall's inner face, its Z pointing in; the
+  light is a `RectLight` that size, as bright as the sky over its area. It casts no shadows
+  in Bevy 0.20, so it lights through walls within `SKY_PORTAL_RANGE_M`.
+
+Blender's glTF exporter leaves custom properties out unless **Include → Custom Properties**
+is on (File → Export → glTF 2.0): without it no mark reaches the game. Every other option of
+the playroom's export is Blender's default.
+
+How dark is dark is the eye, the camera's `AutoExposure` in `playroom.rs`:
+`PLAYROOM_CAMERA_EYE_DARK_LIMIT_EV` is how many stops it brightens a dark view at most, and
+`PLAYROOM_CAMERA_EYE_TARGET_EV` keeps daylight where the fixed exposure put it.
 
 ## Assets
 
