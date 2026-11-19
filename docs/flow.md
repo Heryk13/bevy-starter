@@ -701,8 +701,12 @@ actions registered on one key as the game starts, found by the pure `shared_defa
 `main` the actions are Pause (`overlays.rs`, Esc) and, in dev builds, the keys panel
 (`dev_tools/keys_panel.rs`, F1), the FPS overlay (`dev_tools/fps.rs`, F2), photo mode
 (`dev_tools/photo_mode.rs`, F3, with E taking a photo), slow motion
-(`dev_tools/slow_motion.rs`, F4, with Numpad − and + read only while its capsule is open) and
-the file explorer (`dev_tools/file_explorer.rs`, Numpad 0); a branch adds its own. The keys panel lists the Dev page's actions, each on the keycap of the Controls page
+(`dev_tools/slow_motion.rs`, F4, with Numpad − and + read only while its capsule is open),
+speed (`dev_tools/speed.rs`, F8, stepping its multiplier with the same Numpad − and +) and
+the file explorer (`dev_tools/file_explorer.rs`, Numpad 0); a branch adds its own. Slow
+motion's capsule and speed's share their place, their look (the `Step Capsule` section of
+`slow_motion.rs`) and their two keys, so opening either closes the other, and each puts its
+value back at 1× in an observer on its capsule's `Remove`, however it closed. The keys panel lists the Dev page's actions, each on the keycap of the Controls page
 (`keycap()` and `binding_legend()`, re-exported from `overlays.rs` in dev builds); while it is
 closed, its own key waits in its place on the screen camera (`spawn_keys_panel_hint`). It
 leaves out a tool's inner keys, the ones that only work once the tool is open and that the tool

@@ -1,6 +1,7 @@
 # Speed: the player's speed on F8, and a multiplier for it
 
-Status: **approved** 2026-11-19, step 1 next.
+Status: **built** 2026-11-19: the capsule on `main`, the 3D player on `3d/player`, the 2D
+player on `2d/player`.
 Date: 2026-11-19
 Bevy: 0.20.0
 Roadmap: row 7 of `docs/roadmap/roadmap.md`, from its "Speed + UI, as agreed" section.
@@ -98,4 +99,33 @@ players by the merge down; steps 2 and 3 are each committed on their branch.
 
 ## What changed while building it
 
-Nothing yet.
+- **A step is the nearest one, not the next past a tolerance** (decided while building 1.1):
+  the three helpers find the place of the step nearest the value (`nearest_step`), then move
+  one place out or in, or count places for the bar. That works the same whichever way the
+  list runs, down for slow motion and up for speed, and `SPEED_TOLERANCE` went away with it.
+- **Each file tests its own list** (decided while building 1.1): `slow_motion.rs` tests the
+  helpers over `SLOW_MOTION_STEPS`, and `speed.rs` tests them over `SPEED_STEPS`, where
+  out goes up. The spec had every test run over both lists from `slow_motion.rs`, which would
+  have needed the speed steps spelled a second time before `speed.rs` existed.
+- **The observer is `On<Remove<SpeedCapsule>>`** (checked for 1.3): in Bevy 0.20 `Remove` is a
+  pattern over the bundle (`bevy_ecs-0.20.0/src/lifecycle.rs`), not a second parameter of
+  `On`, as the spec wrote it.
+- **The whole capsule is shared, not only the steps** (decided while building 1.4):
+  `slow_motion.rs` hands `speed.rs` a `Step Capsule` section, `step_capsule` (the window
+  with an icon, a reading of the caller's, the bar and the two keys), `paint_step_bar`,
+  `step_label`, `step_out`, `step_in` and one `StepSegment` marker for both bars, which never
+  share the screen. Copying the bar's sizes and colors would have been two spellings of one
+  look. `lit_segments` stays private, read only through the capsule and the bar.
+- **`Speedometer` holds only its unit** (decided while building 1.6), a field a player fills
+  in (`Speedometer { unit: "m/s" }`) with no `new`. What is measured lives in `SpeedReading`,
+  on the capsule's text, born with the capsule: a measurement never starts from where the
+  body was when the capsule last closed, and nothing measures while it is closed. A reading
+  that finds another body, as after loading a save, starts over instead of counting the jump.
+- **`speed` is a `pub(crate)` module** (found at the start of step 2): `player.rs` lives
+  under `screens/`, outside `dev_tools/`, and could not reach a private module, so a commit
+  of its own on `main` made it public to the crate before step 2.
+- **The `Speedometer` joins the body's bundle, not an `insert`** (decided while building
+  2.1): `let body = (...);`, then `#[cfg(feature = "dev")] let body = (body, Speedometer {..});`
+  and one `spawn`. A spawn kept in a variable for a `cfg`'d `insert` would leave a release
+  build with a variable and a `mut` nobody uses, which `just check` refuses. Both players do
+  it the same way.
