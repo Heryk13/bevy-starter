@@ -2,6 +2,8 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "dev")]
+use crate::dev_tools::speed::{SpeedMultiplier, Speedometer};
 use crate::input::{Action, ActionName, Binding, Controls, Page, register_action};
 use crate::save::Session;
 use crate::screens::gameplay::playroom::TILE_DISPLAY_PX;
@@ -93,12 +95,16 @@ struct Player;
 
 /// Spawns the player where the session left them, the middle of the room in a new game.
 fn spawn_player(mut commands: Commands, session: Res<Session>) {
-    commands.spawn((
+    let body = (
         Sprite::from_color(ACCENT, Vec2::splat(PLAYER_SIZE_PX)),
         Transform::from_translation(session.game.player.position.extend(PLAYER_Z)),
         Player,
         DespawnOnExit(Screen::Gameplay),
-    ));
+    );
+    // on speed's capsule (F8), a dev tool's, so not in a release build
+    #[cfg(feature = "dev")]
+    let body = (body, Speedometer { unit: "px/s" });
+    commands.spawn(body);
 }
 
 /// Walks the player across the screen by the four walk actions, which start on W, S, A and
@@ -108,8 +114,12 @@ fn walk_player(
     controls: Controls,
     time: Res<Time>,
     mut body: Single<&mut Transform, With<Player>>,
+    #[cfg(feature = "dev")] multiplier: Res<SpeedMultiplier>,
 ) {
     let step = walk_velocity(walk_input(&controls)) * time.delta_secs();
+    // speed's capsule (F8) steps it, a dev tool's, so a release build walks at 1×
+    #[cfg(feature = "dev")]
+    let step = step * multiplier.0;
     body.translation += step.extend(0.0);
 }
 
