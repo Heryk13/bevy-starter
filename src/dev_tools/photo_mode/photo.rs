@@ -8,23 +8,20 @@ use std::path::Path;
 
 use super::{PhotoHint, PhotoModeUi, register_photo_hint};
 use crate::dev_tools::{
-    DEV_TOOLS_Z_INDEX, SECS_PER_DAY, SECS_PER_HOUR, SECS_PER_MINUTE, civil_from_days, dev_window,
-    gallery_dir, register_inner_key, spawn_dev_window,
+    CAPTURE, CAPTURE_KEY, CAPTURE_LABEL, DEV_TOOLS_Z_INDEX, dev_window, file_stamp, gallery_dir,
+    numbered_file_name, register_inner_key, spawn_dev_window,
 };
 use crate::disk::write_atomic;
 use crate::fade::Fade;
-use crate::input::{Action, ActionName, Binding, Page, action_just_pressed, register_action};
+use crate::input::{Action, Binding, Page, action_just_pressed, register_action};
 use crate::save::unix_now;
 use crate::screens::Pause;
 use crate::ui::{ACCENT, INK, Icon, SMALL_FONT_SIZE_PX, TEXT, custom_icon, font, muted_text};
 
 // ==== Config =================================================================
 
-// takes the photo: the action, and the key it starts on
-const TAKE_PHOTO: ActionName = ActionName("take_photo");
-const TAKE_PHOTO_KEY: KeyCode = KeyCode::KeyE;
-// English, as every dev tool's words: on the Dev page, the keys panel and photo mode's bar
-const TAKE_PHOTO_LABEL: &str = "Take Photo";
+// what photo mode's bar says beside Capture's keycap, in English as every dev tool's words
+const TAKE_PHOTO_WORDS: &str = "Take Photo";
 
 // ---- the file: a PNG in the gallery, which the file explorer browses --------
 const PHOTO_EXTENSION: &str = "png";
@@ -63,23 +60,25 @@ const NOTICE_ICON_PX: f32 = 20.0;
 /// at the edges of the screen and a shutter's click, and says where it went once it is
 /// written.
 pub(super) fn plugin(app: &mut App) {
+    // registered here, by the first tool that reads it, so the Dev page lists it right after
+    // photo mode's own key; recording reads it too, and registers nothing
     register_action(
         app,
         Action {
-            name: TAKE_PHOTO,
-            default: Binding::Key(TAKE_PHOTO_KEY),
+            name: CAPTURE,
+            default: Binding::Key(CAPTURE_KEY),
             page: Page::Dev,
-            label: Some(TAKE_PHOTO_LABEL),
+            label: Some(CAPTURE_LABEL),
         },
     );
     // photo mode's bar shows it once photo mode is on, and it does nothing before
-    register_inner_key(app, TAKE_PHOTO);
+    register_inner_key(app, CAPTURE);
     register_photo_hint(
         app,
         PhotoHint {
             icon: Icon::Camera,
-            actions: &[TAKE_PHOTO],
-            words: TAKE_PHOTO_LABEL,
+            actions: &[CAPTURE],
+            words: TAKE_PHOTO_WORDS,
         },
     );
     app.init_resource::<PhotosThisSecond>();
@@ -89,7 +88,7 @@ pub(super) fn plugin(app: &mut App) {
         Update,
         (
             take_photo
-                .run_if(action_just_pressed(TAKE_PHOTO))
+                .run_if(action_just_pressed(CAPTURE))
                 .run_if(in_state(Pause::Photo)),
             fade_flashes,
             notice_written_photos,
@@ -148,14 +147,18 @@ fn take_photo(
         error!("no data folder to keep photos in");
         return;
     };
-    let stamp = photo_stamp(unix_now().as_secs());
+    let stamp = file_stamp(unix_now().as_secs());
     if stamp == this_second.stamp {
         this_second.count += 1;
     } else {
         this_second.stamp = stamp;
         this_second.count = 1;
     }
-    let path = gallery.join(photo_file_name(&this_second.stamp, this_second.count));
+    let path = gallery.join(numbered_file_name(
+        &this_second.stamp,
+        this_second.count,
+        PHOTO_EXTENSION,
+    ));
     for mut visibility in &mut own_ui {
         *visibility = Visibility::Hidden;
     }
@@ -411,62 +414,11 @@ fn write_photo(image: Image, path: &Path) -> Option<String> {
         .map(|name| name.to_string_lossy().into_owned())
 }
 
-/// Returns the date and time, in UTC, `secs` seconds after 1970 began, as a photo's name
-/// spells it: `2026-11-18_14-32-05`, which sorts in the order the photos were taken.
-fn photo_stamp(secs: u64) -> String {
-    let (year, month, day) = civil_from_days(secs / SECS_PER_DAY);
-    let secs_today = secs % SECS_PER_DAY;
-    let hour = secs_today / SECS_PER_HOUR;
-    let minute = secs_today % SECS_PER_HOUR / SECS_PER_MINUTE;
-    let second = secs_today % SECS_PER_MINUTE;
-    format!("{year:04}-{month:02}-{day:02}_{hour:02}-{minute:02}-{second:02}")
-}
-
-/// Returns the file name of the `count`th photo taken in the second `stamp` names: the
-/// stamp alone for the first, then `_2`, `_3`.
-fn photo_file_name(stamp: &str, count: u32) -> String {
-    if count <= 1 {
-        format!("{stamp}.{PHOTO_EXTENSION}")
-    } else {
-        format!("{stamp}_{count}.{PHOTO_EXTENSION}")
-    }
-}
-
 // ==== Tests ==================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    // checked against the Unix clock: 2024-01-01 is 1704067200, and the 29th of February is
-    // 59 days after it
-    const LEAP_DAY_SECS: u64 = 1_704_067_200 + 59 * SECS_PER_DAY;
-    // 2026-01-01 is 1767225600
-    const LAST_SECOND_OF_2025: u64 = 1_767_225_600 - 1;
-
-    #[test]
-    fn the_first_second_of_1970_is_its_first_day() {
-        assert_eq!(photo_stamp(0), "1970-01-01_00-00-00");
-    }
-
-    #[test]
-    fn a_leap_day_is_named_as_one() {
-        let secs = LEAP_DAY_SECS + 12 * SECS_PER_HOUR + 34 * SECS_PER_MINUTE + 56;
-        assert_eq!(photo_stamp(secs), "2024-02-29_12-34-56");
-    }
-
-    #[test]
-    fn the_last_second_of_a_year_stays_in_it() {
-        assert_eq!(photo_stamp(LAST_SECOND_OF_2025), "2025-12-31_23-59-59");
-        assert_eq!(photo_stamp(LAST_SECOND_OF_2025 + 1), "2026-01-01_00-00-00");
-    }
-
-    #[test]
-    fn a_second_photo_in_the_same_second_gets_a_name_of_its_own() {
-        let stamp = "2026-11-18_14-32-05";
-        assert_eq!(photo_file_name(stamp, 1), "2026-11-18_14-32-05.png");
-        assert_eq!(photo_file_name(stamp, 2), "2026-11-18_14-32-05_2.png");
-    }
 
     #[test]
     fn the_flash_is_over_once_its_time_is_up() {

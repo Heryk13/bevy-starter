@@ -32,7 +32,10 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   (F1, waiting in the corner), the FPS overlay (F2), photo mode (F3: the game frozen with
   every dev window hidden, E saves a PNG of it into the data folder's `gallery/`), slow
   motion (F4, stepped with Numpad − and +), the player's speed (F8, with a multiplier of 1×
-  to 10× on the same keys, which the players of `3d/player` and `2d/player` walk by) and the
+  to 10× on the same keys, which the players of `3d/player` and `2d/player` walk by), screen
+  recording (F9: a bar to set the sound, 30 or 60 fps and a countdown, then E records an
+  `.mp4` of the game alone, its own UI and sound included and the dev UI never, into
+  `gallery/`; the sound is Windows-only, and nothing is installed outside cargo) and the
   file explorer (Numpad 0: a drawer over the running game that browses the gallery and the
   game's `assets/` like the Windows explorer, with a preview, folders, renaming, dragging, a
   trash of its own, files dropped in from the OS, and a warning before changing an asset the
