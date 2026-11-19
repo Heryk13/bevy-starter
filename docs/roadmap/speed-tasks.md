@@ -85,8 +85,8 @@ each task needs. The capsule's look is slow motion's (F4), with the `SportShoe` 
 
 | | Task | Who | Facts |
 |---|------|-----|-------|
-| [ ] | 3.1 `player.rs`: the square spawns with `Speedometer { unit: "px/s" }`, and `walk_player` multiplies `PLAYER_WALK_SPEED_PX_PER_S` by `SpeedMultiplier`, both behind `cfg(feature = "dev")` | Claude | `walk_player` in `src/screens/gameplay/player.rs` |
-| [ ] | 3.2 `just run`: walking at 2× shows about 512 px/s, and the camera keeps up. Review | both | |
+| [x] | 3.1 `player.rs`: the square spawns with `Speedometer { unit: "px/s" }`, and `walk_player` multiplies `PLAYER_WALK_SPEED_PX_PER_S` by `SpeedMultiplier`, both behind `cfg(feature = "dev")` | Claude | `walk_player` in `src/screens/gameplay/player.rs` |
+| [x] | 3.2 `just run`: walking at 2× shows about 512 px/s, and the camera keeps up. Review | both | |
 
 ## Step 4: `docs: mark the speed spec built`
 
