@@ -113,7 +113,10 @@ fn put_camera_behind(
     // the same place, and the global one is only brought up to date after `Update`, so it
     // would cast the rays from where the body stood a frame ago
     bodies: Query<(Entity, &Transform), With<Player>>,
-    mut cameras: Query<(&ChildOf, &mut Transform, &ThirdPersonView), With<PlayroomCamera>>,
+    mut cameras: Query<
+        (&ChildOf, &mut Transform, &ThirdPersonView),
+        (With<PlayroomCamera>, Without<Player>),
+    >,
     #[cfg(feature = "dev")] debug_view: Res<PhysicsDebugView>,
     #[cfg(feature = "dev")] mut gizmos: Gizmos,
 ) {
