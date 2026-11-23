@@ -141,9 +141,11 @@ pub(crate) fn read_map() -> Option<MapFile> {
 /// which prop moved. Only the editor writes it, and only dev builds have the editor.
 #[cfg(feature = "dev")]
 pub(crate) fn write_map(map: &MapFile) -> std::io::Result<()> {
-    let text = ron::ser::to_string_pretty(map, ron::ser::PrettyConfig::default())
-        .map_err(std::io::Error::other)?;
-    crate::disk::write_atomic(&map_path(), text)
+    // one line ending on every system, where ron would end lines with "\r\n" on Windows, and a
+    // last one at the end: the file is committed
+    let pretty = ron::ser::PrettyConfig::default().new_line("\n");
+    let text = ron::ser::to_string_pretty(map, pretty).map_err(std::io::Error::other)?;
+    crate::disk::write_atomic(&map_path(), text + "\n")
 }
 
 /// Returns the map in `text`, or `None` with an error logged when it is not one. `next_id` is
