@@ -24,7 +24,8 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 - Autosave after every 5 minutes of unsaved play, each one kept as its own file
 - Multiplayer over a LAN or Radmin VPN, up to 10 players: the host opens the game from the
   pause menu (Open to LAN), the others find it from the main menu (Find Server) or type its
-  address, and each sees the others walk
+  address; each sees the others walk, the props are built together through the host, Esc
+  never freezes a shared game, and a joiner keeps its own character for each world it joined
 - A glass look in one palette: panels that rise in over a blur of everything behind them,
   other panels included, with a lit rim; capsule buttons that ease to white under the pointer,
   switches and a segmented control in Settings, a menu of plain words on a bar of light, and

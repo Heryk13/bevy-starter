@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use crate::screens::Screen;
 use crate::screens::gameplay::map::MapFile;
+use crate::ui;
 
 // the props' files, which only the prop editor of a dev build adds
 #[cfg(feature = "dev")]
@@ -20,6 +21,8 @@ mod remote;
 // read by each genre, which starts a joiner new to a world on the ring
 pub(crate) mod world;
 
+#[cfg(feature = "dev")]
+pub(crate) use files::PropFileAdded;
 pub(crate) use find_server::FindServerButton;
 pub(crate) use host::LanButton;
 
@@ -187,8 +190,38 @@ struct OwnId(u64);
 /// Shows the pending notice over the menu, once.
 fn show_pending_notice(mut commands: Commands, mut pending: ResMut<PendingNotice>) {
     if let Some(message) = pending.0.take() {
-        commands.spawn((crate::ui::notice(message), DespawnOnExit(Screen::Menu)));
+        commands.spawn((notice(message), DespawnOnExit(Screen::Menu)));
     }
+}
+
+// ==== Notice =================================================================
+
+// it lives here, not with the dialogs in ui.rs, since only multiplayer tells the player things
+// with an OK alone: a game without multiplayer would keep it unused
+/// Returns a modal notice with OK alone, ready to spawn over whatever it tells about.
+/// `message` is a translation key.
+pub(super) fn notice(message: &'static str) -> impl Bundle {
+    (
+        ui::floating_root(ui::DIALOG_Z_INDEX),
+        ui::Dialog,
+        ui::ClosesOnEsc,
+        children![(
+            ui::card(ui::DIALOG_WIDTH_PX),
+            children![
+                (ui::label(message), TextLayout::justify(Justify::Center)),
+                (
+                    Node {
+                        justify_content: JustifyContent::Center,
+                        ..default()
+                    },
+                    children![(
+                        ui::button("dialog-ok", ui::ButtonKind::Primary),
+                        ui::CloseDialog
+                    )],
+                ),
+            ],
+        )],
+    )
 }
 
 // ==== Helpers ================================================================
