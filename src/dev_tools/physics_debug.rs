@@ -6,7 +6,7 @@ use crate::screens::Pause;
 
 // ==== Config =================================================================
 
-// ---- action: shows and hides the outlines, and the key it starts on ---------
+// ---- action: steps through the views, and the key it starts on --------------
 const PHYSICS_DEBUG: ActionName = ActionName("physics_debug");
 const PHYSICS_DEBUG_KEY: KeyCode = KeyCode::F6;
 
@@ -15,9 +15,11 @@ const PHYSICS_DEBUG_LABEL: &str = "Physics Debug";
 
 // ==== Plugin =================================================================
 
-/// The physics debug view on F6: the outline of every collider, the player's capsule
-/// included, to check them against the level. Off as the game starts, and hidden in photo
-/// mode, where the outlines would land in the photo.
+/// The physics debug view on F6, stepping through two views and back to none: the outline of
+/// every collider, the player's capsule included, to check them against the level; then the
+/// rays a camera casts to find what stands between it and the player, which the camera that
+/// casts them draws itself. Off as the game starts, and hidden in photo mode, where it would
+/// land in the photo.
 pub(super) fn plugin(app: &mut App) {
     register_action(
         app,
@@ -29,67 +31,94 @@ pub(super) fn plugin(app: &mut App) {
         },
     );
     app.add_plugins(PhysicsDebugPlugin);
-    app.add_systems(Startup, hide_physics_outlines);
+    app.init_resource::<PhysicsDebugView>();
     app.add_systems(
         Update,
-        toggle_physics_outlines
-            .run_if(action_just_pressed(PHYSICS_DEBUG))
-            .run_if(not(in_state(Pause::Photo))),
+        (
+            step_physics_debug
+                .run_if(action_just_pressed(PHYSICS_DEBUG))
+                .run_if(not(in_state(Pause::Photo))),
+            show_physics_outlines.run_if(resource_changed::<PhysicsDebugView>),
+        )
+            .chain(),
     );
-    app.add_systems(OnEnter(Pause::Photo), hide_physics_outlines_for_photo);
-    app.add_systems(OnExit(Pause::Photo), restore_physics_outlines_after_photo);
+    app.add_systems(OnEnter(Pause::Photo), hide_physics_debug_for_photo);
+    app.add_systems(OnExit(Pause::Photo), restore_physics_debug_after_photo);
 }
 
 // ==== Resources ==============================================================
 
-/// Whether the outlines showed as photo mode began, so leaving it shows them again only then.
+/// What F6 shows now. A camera reads it to draw its own rays.
+#[derive(Resource, Clone, Copy, Default, PartialEq, Eq, Debug)]
+pub(crate) enum PhysicsDebugView {
+    #[default]
+    Off,
+    Colliders,
+    CameraRays,
+}
+
+/// What F6 showed as photo mode began, so leaving it shows that again.
 #[derive(Resource)]
-struct OutlinesShownBeforePhoto(bool);
+struct ViewBeforePhoto(PhysicsDebugView);
 
 // ==== Systems ================================================================
 
-/// Hides the outlines as the game starts: a debug view left on would greet every launch.
-fn hide_physics_outlines(mut gizmos: ResMut<GizmoConfigStore>) {
-    show_physics_outlines(&mut gizmos, false);
+/// Steps to the next view on F6: the colliders, the camera's rays, then nothing.
+fn step_physics_debug(mut view: ResMut<PhysicsDebugView>) {
+    *view = next_view(*view);
 }
 
-/// Shows the outlines if they are hidden, or hides them.
-fn toggle_physics_outlines(mut gizmos: ResMut<GizmoConfigStore>) {
-    let shown = are_physics_outlines_shown(&mut gizmos);
-    show_physics_outlines(&mut gizmos, !shown);
+/// Has avian draw the outlines while the colliders are the view, and not otherwise: off as
+/// the game starts too, since a debug view left on would greet every launch.
+fn show_physics_outlines(view: Res<PhysicsDebugView>, mut gizmos: ResMut<GizmoConfigStore>) {
+    if let Some((config, _)) = gizmos.get_config_mut::<PhysicsGizmos>() {
+        config.enabled = *view == PhysicsDebugView::Colliders;
+    }
 }
 
-/// Hides the outlines as photo mode begins, keeping whether they showed: they are gizmos,
-/// not a dev window, so hiding the dev windows leaves them.
-fn hide_physics_outlines_for_photo(mut commands: Commands, mut gizmos: ResMut<GizmoConfigStore>) {
-    commands.insert_resource(OutlinesShownBeforePhoto(are_physics_outlines_shown(
-        &mut gizmos,
-    )));
-    show_physics_outlines(&mut gizmos, false);
+/// Hides the view as photo mode begins, keeping which it was: gizmos are not a dev window, so
+/// hiding the dev windows leaves them.
+fn hide_physics_debug_for_photo(mut commands: Commands, mut view: ResMut<PhysicsDebugView>) {
+    commands.insert_resource(ViewBeforePhoto(*view));
+    *view = PhysicsDebugView::Off;
 }
 
-/// Shows the outlines again as photo mode ends, if they showed as it began.
-fn restore_physics_outlines_after_photo(
-    shown_before: Option<Res<OutlinesShownBeforePhoto>>,
-    mut gizmos: ResMut<GizmoConfigStore>,
+/// Shows the view again as photo mode ends, the one that showed as it began.
+fn restore_physics_debug_after_photo(
+    before: Option<Res<ViewBeforePhoto>>,
+    mut view: ResMut<PhysicsDebugView>,
 ) {
-    if let Some(shown_before) = shown_before {
-        show_physics_outlines(&mut gizmos, shown_before.0);
+    if let Some(before) = before {
+        *view = before.0;
     }
 }
 
 // ==== Helpers ================================================================
 
-/// Tells whether avian draws the outlines now.
-fn are_physics_outlines_shown(gizmos: &mut GizmoConfigStore) -> bool {
-    gizmos
-        .get_config_mut::<PhysicsGizmos>()
-        .is_some_and(|(config, _)| config.enabled)
+/// Returns the view after `view`, nothing after the last.
+fn next_view(view: PhysicsDebugView) -> PhysicsDebugView {
+    match view {
+        PhysicsDebugView::Off => PhysicsDebugView::Colliders,
+        PhysicsDebugView::Colliders => PhysicsDebugView::CameraRays,
+        PhysicsDebugView::CameraRays => PhysicsDebugView::Off,
+    }
 }
 
-/// Has avian draw the outlines, or not.
-fn show_physics_outlines(gizmos: &mut GizmoConfigStore, shown: bool) {
-    if let Some((config, _)) = gizmos.get_config_mut::<PhysicsGizmos>() {
-        config.enabled = shown;
+// ==== Tests ==================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn f6_shows_the_colliders_then_the_rays_then_nothing() {
+        let mut view = PhysicsDebugView::default();
+        assert_eq!(view, PhysicsDebugView::Off);
+        view = next_view(view);
+        assert_eq!(view, PhysicsDebugView::Colliders);
+        view = next_view(view);
+        assert_eq!(view, PhysicsDebugView::CameraRays);
+        view = next_view(view);
+        assert_eq!(view, PhysicsDebugView::Off);
     }
 }

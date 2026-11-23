@@ -12,7 +12,8 @@ mod fps;
 mod free_camera;
 mod keys_panel;
 mod photo_mode;
-mod physics_debug;
+// read by the third-person camera, which draws its own rays in the second view
+pub(crate) mod physics_debug;
 // read by each genre, which shows the props, moves the camera and stops the player
 pub(crate) mod prop_editor;
 mod prop_editor_3d;

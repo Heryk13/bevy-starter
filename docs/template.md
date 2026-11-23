@@ -93,7 +93,7 @@ src/
     photo_mode.rs   F3: the game frozen, the dev windows hidden, a bar of its keys
     photo_mode/
       photo.rs      E: a PNG of the game alone in gallery/, a flash, a click, a notice
-    physics_debug.rs  F6: the outline of every collider, the player's capsule included
+    physics_debug.rs  F6: every collider's outline, then the third-person camera's rays
     prop_editor.rs  F10: props from assets/props/ placed into the game and its save, its state
     prop_editor/
       edits.rs      every change to the map: place, update, delete; holding, R, the wheel

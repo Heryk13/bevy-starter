@@ -3,6 +3,8 @@ use bevy::prelude::*;
 
 use super::Player;
 use super::look::{EYE_OFFSET_M, look_around};
+#[cfg(feature = "dev")]
+use crate::dev_tools::physics_debug::PhysicsDebugView;
 use crate::input::{Action, ActionName, Binding, Page, action_just_pressed, register_action};
 use crate::screens::gameplay::playroom::PlayroomCamera;
 use crate::screens::{Pause, Screen};
@@ -23,6 +25,16 @@ const THIRD_PERSON_WALL_GAP_M: f32 = 0.2;
 // half the width under which a thing between the eyes and the camera is seen past rather than
 // pulling the camera in: a trunk, a post, a railing, but no wall
 const NARROW_HALF_WIDTH_M: f32 = 0.5;
+
+// ---- F6's second view: the rays, a dev tool's -------------------------------
+#[cfg(feature = "dev")]
+const DEBUG_RAY_FREE: Color = Color::srgb(0.2, 0.9, 0.3);
+#[cfg(feature = "dev")]
+const DEBUG_RAY_STOPPED: Color = Color::srgb(1.0, 0.25, 0.2);
+#[cfg(feature = "dev")]
+const DEBUG_RAY_SEEN_PAST: Color = Color::srgb(1.0, 0.85, 0.1);
+#[cfg(feature = "dev")]
+const DEBUG_CAMERA_RADIUS_M: f32 = 0.1;
 
 // ==== Plugin =================================================================
 
@@ -99,6 +111,8 @@ fn put_camera_behind(
     spatial: SpatialQuery,
     bodies: Query<(Entity, &GlobalTransform), With<Player>>,
     mut cameras: Query<(&ChildOf, &mut Transform, &ThirdPersonView), With<PlayroomCamera>>,
+    #[cfg(feature = "dev")] debug_view: Res<PhysicsDebugView>,
+    #[cfg(feature = "dev")] mut gizmos: Gizmos,
 ) {
     for (parent, mut transform, view) in &mut cameras {
         let Ok((body, body_global)) = bodies.get(parent.parent()) else {
@@ -119,13 +133,54 @@ fn put_camera_behind(
         };
         // across the view, in the world: the camera's own right, turned with the body
         let side = body_global.rotation() * transform.rotation * Vec3::X * NARROW_HALF_WIDTH_M;
-        let hit = blocking_hit(
-            hit_from(eyes_world),
-            hit_from(eyes_world - side),
-            hit_from(eyes_world + side),
-        );
+        let rays = [eyes_world, eyes_world - side, eyes_world + side]
+            .map(|origin| (origin, hit_from(origin)));
+        let [(_, center), (_, left), (_, right)] = rays;
+        let hit = blocking_hit(center, left, right);
         transform.translation = eyes + wanted * reach(towards.length(), hit);
+        // F6's second view, a dev tool's, so not in a release build
+        #[cfg(feature = "dev")]
+        if *debug_view == PhysicsDebugView::CameraRays {
+            let camera_world = body_global.transform_point(transform.translation);
+            draw_camera_rays(
+                &mut gizmos,
+                rays,
+                direction,
+                towards.length(),
+                hit,
+                camera_world,
+            );
+        }
     }
+}
+
+/// Draws the camera's three rays, each as far as it went: green where a ray met nothing, red
+/// where it met something that counts, the side rays' hits and a wall in the middle, and
+/// yellow in the middle where what it met was narrow and left the camera where it is; and a
+/// ball where the camera ends up. F6's second view.
+#[cfg(feature = "dev")]
+fn draw_camera_rays(
+    gizmos: &mut Gizmos,
+    rays: [(Vec3, Option<f32>); 3],
+    direction: Dir3,
+    length: f32,
+    stopped_at: Option<f32>,
+    camera: Vec3,
+) {
+    for (index, (origin, hit)) in rays.into_iter().enumerate() {
+        let is_center = index == 0;
+        let color = match hit {
+            None => DEBUG_RAY_FREE,
+            Some(_) if is_center && stopped_at.is_none() => DEBUG_RAY_SEEN_PAST,
+            Some(_) => DEBUG_RAY_STOPPED,
+        };
+        gizmos.line(origin, origin + direction * hit.unwrap_or(length), color);
+    }
+    gizmos.sphere(
+        Isometry3d::from_translation(camera),
+        DEBUG_CAMERA_RADIUS_M,
+        DEBUG_RAY_FREE,
+    );
 }
 
 // ==== Helpers ================================================================
