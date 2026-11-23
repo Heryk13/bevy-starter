@@ -23,6 +23,9 @@ mod usage;
 use drawer::{DrawerHeight, ExplorerDrawer, slide_transform};
 use listing::Place;
 
+// the prop editor copies the files dropped on it the way the explorer does
+pub(super) use actions::copy_entry;
+
 // ==== Config =================================================================
 
 // ---- action: opens and closes the explorer, and the key it starts on --------
