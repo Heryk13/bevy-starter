@@ -28,4 +28,7 @@ it stood; a first visit starts on the ring around the spawn point.
 
 ## What changed while building it
 
-Nothing yet.
+- **`world.rs` is a `pub(crate)` module**, not re-exported: a genre reads `FreshInWorld` from it
+  (`player/others.rs`), and a `pub(crate) use` of it went unused on `main`, which has no genre.
+- **`OwnId` is a dev build's only**: only the prop editor's locks read which player this game is,
+  and release builds have no editor.
