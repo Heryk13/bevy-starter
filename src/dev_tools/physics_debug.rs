@@ -1,8 +1,13 @@
 use avian3d::prelude::{PhysicsDebugPlugin, PhysicsGizmos};
 use bevy::prelude::*;
 
-use crate::input::{Action, ActionName, Binding, Page, action_just_pressed, register_action};
+use super::{DEV_TOOLS_Z_INDEX, DevUi};
+use crate::input::{
+    Action, ActionName, Binding, Bindings, Page, action_just_pressed, register_action,
+};
+use crate::overlays::{binding_legend, keycap};
 use crate::screens::Pause;
+use crate::ui::{SMALL_FONT_SIZE_PX, muted_text};
 
 // ==== Config =================================================================
 
@@ -12,6 +17,12 @@ const PHYSICS_DEBUG_KEY: KeyCode = KeyCode::F6;
 
 // ---- words: English, as every dev tool's, never read in a release build -----
 const PHYSICS_DEBUG_LABEL: &str = "Physics Debug";
+const COLLIDERS_WORDS: &str = "Colliders";
+const CAMERA_RAYS_WORDS: &str = "Camera Rays";
+
+// ---- status: the view on, top centre, as the F1 hint is drawn ---------------
+const STATUS_TOP_PX: f32 = 10.0;
+const STATUS_GAP_PX: f32 = 8.0;
 
 // ==== Plugin =================================================================
 
@@ -38,13 +49,20 @@ pub(super) fn plugin(app: &mut App) {
             step_physics_debug
                 .run_if(action_just_pressed(PHYSICS_DEBUG))
                 .run_if(not(in_state(Pause::Photo))),
-            show_physics_outlines.run_if(resource_changed::<PhysicsDebugView>),
+            (show_physics_outlines, show_physics_debug_status)
+                .run_if(resource_changed::<PhysicsDebugView>),
         )
             .chain(),
     );
     app.add_systems(OnEnter(Pause::Photo), hide_physics_debug_for_photo);
     app.add_systems(OnExit(Pause::Photo), restore_physics_debug_after_photo);
 }
+
+// ==== Components =============================================================
+
+/// Marks the status that says which view F6 shows.
+#[derive(Component)]
+struct PhysicsDebugStatus;
 
 // ==== Resources ==============================================================
 
@@ -74,6 +92,51 @@ fn show_physics_outlines(view: Res<PhysicsDebugView>, mut gizmos: ResMut<GizmoCo
     if let Some((config, _)) = gizmos.get_config_mut::<PhysicsGizmos>() {
         config.enabled = *view == PhysicsDebugView::Colliders;
     }
+}
+
+/// Says which view F6 shows, top centre: its key on a keycap, beside the view's name, gone
+/// while nothing shows. Drawn by the screen camera, as the F1 hint is, and hidden in photo
+/// mode with every dev window.
+fn show_physics_debug_status(
+    mut commands: Commands,
+    view: Res<PhysicsDebugView>,
+    bindings: Res<Bindings>,
+    shown: Query<Entity, With<PhysicsDebugStatus>>,
+) {
+    for status in &shown {
+        commands.entity(status).despawn();
+    }
+    let words = match *view {
+        PhysicsDebugView::Off => return,
+        PhysicsDebugView::Colliders => COLLIDERS_WORDS,
+        PhysicsDebugView::CameraRays => CAMERA_RAYS_WORDS,
+    };
+    let legend = bindings
+        .binding(PHYSICS_DEBUG)
+        .map(binding_legend)
+        .unwrap_or_default();
+    commands
+        .spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                top: px(STATUS_TOP_PX),
+                left: px(0),
+                right: px(0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                column_gap: px(STATUS_GAP_PX),
+                ..default()
+            },
+            // over every screen root the screen camera draws
+            DEV_TOOLS_Z_INDEX,
+            PhysicsDebugStatus,
+            DevUi,
+            children![
+                keycap(PHYSICS_DEBUG, legend),
+                (Text::new(words), muted_text(SMALL_FONT_SIZE_PX)),
+            ],
+        ))
+        .insert_recursive::<Children>(Pickable::IGNORE);
 }
 
 /// Hides the view as photo mode begins, keeping which it was: gizmos are not a dev window, so

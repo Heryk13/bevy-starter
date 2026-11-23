@@ -109,19 +109,22 @@ fn swap_shoulder(mut views: Query<&mut ThirdPersonView>) {
 /// editor lifts it off.
 fn put_camera_behind(
     spatial: SpatialQuery,
-    bodies: Query<(Entity, &GlobalTransform), With<Player>>,
+    // the body's `Transform`, not its `GlobalTransform`: it has no parent, so the two are
+    // the same place, and the global one is only brought up to date after `Update`, so it
+    // would cast the rays from where the body stood a frame ago
+    bodies: Query<(Entity, &Transform), With<Player>>,
     mut cameras: Query<(&ChildOf, &mut Transform, &ThirdPersonView), With<PlayroomCamera>>,
     #[cfg(feature = "dev")] debug_view: Res<PhysicsDebugView>,
     #[cfg(feature = "dev")] mut gizmos: Gizmos,
 ) {
     for (parent, mut transform, view) in &mut cameras {
-        let Ok((body, body_global)) = bodies.get(parent.parent()) else {
+        let Ok((body, body_place)) = bodies.get(parent.parent()) else {
             continue;
         };
         let eyes = Vec3::new(0.0, EYE_OFFSET_M, 0.0);
         let wanted = behind(transform.rotation, view.shoulder);
-        let eyes_world = body_global.transform_point(eyes);
-        let towards = body_global.transform_point(eyes + wanted) - eyes_world;
+        let eyes_world = body_place.transform_point(eyes);
+        let towards = body_place.transform_point(eyes + wanted) - eyes_world;
         let Ok(direction) = Dir3::new(towards) else {
             continue;
         };
@@ -132,7 +135,7 @@ fn put_camera_behind(
                 .map(|hit| hit.distance)
         };
         // across the view, in the world: the camera's own right, turned with the body
-        let side = body_global.rotation() * transform.rotation * Vec3::X * NARROW_HALF_WIDTH_M;
+        let side = body_place.rotation * transform.rotation * Vec3::X * NARROW_HALF_WIDTH_M;
         let rays = [eyes_world, eyes_world - side, eyes_world + side]
             .map(|origin| (origin, hit_from(origin)));
         let [(_, center), (_, left), (_, right)] = rays;
@@ -141,7 +144,7 @@ fn put_camera_behind(
         // F6's second view, a dev tool's, so not in a release build
         #[cfg(feature = "dev")]
         if *debug_view == PhysicsDebugView::CameraRays {
-            let camera_world = body_global.transform_point(transform.translation);
+            let camera_world = body_place.transform_point(transform.translation);
             draw_camera_rays(
                 &mut gizmos,
                 rays,

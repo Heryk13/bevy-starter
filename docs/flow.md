@@ -355,7 +355,8 @@ through `Player`, `PlayroomCamera`, the walk actions and `walk_input`, all `pub(
 F6 (`dev_tools/physics_debug.rs`, which adds avian's `PhysicsDebugPlugin`) steps through
 `PhysicsDebugView`: the outline of every collider, the capsule's included; then the third-person
 camera's three rays, which `third_person.rs` draws itself (green: free; red: a hit that counts;
-yellow: something narrow seen past); then nothing. It starts off, and photo mode hides it,
+yellow: something narrow seen past); then nothing. While a view shows, its name sits top centre
+beside the F6 keycap. It starts off, and photo mode hides it,
 keeping which view it was. F7 (`dev_tools/fly.rs`) puts `Flying`, `GravityScale(0.0)` and
 `ColliderDisabled` on the body, and `fly_player`, after `walk_player`, sets its whole velocity
 where the camera looks; Rise and Sink (Space, Left Shift) move it straight up and down, and F7
