@@ -10,7 +10,7 @@ use super::{
     PRIVATE_KEY, PROTOCOL_ID, Pose, PoseChannel, discovery_packet, pose_of,
 };
 use crate::i18n::Localized;
-use crate::screens::Screen;
+use crate::screens::{Pause, Screen};
 
 // ==== Config =================================================================
 
@@ -58,13 +58,16 @@ struct Broadcast {
 
 // ==== Systems ================================================================
 
-/// Opens the game to the LAN, or closes it, when the switch is pressed.
+/// Opens the game to the LAN, or closes it, when the switch is pressed: the game under the pause
+/// menu runs while it is open, and freezes again once it closes.
 fn press_lan_button(
     activate: On<Activate>,
     mut commands: Commands,
     buttons: Query<(), With<LanButton>>,
     mut network: ResMut<Network>,
     servers: Query<Entity, With<HostServer>>,
+    pause: Option<Res<State<Pause>>>,
+    mut time: ResMut<Time<Virtual>>,
 ) {
     if !buttons.contains(activate.entity) {
         return;
@@ -73,10 +76,16 @@ fn press_lan_button(
         Network::Offline => {
             open_lan(&mut commands);
             *network = Network::Hosting;
+            // pressed in the pause menu, which froze the game: a shared game never freezes
+            time.unpause();
         }
         Network::Hosting => {
             stop_servers(&mut commands, &servers);
             *network = Network::Offline;
+            // alone again, under the pause menu the switch is in: frozen as it would have been
+            if pause.is_some_and(|pause| *pause.get() == Pause::On) {
+                time.pause();
+            }
         }
         // a joiner's pause menu has no switch to press
         Network::Joining { .. } | Network::Joined => {}

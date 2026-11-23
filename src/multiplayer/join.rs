@@ -4,9 +4,10 @@ use lightyear::prelude::*;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use super::remote::{Heading, RemoteIndex, hear_pose};
+use super::world::{FreshInWorld, joiner_session, keep_character};
 use super::{
     CONNECT_TIMEOUT_SECS, Network, NetworkedBody, PRIVATE_KEY, PROTOCOL_ID, PendingNotice, Pose,
-    PoseChannel, pose_of,
+    PoseChannel, WorldState, pose_of,
 };
 use crate::save::Session;
 use crate::screens::{LoadingDestination, Screen, StartGame};
@@ -25,11 +26,10 @@ const HOST_ENDED_KEY: &str = "notice-host-ended";
 /// Not connected in time, or the host gone, it says so; the host gone from gameplay, it goes
 /// back to the menu.
 pub(super) fn plugin(app: &mut App) {
-    app.add_observer(enter_host_game);
     app.add_systems(
         Update,
         (
-            give_up_joining,
+            (enter_host_game, give_up_joining).chain(),
             (send_pose, hear_poses, notice_host_gone).run_if(resource_equals(Network::Joined)),
         ),
     );
@@ -44,24 +44,32 @@ struct HostLink;
 
 // ==== Systems ================================================================
 
-/// Starts a new game straight into gameplay as the connection to the host is made.
+/// Starts the game in the host's world as the host sends it, right after connecting: the
+/// joiner's character as it last stood in this world, or a new one starting on the ring.
 fn enter_host_game(
-    connected: On<Add<Connected>>,
     mut commands: Commands,
-    links: Query<(), With<HostLink>>,
+    mut receivers: Query<&mut MessageReceiver<WorldState>, With<HostLink>>,
     mut network: ResMut<Network>,
+    mut fresh: ResMut<FreshInWorld>,
 ) {
-    if !links.contains(connected.entity) || !matches!(*network, Network::Joining { .. }) {
+    if !matches!(*network, Network::Joining { .. }) {
         return;
     }
+    let Some(state) = receivers
+        .iter_mut()
+        .find_map(|mut receiver| receiver.receive().last())
+    else {
+        return;
+    };
+    let (session, fresh_here) = joiner_session(state);
+    fresh.0 = fresh_here;
     *network = Network::Joined;
     info!("joined the host's game");
     commands.trigger(StartGame {
-        session: Session::default(),
+        session,
         destination: LoadingDestination::Gameplay,
     });
 }
-
 /// Gives up a connection not made within `CONNECT_TIMEOUT_SECS`, a full game's included, and
 /// says the game could not be joined.
 fn give_up_joining(
@@ -147,10 +155,12 @@ fn leave_host_game(
     mut commands: Commands,
     links: Query<Entity, With<HostLink>>,
     mut network: ResMut<Network>,
+    mut session: ResMut<Session>,
 ) {
     if *network != Network::Joined {
         return;
     }
+    keep_character(&mut session);
     for link in &links {
         commands.trigger(Disconnect { entity: link });
         commands.entity(link).try_despawn();

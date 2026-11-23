@@ -63,6 +63,9 @@ pub(crate) struct GameData {
     // the props of this game, `None` until gameplay first copies the default map in: a new
     // game, and a save written before props were saved
     pub(crate) map: Option<MapFile>,
+    // which world: a friend who joined it is put back where they stood // multiplayer
+    // 0 until gameplay first gives it one // multiplayer
+    pub(crate) world_id: u64, // multiplayer
 }
 
 /// Says whether a save the player asked for was written, so whoever shows it decides how,
