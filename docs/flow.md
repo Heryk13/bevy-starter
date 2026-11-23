@@ -50,11 +50,32 @@ overlay opened over it closes.
         +--[Save button]------> Overlay::SaveGame --+   (pause menu only; a save closes it too)
         |                                           |
         +--[Load Game button]-> Overlay::LoadGame --+   (menu and pause menu; a load closes it too)
+        |                                           |
+        +--[Find Server]------> Overlay::FindServer +   (menu only; a Join closes it too)
 ```
 
 The overlay is drawn over whatever screen is below, and that screen keeps running: entering
 an overlay never changes `Screen`, so no `DespawnOnExit(Screen::X)` fires and nothing is lost.
 That is why the menu music keeps playing while Settings is open.
+
+**Multiplayer** (`src/multiplayer.rs` and its folder; every line outside them that names it ends
+with `// multiplayer`) keeps where this game stands on the network in `Network`: `Offline`,
+`Hosting`, `Joining`, `Joined`.
+
+```
+  Offline --Open to LAN (pause menu)--> Hosting --Close LAN / leaving gameplay--> Offline
+  Offline --Join (Find Server)--> Joining --connected--> Joined --> a new game, into gameplay
+                                     +--not in time / full--> Offline, "could not join"
+  Joined --host gone, or leaving gameplay--> Offline, the menu, "the host ended the game"
+```
+
+The host runs a lightyear server (netcode over UDP, `GAME_PORT`) inside its own game and
+broadcasts on `DISCOVERY_PORT` every second; Find Server listens and lists each game heard, and
+takes an address typed. Each game sends its `NetworkedBody`'s pose (the genre puts that on its
+player); the host relays every pose to everyone, and each game shows the others as
+`RemotePlayer`s (`multiplayer/remote.rs`), which a player branch draws in its
+`player/others.rs`, a joiner starting on a ring around the spawn point. Saves, the pause and the
+host's props for a joiner come in the next parts of row 18.
 
 ## The pause flow
 

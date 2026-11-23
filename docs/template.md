@@ -93,6 +93,12 @@ src/
   fade.rs           the fade timing every screen shares
   i18n.rs           languages, translations and the UI font, shared
   input.rs          the game's actions and the keys they are bound to, shared
+  multiplayer.rs    playing over the network: the protocol, `Network`, the poses
+  multiplayer/
+    find_server.rs  Find Server: the games heard, Refresh, join by IP
+    host.rs         Open to LAN: the server, the broadcast, relaying poses
+    join.rs         joining, sending and hearing poses, the host leaving
+    remote.rs       the other players' bodies, eased to their poses
   overlays.rs       Overlay state and overlay plugins
   overlays/
     credits.rs      credits panel
