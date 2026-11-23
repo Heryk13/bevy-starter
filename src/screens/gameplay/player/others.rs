@@ -2,8 +2,10 @@ use avian3d::prelude::{Collider, RigidBody};
 use bevy::prelude::*;
 
 use super::{PLAYER_RADIUS_M, PLAYER_SEGMENT_LENGTH_M};
-use crate::multiplayer::{MAX_PLAYERS, Network, NetworkedBody, RemotePlayer};
+use crate::multiplayer::world::FreshInWorld;
+use crate::multiplayer::{MAX_PLAYERS, Network, NetworkedBody, RemotePlayer, is_joined};
 use crate::screens::Screen;
+use crate::screens::gameplay::map::Prop;
 
 // ==== Config =================================================================
 
@@ -15,13 +17,20 @@ const JOINER_RING_RADIUS_M: f32 = 2.0;
 
 /// The other players, in a game played together: the same capsule as the player's own, with
 /// no name, moved by `multiplayer.rs` to where each of them stands. Kinematic: the player
-/// bumps into them, and they are never pushed, since each one's own game moves them. A joiner
+/// bumps into them, and they are never pushed, since each one's own game moves them. In a game
+/// joined, the physics props are kinematic too, following the host's physics. A joiner
 /// starts on a ring around the spawn point, a place for each player already in, so no two
 /// bodies start one inside the other. A game without multiplayer deletes this file and every
 /// line marked `// multiplayer`.
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(draw_other_player.run_if(in_state(Screen::Gameplay)));
     app.add_observer(start_beside_the_others.run_if(in_state(Screen::Gameplay)));
+    app.add_systems(
+        Update,
+        follow_host_physics
+            .run_if(is_joined)
+            .run_if(in_state(Screen::Gameplay)),
+    );
 }
 
 // ==== Systems ================================================================
@@ -41,19 +50,31 @@ fn draw_other_player(
     ));
 }
 
-/// Moves a joiner's own body, as it spawns, off the spawn point to its place on the ring: the
-/// first free after the players already in, the host keeping the middle.
+/// Moves a joiner's own body, as it spawns in a world it is new to, off the spawn point to its
+/// place on the ring: the first free after the players already in, the host keeping the
+/// middle. Back in a world it knows, it starts where it stood, as its character was kept.
 fn start_beside_the_others(
     add: On<Add<NetworkedBody>>,
     network: Res<Network>,
+    fresh: Res<FreshInWorld>,
     others: Query<(), With<RemotePlayer>>,
     mut bodies: Query<&mut Transform>,
 ) {
-    if *network != Network::Joined {
+    if *network != Network::Joined || !fresh.0 {
         return;
     }
     if let Ok(mut transform) = bodies.get_mut(add.entity) {
         transform.translation += ring_place(others.iter().count());
+    }
+}
+
+/// Makes every physics prop kinematic in a game joined: the host's physics moves them, and
+/// this game only follows where the host says they are.
+fn follow_host_physics(mut commands: Commands, props: Query<(Entity, &RigidBody), With<Prop>>) {
+    for (entity, body) in &props {
+        if *body == RigidBody::Dynamic {
+            commands.entity(entity).insert(RigidBody::Kinematic);
+        }
     }
 }
 
