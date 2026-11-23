@@ -2,7 +2,7 @@ use bevy::prelude::*;
 
 use crate::save::Session;
 
-mod gameplay;
+pub(crate) mod gameplay;
 mod intro;
 mod loading;
 mod menu;

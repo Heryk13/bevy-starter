@@ -3,7 +3,11 @@ use bevy::prelude::*;
 use super::{DEV_TOOLS_Z_INDEX, DevUi, dev_window};
 use crate::input::{Action, ActionName, Binding, Page, action_just_pressed, register_action};
 use crate::screens::Pause;
-use crate::ui::{ClosesOnEsc, Dismiss, SMALL_FONT_SIZE_PX, TEXT, floating_root, font};
+use crate::ui::{ClosesOnEsc, Dismiss, floating_root};
+
+// its thumbnails are made by each genre
+pub(crate) mod library;
+mod window;
 
 // ==== Config =================================================================
 
@@ -13,7 +17,6 @@ const PROP_EDITOR_KEY: KeyCode = KeyCode::F10;
 
 // ---- words: English, as every dev tool's, never read in a release build -----
 const PROP_EDITOR_LABEL: &str = "Prop Editor";
-const WINDOW_TITLE: &str = "Props";
 
 // ---- window: a drawer along the bottom, as Unreal's content drawer ----------
 const WINDOW_MARGIN_PX: f32 = 12.0;
@@ -23,9 +26,10 @@ const WINDOW_HEIGHT_PX: f32 = 280.0;
 
 /// The prop editor on F10: a drawer of props along the bottom of the screen while the game
 /// keeps running, each prop a file in `assets/props/`, placed into the map file that
-/// `screens/gameplay/map.rs` reads. It knows no genre: a genre registers the files it takes,
-/// shows the props and moves the camera. Esc closes it, and so does anything that leaves
-/// `Pause::Off`, since its state lives inside it.
+/// `screens/gameplay/map.rs` reads. It knows no genre: a genre inserts its `PropKind`, shows
+/// the props and moves the camera. Esc closes it, and so does anything that leaves
+/// `Pause::Off`, since its state lives inside it. Its parts are files of their own: the
+/// library of props on disk, and the window that lists them.
 pub(super) fn plugin(app: &mut App) {
     register_action(
         app,
@@ -37,12 +41,22 @@ pub(super) fn plugin(app: &mut App) {
         },
     );
     app.add_sub_state::<PropEditor>();
+    app.add_plugins((library::plugin, window::plugin));
     app.add_systems(
         Update,
         toggle_prop_editor.run_if(action_just_pressed(PROP_EDITOR)),
     );
     app.add_systems(OnEnter(PropEditor::On), spawn_props_window);
     app.add_observer(dismiss_prop_editor.run_if(in_state(PropEditor::On)));
+}
+
+// ==== Prop Kind ==============================================================
+
+/// What a genre's props are: the extensions of the files it takes. The genre inserts it; with
+/// none, as in an Empty game, the window lists nothing.
+#[derive(Resource, Clone, Copy)]
+pub(crate) struct PropKind {
+    pub(crate) extensions: &'static [&'static str],
 }
 
 // ==== State ==================================================================
@@ -85,6 +99,7 @@ fn toggle_prop_editor(
 /// pointer through around it so the game above takes clicks. It is a modal for Esc, so a
 /// genre whose camera holds the cursor gives it back while the editor is open.
 fn spawn_props_window(mut commands: Commands) {
+    let margin = px(WINDOW_MARGIN_PX);
     commands.spawn((
         floating_root(DEV_TOOLS_Z_INDEX),
         Pickable::IGNORE,
@@ -92,7 +107,16 @@ fn spawn_props_window(mut commands: Commands) {
         ClosesOnEsc,
         PropsWindow,
         DespawnOnExit(PropEditor::On),
-        children![props_window()],
+        children![(
+            dev_window(Node {
+                bottom: margin,
+                left: margin,
+                right: margin,
+                height: px(WINDOW_HEIGHT_PX),
+                ..default()
+            }),
+            children![window::window_body()],
+        )],
     ));
 }
 
@@ -105,26 +129,4 @@ fn dismiss_prop_editor(
     if windows.contains(dismiss.entity) {
         next_editor.set(PropEditor::Off);
     }
-}
-
-// ==== Helpers ================================================================
-
-/// Returns the props window: a glass drawer along the bottom of the screen, its title over
-/// what it lists.
-fn props_window() -> impl Bundle {
-    let margin = px(WINDOW_MARGIN_PX);
-    (
-        dev_window(Node {
-            bottom: margin,
-            left: margin,
-            right: margin,
-            height: px(WINDOW_HEIGHT_PX),
-            ..default()
-        }),
-        children![(
-            Text::new(WINDOW_TITLE),
-            font(SMALL_FONT_SIZE_PX),
-            TextColor(TEXT)
-        )],
-    )
 }
