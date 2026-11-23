@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use super::{PLAYER_SIZE_PX, PLAYER_Z};
+use crate::multiplayer::world::FreshInWorld;
 use crate::multiplayer::{MAX_PLAYERS, Network, NetworkedBody, RemotePlayer};
 use crate::screens::Screen;
 use crate::screens::gameplay::playroom::TILE_DISPLAY_PX;
@@ -44,14 +45,16 @@ fn draw_other_player(
 }
 
 /// Moves a joiner's own body, as it spawns, off the spawn point to its place on the ring: the
-/// first free after the players already in, the host keeping the middle.
+/// first free after the players already in, the host keeping the middle; only in a world it
+/// is new to, since back in one it knows it starts where it stood.
 fn start_beside_the_others(
     add: On<Add<NetworkedBody>>,
     network: Res<Network>,
+    fresh: Res<FreshInWorld>,
     others: Query<(), With<RemotePlayer>>,
     mut bodies: Query<&mut Transform>,
 ) {
-    if *network != Network::Joined {
+    if *network != Network::Joined || !fresh.0 {
         return;
     }
     if let Ok(mut transform) = bodies.get_mut(add.entity) {
