@@ -104,7 +104,10 @@ src/
     find_server.rs  Find Server: the games heard, Refresh, join by IP
     host.rs         Open to LAN: the server, the broadcast, relaying poses
     join.rs         joining, sending and hearing poses, the host leaving
+    files.rs        dev builds: the props' files, through the host, both ways
+    props.rs        the props of a shared world: edits, locks, the host's physics
     remote.rs       the other players' bodies, eased to their poses
+    world.rs        the host's world for a joiner, and the joiner's character per world
   overlays.rs       Overlay state and overlay plugins
   overlays/
     credits.rs      credits panel
