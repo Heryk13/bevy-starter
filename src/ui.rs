@@ -6,6 +6,7 @@ use crate::i18n::Localized;
 
 pub(crate) mod blur;
 mod button;
+mod navigation;
 mod panel;
 
 pub(crate) use button::{
@@ -75,7 +76,12 @@ pub(crate) const BORDER_PX: f32 = 1.0;
 // ==== Plugin =================================================================
 
 pub(super) fn plugin(app: &mut App) {
-    app.add_plugins((blur::plugin, button::plugin, panel::plugin));
+    app.add_plugins((
+        blur::plugin,
+        button::plugin,
+        navigation::plugin,
+        panel::plugin,
+    ));
     app.add_systems(Startup, register_icon_font);
 }
 
