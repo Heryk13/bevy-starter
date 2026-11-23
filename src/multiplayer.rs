@@ -14,7 +14,8 @@ mod host;
 mod join;
 mod props;
 mod remote;
-mod world;
+// read by each genre, which starts a joiner new to a world on the ring
+pub(crate) mod world;
 
 pub(crate) use find_server::FindServerButton;
 pub(crate) use host::LanButton;
