@@ -255,6 +255,7 @@ mod tests {
                 yaw: 1.0,
                 pitch: 0.5,
             },
+            map: None,
         };
         let ron_text = ron::to_string(&game_data).unwrap();
         let read_back: GameData = ron::from_str(&ron_text).unwrap();
