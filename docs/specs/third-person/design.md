@@ -1,6 +1,6 @@
 # Third person: a camera over the shoulder, and F5 between it and first person
 
-Status: **built** 2026-11-23. Not yet tried in the game (`just run` pending).
+Status: **built** 2026-11-23, tried in the game.
 Date: 2026-11-23
 Bevy: 0.20.0
 Roadmap: rows 15 and 17 of `docs/roadmap/roadmap.md`, from their "as agreed" sections; row 16,
