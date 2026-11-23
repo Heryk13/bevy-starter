@@ -162,20 +162,23 @@ fn bring_camera_home(mut camera: Single<&mut Transform, With<IsDefaultUiCamera>>
 
 // ==== Helpers ================================================================
 
-/// Returns what the four walk actions ask for: right and up, one per key held, each against
-/// its opposite. Photo mode's free camera pans by the same keys.
+/// Returns what the four walk actions and the left sticks ask for: right and up, one per key
+/// held, each against its opposite, plus how far a stick is pushed. Photo mode's free camera
+/// pans by the same.
 pub(crate) fn walk_input(controls: &Controls) -> Vec2 {
     let axis = |positive, negative| {
         f32::from(u8::from(controls.pressed(positive)))
             - f32::from(u8::from(controls.pressed(negative)))
     };
-    Vec2::new(axis(MOVE_RIGHT, MOVE_LEFT), axis(MOVE_UP, MOVE_DOWN))
+    let keys = Vec2::new(axis(MOVE_RIGHT, MOVE_LEFT), axis(MOVE_UP, MOVE_DOWN));
+    keys + controls.stick(Gamepad::left_stick)
 }
 
-/// Returns the velocity the keys ask for, `input` right and up, made one long first so a
-/// diagonal is no faster than straight across.
+/// Returns the velocity the keys and sticks ask for, `input` right and up, held to one long
+/// first so a diagonal is no faster than straight across, while a stick pushed halfway walks
+/// at half the speed.
 fn walk_velocity(input: Vec2) -> Vec2 {
-    input.normalize_or_zero() * PLAYER_WALK_SPEED_PX_PER_S
+    input.clamp_length_max(1.0) * PLAYER_WALK_SPEED_PX_PER_S
 }
 
 /// Returns half the size of the box the body's middle may move in with the camera still, in
@@ -215,6 +218,12 @@ mod tests {
     fn a_diagonal_walks_as_fast_as_straight_across() {
         let diagonal = walk_velocity(Vec2::ONE);
         assert!((diagonal.length() - PLAYER_WALK_SPEED_PX_PER_S).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn a_stick_pushed_halfway_walks_at_half_the_speed() {
+        let half = walk_velocity(Vec2::new(0.5, 0.0));
+        assert!((half.length() - PLAYER_WALK_SPEED_PX_PER_S / 2.0).abs() < TOLERANCE);
     }
 
     // ---- the camera ---------------------------------------------------------
