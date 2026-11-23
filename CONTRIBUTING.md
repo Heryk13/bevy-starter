@@ -185,13 +185,13 @@ The character tells the kind of boundary:
   change its parent is missing, so it goes to the parent first and arrives by the merge.
 - A branch's specs are about that branch: `3d/base` designs only what every 3D game shares,
   so a branch cut from it never inherits plans that are not its own.
-- Options a game combines freely, like the cameras, are not branches: git cannot add up two
-  sibling branches, since both change the same files. They will live side by side in one
-  branch, and `create-bevy-starter` will delete the ones a game does not keep once a second
-  camera exists (see `docs/specs/create-bevy-starter/design.md`): with first-person alone, it
-  asks for the camera and clones `3d/player` whole. For it to find them, each
-  option will be one file, and every line outside that file naming it will end with its marker
-  (`mod first_person; // camera: first-person`).
+- Options a game combines freely, like the cameras, multiplayer and the split screen, are not
+  branches: git cannot add up two sibling branches, since both change the same files. They live
+  side by side in one branch, and `create-bevy-starter` deletes the ones a game does not keep
+  (see `docs/specs/create-bevy-starter-0-4/design.md`). For it to find them, each option is one
+  file (or a file and its folder), and every line outside it naming it ends with its marker
+  (`mod first_person; // camera: first-person`, `# multiplayer` in `Cargo.toml`); its spec
+  checks that deleting both leaves a game that builds.
 - `create-bevy-starter` renames the game where `docs/template.md` says to: `name` in
   `Cargo.toml`, `game` in `justfile`, `GAME_TITLE` in `src/main.rs`. It also removes the
   `## Branches` section of `README.md` and this one, empties `docs/specs/` and deletes
