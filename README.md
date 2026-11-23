@@ -80,12 +80,14 @@ flowchart LR
 
 Each branch's `docs/specs/` holds the designs built on it and what is still to come.
 The cameras of `3d/player` (first-person and third-person, built, then isometric) are not
-branches of their own: a game will keep any of them, and switches between them with F5 when it
-keeps more than one. Multiplayer is planned too, as an option across the kinds rather than a
-branch. [`create-bevy-starter`](https://github.com/Heryk13/create-bevy-starter) builds a game
-from `main`, `3d/base`, `3d/player`, `2d/base` or `2d/player`, by its kind and, for a 3D
-game, the camera picked, for a 2D one, whether it has the player: it clones the branch, renames the game and starts a fresh git
-history. Its design is in [its spec](docs/specs/create-bevy-starter/design.md).
+branches of their own: a game keeps any of them, and switches between them with F5 when it
+keeps both. Multiplayer, in every branch, and the split screen of `3d/player` are options the
+same way. [`create-bevy-starter`](https://github.com/Heryk13/create-bevy-starter) builds a game
+from `main`, `3d/base`, `3d/player`, `2d/base` or `2d/player`, by its kind and, for a 3D game,
+the cameras ticked, for a 2D one, whether it has the player: it clones the branch, deletes the
+options not chosen by their markers, renames the game and starts a fresh git history. Its design
+is in [its spec](docs/specs/create-bevy-starter/design.md), its 0.4.0 in
+[another](docs/specs/create-bevy-starter-0-4/design.md).
 
 A change is committed on the highest branch that every game using it starts from, and merged
 down from there. `tools/` does both in one command, and a game made by `create-bevy-starter`
