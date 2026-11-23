@@ -74,8 +74,15 @@ broadcasts on `DISCOVERY_PORT` every second; Find Server listens and lists each 
 takes an address typed. Each game sends its `NetworkedBody`'s pose (the genre puts that on its
 player); the host relays every pose to everyone, and each game shows the others as
 `RemotePlayer`s (`multiplayer/remote.rs`), which a player branch draws in its
-`player/others.rs`, a joiner starting on a ring around the spawn point. Saves, the pause and the
-host's props for a joiner come in the next parts of row 18.
+`player/others.rs`, a joiner starting on a ring around the spawn point.
+A shared game never freezes: entering `Pause::On` or `Pause::Photo` pauses no time while hosting
+or joined (`is_shared_game`), and slow motion stays off. The host's game is the world, with an
+id (`GameData::world_id`); a joiner gets it and its props (`WorldState`) as it connects, keeps
+only its own character, per world, in `characters.ron` (`multiplayer/world.rs`), and has no Save,
+Load Game nor autosave. Every prop edit goes through the host (`MapEdit` asked, `MapChange` made,
+`multiplayer/props.rs`), a prop held is locked for the others, the host's physics moves every
+physics prop for all, and in dev builds the props' files go through the host both ways
+(`multiplayer/files.rs`).
 
 ## The pause flow
 
