@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 
+use super::prop_editor::PropEditor;
 use super::recording::RecordingState;
 use super::{DevUi, dev_window, spawn_dev_window};
 use crate::input::{
@@ -55,7 +56,9 @@ pub(super) fn plugin(app: &mut App) {
             .run_if(action_just_pressed(PHOTO_MODE))
             // the two tools never run together: a photo would freeze a recording, and hide
             // its REC
-            .run_if(in_state(RecordingState::Off)),
+            .run_if(in_state(RecordingState::Off))
+            // nor photo mode and the editor: both move the same camera
+            .run_if(not(in_state(PropEditor::On))),
     );
     app.add_systems(OnEnter(Pause::Photo), (hide_dev_ui, spawn_hint_bar));
     app.add_systems(OnExit(Pause::Photo), show_dev_ui);
