@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::disk::{game_data_dir, write_atomic};
+use crate::screens::gameplay::map::MapFile;
 
 mod picture;
 
@@ -49,8 +50,8 @@ pub(crate) struct Session {
     pub(crate) autosave_tried_secs: f32,
 }
 
-/// What the game itself keeps in a save: the world, the player, their progress. Empty until
-/// the gameplay has something to remember. It travels the whole way already: a new game
+/// What the game itself keeps in a save: the world, the player, their progress, and the props
+/// placed with the editor. It travels the whole way already: a new game
 /// starts from `default()`, every save writes it, and a loaded save hands it back in the
 /// `Session`, so gameplay builds its world from `Session::game` on `OnEnter(Screen::Gameplay)`
 /// and keeps it current for the next save.
@@ -58,7 +59,11 @@ pub(crate) struct Session {
 // at its default, so adding one needs no `SAVE_VERSION` bump
 #[derive(Serialize, Deserialize, Clone, Default)]
 #[serde(default)]
-pub(crate) struct GameData {}
+pub(crate) struct GameData {
+    // the props of this game, `None` until gameplay first copies the default map in: a new
+    // game, and a save written before props were saved
+    pub(crate) map: Option<MapFile>,
+}
 
 /// Says whether a save the player asked for was written, so whoever shows it decides how,
 /// and whoever writes it never learns about that screen's widgets.
