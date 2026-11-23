@@ -1,6 +1,7 @@
 # Props in saves: each save keeps its own props, the default map starts a new game
 
-Status: **designed** 2026-11-23.
+Status: **built** 2026-11-23, on `main` and `3d/player`. Not yet tried in the game (`just run`
+pending).
 Date: 2026-11-23
 Bevy: 0.20.0
 Roadmap: a change to row 13 (the prop editor, `docs/specs/prop-editor/design.md`, built), asked
@@ -66,4 +67,12 @@ could not differ, and a test in one game changed every other (the user, 2026-11-
 
 ## What changed while building it
 
-Nothing yet.
+- **Steps 1 and 2 are one commit** (found while building 1): `MapFile::as_placed`, which strips
+  `resting`, only has a caller in Save as Default Map, so step 1 alone failed `just check`'s
+  `dead_code`.
+- **`map: Option<MapFile>`**, the whole `MapFile` in `GameData`, ids and `next_id` included, so the
+  editor carries on numbering in a loaded game.
+- **A physics prop only gets a `resting` once it moved**: more than `REST_MOVE_M` (1 cm) or
+  `REST_TURN_RAD` from where it was placed, so the settling of a prop put down is not a push.
+- **Only a dynamic body is recorded**, which leaves out a prop held in the editor's hand (it is
+  kinematic then) with no dev-only code in `props.rs`, a file every build has.
