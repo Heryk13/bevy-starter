@@ -74,7 +74,7 @@ flowchart LR
 | ----------- | ----------------------------------------------------------------------- |
 | `main`      | The template for any game                                               |
 | `3d/base`   | A test level (`playroom.glb`) under a sky and a glaring sun             |
-| `3d/player` | Physics, a player in first or third person (F5 switches, V swaps shoulder), and the 3D dev tools (F6, F7) |
+| `3d/player` | Physics, a player in first or third person (F5 switches, V swaps shoulder), a split screen for a second player on a gamepad (Select), and the 3D dev tools (F6, F7) |
 | `2d/base`   | A test room seen from above, drawn in tiles from an ASCII map           |
 | `2d/player` | A square that walks the room, the camera following it near an edge      |
 
