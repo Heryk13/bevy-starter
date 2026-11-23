@@ -9,6 +9,9 @@ use std::time::Duration;
 use crate::screens::Screen;
 use crate::screens::gameplay::map::MapFile;
 
+// the props' files, which only the prop editor of a dev build adds
+#[cfg(feature = "dev")]
+mod files;
 mod find_server;
 mod host;
 mod join;
@@ -97,6 +100,8 @@ pub(crate) fn plugin(app: &mut App) {
         world::plugin,
         props::plugin,
     ));
+    #[cfg(feature = "dev")]
+    app.add_plugins(files::plugin);
 }
 
 // ==== Run Conditions =========================================================
