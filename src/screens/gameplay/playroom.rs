@@ -24,8 +24,8 @@ mod sun_glare;
 
 // ---- the camera kit: what every camera on the level carries -----------------
 // below the screen camera's default order of 0, so the level is drawn first and the UI
-// lands on top of it
-const PLAYROOM_CAMERA_ORDER: isize = -1;
+// lands on top of it; more views on the level take the orders below it, one each
+pub(crate) const PLAYROOM_CAMERA_ORDER: isize = -1;
 // outdoor daylight: the sun is RAW_SUNLIGHT, far too bright for the default exposure, made
 // for indoor light. Each step up halves the brightness. Bevy's atmosphere example uses 13,
 // this one was settled by eye. The eye below corrects it frame by frame, measuring the view
@@ -105,10 +105,12 @@ pub(super) fn plugin(app: &mut App) {
 
 // ==== Components =============================================================
 
-/// A camera on the playroom: spawning it brings the camera kit, the exposure, sky light,
-/// bloom and ambient occlusion the level is lit for, so every camera that shows the level,
-/// whatever moves it, looks the same and keeps the UI cameras matched to it.
-#[derive(Component)]
+/// A view of the playroom: spawning it brings the camera kit, the exposure, sky light, bloom
+/// and ambient occlusion the level is lit for, so every camera that shows the level, whatever
+/// moves it, looks the same and keeps the UI cameras matched to it. The player's own camera is
+/// a `PlayroomCamera`; a view alone is one more on the level, as a split screen's other
+/// players' (`player/split_screen.rs` on `3d/player`).
+#[derive(Component, Default)]
 #[require(
     Camera3d,
     Camera {
@@ -149,6 +151,12 @@ pub(super) fn plugin(app: &mut App) {
     // smooths edges in MSAA's place, from the finished image, so SSAO keeps working
     Smaa
 )]
+pub(crate) struct PlayroomView;
+
+/// The camera the game is seen through: the one camera, or in a split screen the first
+/// player's. What follows the player, looks around or reads where the view is asks for this.
+#[derive(Component)]
+#[require(PlayroomView)]
 pub(crate) struct PlayroomCamera;
 
 // ==== Systems ================================================================
@@ -230,13 +238,13 @@ fn match_ui_cameras_to_playroom_camera(
     screen_camera.clear_color = ClearColorConfig::None;
 }
 
-/// Stops every playroom camera while the screens are wholly hidden behind a layer's blur,
+/// Stops every view of the playroom while the screens are wholly hidden behind a layer's blur,
 /// as under the pause menu once its copy is made, and starts it again the moment they are
 /// not. The level is the costliest thing drawn, its sky, shadows and ambient occlusion
 /// included, and none of it would show: a paused game then costs less than a running one.
 fn rest_playroom_cameras(
     screens_covered: Res<ScreensCovered>,
-    mut cameras: Query<&mut Camera, With<PlayroomCamera>>,
+    mut cameras: Query<&mut Camera, With<PlayroomView>>,
 ) {
     for mut camera in &mut cameras {
         // compared first: writing the same value would still mark the camera changed
