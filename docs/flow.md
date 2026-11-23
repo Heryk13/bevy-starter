@@ -136,6 +136,26 @@ Opus into `gallery/<time>.mp4.part` on a thread of its own and renames it once w
 and on `AppExit` alike; `sound.rs` hears the game's own process through Windows' process
 loopback.
 
+**The prop editor** (`src/dev_tools/prop_editor.rs` and its folder, dev builds only) is a
+state of its own, `PropEditor` (`Off`, `On`), a `SubStates` of `Pause::Off`: the game keeps
+running under it, and the pause menu, photo mode or leaving gameplay each close it, since its
+state stops existing with `Pause::Off`. F10 opens and closes it; Esc puts a prop held back where
+it was, and with none held closes it. F3 does nothing while it is open, as both move the camera.
+
+```
+  Off --F10, in Pause::Off--> On --F10 / Esc with nothing held--> Off
+                               +--Esc / pause / photo mode / leaving gameplay--> gone
+```
+
+Its window is a drawer along the bottom, `ClosesOnEsc`, letting the pointer through around it,
+so `3d/player` frees the cursor while it is open and holds it again only while the right button
+turns the camera. The props are the files in `assets/props/` the genre takes (`PropKind`), read
+again every second while the window is open. Every change goes through one `MapEdit` (`Place`,
+`Update`, `Delete`), which `apply_map_edit` writes to `assets/map.ron` and applies to the world.
+`screens/gameplay/map.rs`, in every build, spawns the map's props on entering gameplay, each a
+`Prop`, a `PropFile`, a `PropMode` and a `Transform`; a genre observes `PropFile` to put the
+model or the image on it, and on `3d/player` the body of its mode.
+
 A dialog is not a state: it is an entity drawn over whatever asked the question, the pause menu
 or the save list, and No or Esc despawns it and leaves what is underneath as it was.
 
@@ -537,6 +557,7 @@ do this. The layers, bottom to top:
 | dev tools' windows, in dev builds | 300 | `DEV_TOOLS_Z_INDEX`, in `dev_tools.rs` |
 | the file explorer's rename field, in dev builds | 301 | `RENAME_FIELD_Z_INDEX`, in `dev_tools/file_explorer/rename.rs`, 1 above the dev tools: a modal only for Esc, inside the explorer |
 | the file explorer's questions and right-click menu, in dev builds | 310 | `EXPLORER_DIALOG_Z_INDEX`, in `dev_tools/file_explorer/dialog.rs`, 10 above the dev tools |
+| the prop editor's mode and depth menus, on `3d/player` and `2d/player`, in dev builds | 310 | `MENU_Z_INDEX`, in `dev_tools/prop_editor_3d/mode_menu.rs` and `dev_tools/prop_editor_2d.rs`, 10 above the dev tools |
 
 Those numbers order roots *within a camera*. Every floating layer (pause, overlays, dialogs) also
 has a camera of its own, ordered by the same number and drawn after the screen camera, so each
@@ -861,6 +882,8 @@ work. `DIALOG_Z_INDEX` is 200, above the overlays.
 | `assets/ui/click.wav`, `assets/ui/hover.wav` | `ui/button.rs` | loaded once at `Startup` |
 | `assets/locales/<code>/main.ftl` | `i18n.rs` | compiled in with `include_str!`, not loaded |
 | `assets/fonts/NotoSansJP-Regular.otf` | `i18n.rs` | compiled in with `include_bytes!`, not loaded |
+| `assets/map.ron` | `gameplay/map.rs` | where each prop stands; written by the prop editor in dev builds |
+| `assets/props/` | `gameplay/map.rs`, the prop editor | the props the editor offers and the map places |
 
 Dropping a file into `assets/splash/logos/`, `assets/loading/` or `assets/intro/frames/` is enough:
 those three read the whole folder, so no code changes to add or remove one.

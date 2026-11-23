@@ -1,6 +1,7 @@
 # Prop editor: place, move, turn, scale and delete props on F10, kept in a map file
 
-Status: **designed** 2026-11-23, not started.
+Status: **built** 2026-11-23: the base on `main`, the 3D editor on `3d/player`, the 2D editor on
+`2d/player`. Not yet tried in the game (`just run` pending).
 Date: 2026-11-23
 Bevy: 0.20.0
 Roadmap: row 13 of `docs/roadmap/roadmap.md`, from its "Prop editor, as agreed so far"
@@ -172,4 +173,43 @@ the players by the merge down; 6 to 9 on `3d/player`; 10 on `2d/player`.
 
 ## What changed while building it
 
-Nothing yet.
+- **`PropFile` apart from `Prop`** (decided while building 1): a genre observes `PropFile` to
+  show a prop, so the editor's new prop in the hand, which has a file and no id yet, shows the
+  same way. `Prop` holds only the `PropId`.
+- **No `Map` resource** (decided while building 5): the editor reads the map file at each edit,
+  applies it and writes it back. `read_map` returns `None` for a file it cannot read, and an edit
+  then writes nothing, so a map broken by hand is never written over.
+- **Three edits, not four** (found while building 5): `Place`, `Update { id, transform, mode }`
+  and `Delete`. `Move` and `SetMode` became `Update`: putting a prop down keeps its mode, choosing
+  a mode keeps where it stands, and a `SetMode` nothing on `main` builds would have needed an
+  `#[allow(dead_code)]`, which `just check` refuses.
+- **A new mode is a new prop** (decided before step 6): `apply_map_edit` despawns the prop and
+  spawns it again from the map, so its body is built from its mode as it spawns, rather than
+  every genre taking apart the colliders a model's meshes got.
+- **`PropKind`, a resource** (decided while building 3): the genre inserts the extensions it takes
+  and the axis R turns about (`Dir3::Y` in 3D, `Dir3::Z` in 2D), in place of
+  `register_prop_extensions`.
+- **`read_dir` every second, not `load_folder`** (found while building 3): `load_folder` loads
+  every model in the folder, and one file that fails to load fails the whole folder
+  (`bevy_asset-0.20.0/src/server/mod.rs:990`). The window reads the folder as it opens and every
+  `RESCAN_SECS` (1 s) while it is open, a `ponytail:` note beside it.
+- **Dropped files are copied with the explorer's `copy_entry`** (decided while building 4), which
+  already numbers a taken name, rather than with `write_atomic`.
+- **`PropEditor` is a `SubStates` of `Pause::Off`** (decided while building 2): the pause menu,
+  photo mode and leaving gameplay close it with no code of their own.
+- **A new prop is placed when put down** (decided while building 5): taking one from a thumbnail
+  writes nothing, so leaving gameplay or Esc with it in the hand leaves the map as it was.
+- **The player ignores a prop's colliders being ready** (found while building 6): `spawn_player`
+  spawned a player on every `ColliderConstructorHierarchyReady`, which each fixed prop also sends.
+  Physics props wait, disabled (`RigidBodyDisabled`), for the level's, as the player does.
+- **The pine's origin is 7 cm above its base, not 1.77 m** (found while building 6): its trunk's
+  node sits 1.84 m up. Resting the lowest point on the surface stays, for models that need it.
+- **The editor's camera flies at 8 m/s** (decided while building 7), photo mode's at 3: a map is
+  built across the whole level. Bevy 0.20 combines run conditions with `or_else` and `and_then`.
+- **The mode menu is a file of its own**, `prop_editor_3d/mode_menu.rs` (decided while building
+  9), a column of buttons rather than the explorer's menu code. Its sheet is a `PropsSheet` too,
+  so a click on an item never reaches the prop behind it.
+- **In 2D a plain right click opens the depth menu** (decided while building 10): the 2D camera
+  never turns, so the right button has no hold to tell apart. In Front and Behind are `PLAYER_Z`
+  plus or minus `PROP_DEPTH_STEP` (0.5). The pine's picture is 128 px, from the front and 30°
+  above, rendered by a Blender script; the model is mostly trunk, so that is what it shows.
