@@ -5,6 +5,8 @@ use crate::save::{
     Session, autosave_is_due, new_autosave_path, saves_dir, take_save_picture, write_save,
 };
 
+// read by the editor, which writes it, and by each genre, which shows its props
+pub(crate) mod map;
 pub(crate) mod pause;
 pub(crate) mod playroom;
 
@@ -18,7 +20,7 @@ pub(super) fn plugin(app: &mut App) {
     // inserts the GameplayAssets the playroom needs
     app.init_resource::<Session>();
     app.add_observer(start_game_from_gameplay.run_if(in_state(Screen::Gameplay)));
-    app.add_plugins(pause::plugin);
+    app.add_plugins((map::plugin, pause::plugin));
     app.add_plugins(playroom::plugin);
     app.add_systems(
         Update,
