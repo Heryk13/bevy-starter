@@ -16,6 +16,8 @@ use crate::screens::Screen;
 use crate::screens::gameplay::map::{Prop, PropMode};
 use crate::screens::gameplay::playroom::PlayroomCamera;
 
+mod mode_menu;
+
 // ==== Config =================================================================
 
 // the files a 3D game's props are, and the axis R turns one about
@@ -52,11 +54,13 @@ const THUMBNAIL_FOV_RAD: f32 = THUMBNAIL_FOV_DEG.to_radians();
 /// The prop editor in 3D: the props are models, R turns them about the vertical, and a held
 /// prop rests its lowest point where the cursor points. Every model gets a thumbnail, drawn
 /// once by a camera of its own. A held physics prop is kinematic, so it neither falls from
-/// the mouse nor is pushed while held. The camera is photo mode's free camera
+/// the mouse nor is pushed while held, and a quick right click on a placed prop opens its
+/// mode menu (`mode_menu.rs`). The camera is photo mode's free camera
 /// (`free_camera.rs`), which the editor lifts off the body.
 pub(super) fn plugin(app: &mut App) {
     app.insert_resource(PROP_KIND);
     app.init_resource::<Thumbnails>();
+    app.add_plugins(mode_menu::plugin);
     app.add_systems(
         Update,
         (
