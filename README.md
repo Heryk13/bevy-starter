@@ -35,7 +35,12 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   to 10× on the same keys, which the players of `3d/player` and `2d/player` walk by), screen
   recording (F9: a bar to set the sound, 30 or 60 fps and a countdown, then E records an
   `.mp4` of the game alone, its own UI and sound included and the dev UI never, into
-  `gallery/`; the sound is Windows-only, and nothing is installed outside cargo) and the
+  `gallery/`; the sound is Windows-only, and nothing is installed outside cargo), the prop
+  editor (F10: a drawer of the files in `assets/props/` while the game keeps running; click a
+  thumbnail, then the world, to place one, R turns it, the wheel scales it, Delete removes it,
+  and every change is written at once to `assets/map.ron`, which release builds read too; on
+  `3d/player` a right click picks fixed, physics or no collision, on `2d/player` in front of
+  the player or behind) and the
   file explorer (Numpad 0: a drawer over the running game that browses the gallery and the
   game's `assets/` like the Windows explorer, with a preview, folders, renaming, dragging, a
   trash of its own, files dropped in from the OS, and a warning before changing an asset the
