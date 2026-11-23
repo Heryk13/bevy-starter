@@ -86,6 +86,7 @@ src/
       edits.rs      every change to the map: place, update, delete; holding, R, the wheel
       library.rs    the props on disk, files dropped in, favourites and recents
       window.rs     the drawer's tabs, search, sort and grid of thumbnails
+    prop_editor_2d.rs  the 2D props: images, placing at the cursor, in front or behind
     recording.rs    F9: a video of the game alone into gallery/, its states and REC
     recording/
       bar.rs        the bar: sound, frame rate, timer, Record
@@ -119,6 +120,7 @@ src/
       pause.rs      pause state and pause menu, freezing game time
       player.rs     a square that walks the room, the camera following it near an edge
       playroom.rs   the test room: an ASCII map drawn in tiles
+      props.rs      a prop's image
   save.rs           the game in progress and the save files, shared
   save/
     picture.rs      the picture a save carries: taking it, encoding it, its file
