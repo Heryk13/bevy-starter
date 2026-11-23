@@ -5,7 +5,8 @@ use bevy::camera::visibility::RenderLayers;
 use bevy::picking::hover::Hovered;
 use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
-use bevy::render::render_resource::TextureFormat;
+use bevy::render::gpu_readback::{ReadbackComplete, ReadbackOnce};
+use bevy::render::render_resource::{TextureFormat, TextureUsages};
 use bevy::window::PrimaryWindow;
 use bevy::world_serialization::WorldInstanceReady;
 
@@ -40,11 +41,12 @@ const THUMBNAIL_VIEW_FROM: Vec3 = Vec3::new(0.6, 0.5, 1.0);
 // room around the model, so its edges never touch the thumbnail's
 const THUMBNAIL_MARGIN: f32 = 1.15;
 const THUMBNAIL_FOV_DEG: f32 = 35.0;
-const THUMBNAIL_LIGHT_LUX: f32 = 8_000.0;
-// frames to draw before the image is taken: one to place the camera, one to draw with it
-const THUMBNAIL_RENDER_FRAMES: u32 = 2;
-// a model not in by then never will be: a broken file, given up on so the others go on
-const THUMBNAIL_GIVE_UP_SECS: f32 = 10.0;
+// bright, and lit all round as well, so a dark model still reads against the dark glass
+const THUMBNAIL_LIGHT_LUX: f32 = 20_000.0;
+const THUMBNAIL_AMBIENT_BRIGHTNESS: f32 = 2_000.0;
+// a model not drawn by then never will be: a broken file, given up on so the others go on;
+// long enough for the first thumbnail, which waits for its camera's shaders to compile
+const THUMBNAIL_GIVE_UP_SECS: f32 = 20.0;
 
 // ---- derived ----------------------------------------------------------------
 const THUMBNAIL_FOV_RAD: f32 = THUMBNAIL_FOV_DEG.to_radians();
@@ -71,6 +73,7 @@ pub(super) fn plugin(app: &mut App) {
             .run_if(in_state(PropEditor::On)),
     );
     app.add_observer(show_thumbnail_model);
+    app.add_observer(check_thumbnail_drawn);
     app.add_observer(hold_physics_still);
     app.add_observer(let_physics_go);
 }
@@ -80,6 +83,10 @@ pub(super) fn plugin(app: &mut App) {
 /// Marks the model a thumbnail is being drawn of.
 #[derive(Component)]
 struct ThumbnailModel;
+
+/// Marks a read-back of the thumbnail being drawn.
+#[derive(Component)]
+struct ThumbnailReadback;
 
 // ==== Resources ==============================================================
 
@@ -92,13 +99,17 @@ struct Thumbnails {
 }
 
 /// One thumbnail being drawn: its file, the image, the model, camera and light, when it
-/// started, and the frames since the model came in.
+/// started, and how far along it is: the model in, the camera placed, a read-back under way,
+/// something drawn.
 struct ThumbnailJob {
     file: String,
     image: Handle<Image>,
     rig: [Entity; 3],
     started_secs: f32,
-    ready_frames: Option<u32>,
+    ready: bool,
+    framed: bool,
+    reading: bool,
+    drawn: bool,
 }
 
 // ==== Systems ================================================================
@@ -187,12 +198,15 @@ fn start_thumbnail(
     }) else {
         return;
     };
-    let image = images.add(Image::new_target_texture(
+    let mut target = Image::new_target_texture(
         THUMBNAIL_SIZE_PX,
         THUMBNAIL_SIZE_PX,
         TextureFormat::Rgba8Unorm,
         Some(TextureFormat::Rgba8UnormSrgb),
-    ));
+    );
+    // read back to tell when the camera has drawn it, as recording reads its frames
+    target.texture_descriptor.usage |= TextureUsages::COPY_SRC;
+    let image = images.add(target);
     let layer = RenderLayers::layer(THUMBNAIL_LAYER);
     let model = commands
         .spawn((
@@ -213,6 +227,10 @@ fn start_thumbnail(
                 ..default()
             },
             RenderTarget::Image(image.clone().into()),
+            AmbientLight {
+                brightness: THUMBNAIL_AMBIENT_BRIGHTNESS,
+                ..default()
+            },
             Projection::Perspective(PerspectiveProjection {
                 fov: THUMBNAIL_FOV_RAD,
                 ..default()
@@ -239,14 +257,19 @@ fn start_thumbnail(
         image,
         rig: [model, camera, light],
         started_secs: time.elapsed_secs(),
-        ready_frames: None,
+        ready: false,
+        framed: false,
+        reading: false,
+        drawn: false,
     });
 }
 
-/// Frames the model the frame after it is in, once its parts have their places, lets the
-/// camera draw it, and keeps the image as the file's thumbnail, the model, camera and light
-/// gone. A model still not in after `THUMBNAIL_GIVE_UP_SECS` is given up on, so a broken file
-/// never holds up the others.
+/// Frames the model the frame after it is in, once its parts have their places, and lets the
+/// camera draw it; then reads the image back until it holds something drawn, since Bevy draws
+/// nothing for a new camera until its shaders are compiled, which takes frames of its own. The
+/// drawn image becomes the file's thumbnail, and the model, camera and light go. A model still
+/// not drawn after `THUMBNAIL_GIVE_UP_SECS` is given up on, so a broken file never holds up the
+/// others.
 fn finish_thumbnail(
     mut commands: Commands,
     time: Res<Time<Real>>,
@@ -260,18 +283,7 @@ fn finish_thumbnail(
         return;
     };
     let [model, camera, _] = job.rig;
-    let frames = match job.ready_frames.as_mut() {
-        Some(frames) => {
-            *frames += 1;
-            *frames
-        }
-        None if time.elapsed_secs() - job.started_secs > THUMBNAIL_GIVE_UP_SECS => {
-            warn!("no thumbnail for {}: its model never came in", job.file);
-            u32::MAX
-        }
-        None => return,
-    };
-    if frames == 1 {
+    if job.ready && !job.framed {
         let (low, high) = descendants([model], &children)
             .iter()
             .filter_map(|part| bounds.get(*part).ok())
@@ -282,24 +294,32 @@ fn finish_thumbnail(
             *place = framing(low, high);
             lens.is_active = true;
         }
+        job.framed = true;
         return;
     }
-    if frames <= THUMBNAIL_RENDER_FRAMES {
+    let given_up = time.elapsed_secs() - job.started_secs > THUMBNAIL_GIVE_UP_SECS;
+    if job.drawn || given_up {
+        if job.drawn {
+            thumbnail_images
+                .0
+                .insert(job.file.clone(), job.image.clone());
+        } else {
+            warn!("no thumbnail for {}: it was never drawn", job.file);
+        }
+        for part in job.rig {
+            commands.entity(part).try_despawn();
+        }
+        thumbnails.drawing = None;
         return;
     }
-    if frames != u32::MAX {
-        thumbnail_images
-            .0
-            .insert(job.file.clone(), job.image.clone());
+    if job.framed && !job.reading {
+        commands.spawn((ReadbackOnce::texture(job.image.clone()), ThumbnailReadback));
+        job.reading = true;
     }
-    for part in job.rig {
-        commands.entity(part).try_despawn();
-    }
-    thumbnails.drawing = None;
 }
 
 /// Puts every part of a thumbnail's model on the thumbnail layer once it is in, since a layer
-/// is not handed down from the root to the meshes, and starts counting its frames.
+/// is not handed down from the root to the meshes.
 fn show_thumbnail_model(
     ready: On<WorldInstanceReady>,
     mut commands: Commands,
@@ -316,7 +336,24 @@ fn show_thumbnail_model(
             .insert(RenderLayers::layer(THUMBNAIL_LAYER));
     }
     if let Some(job) = thumbnails.drawing.as_mut() {
-        job.ready_frames = Some(0);
+        job.ready = true;
+    }
+}
+
+/// Tells the thumbnail being drawn whether its image, read back, holds anything drawn yet.
+fn check_thumbnail_drawn(
+    readback: On<ReadbackComplete>,
+    mut commands: Commands,
+    readbacks: Query<(), With<ThumbnailReadback>>,
+    mut thumbnails: ResMut<Thumbnails>,
+) {
+    if !readbacks.contains(readback.entity) {
+        return;
+    }
+    commands.entity(readback.entity).despawn();
+    if let Some(job) = thumbnails.drawing.as_mut() {
+        job.reading = false;
+        job.drawn = is_drawn(&readback.data);
     }
 }
 
@@ -365,6 +402,13 @@ fn descendants(
         all.extend(children.iter_descendants(root));
     }
     all
+}
+
+/// Tells whether an RGBA8 image read back holds anything drawn: a pixel not fully see-through,
+/// on a camera that clears to nothing.
+fn is_drawn(rgba: &[u8]) -> bool {
+    let (pixels, _) = rgba.as_chunks::<4>();
+    pixels.iter().any(|[_, _, _, alpha]| *alpha > 0)
 }
 
 /// Returns the lowest and highest corners, in the world, of a mesh's local box.
@@ -440,5 +484,11 @@ mod tests {
     fn a_prop_not_in_yet_rests_by_its_origin() {
         let surface = Vec3::new(0.0, 1.0, 0.0);
         assert_eq!(resting_on(surface, 4.0, None), surface);
+    }
+
+    #[test]
+    fn an_image_still_see_through_is_not_drawn_yet() {
+        assert!(!is_drawn(&[0; 16]));
+        assert!(is_drawn(&[0, 0, 0, 0, 40, 30, 20, 255]));
     }
 }
