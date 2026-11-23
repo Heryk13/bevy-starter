@@ -3,7 +3,7 @@ use bevy::ui_widgets::Activate;
 
 use crate::fade::Fade;
 use crate::i18n::{Language, Translations};
-use crate::multiplayer::LanButton; // multiplayer
+use crate::multiplayer::{LanButton, is_shared_game}; // multiplayer
 use crate::overlays::Overlay;
 use crate::save::{SaveFinished, Session, has_unsaved_progress};
 use crate::screens::Screen;
@@ -39,14 +39,21 @@ const SAVE_STATUS_FADE: Fade = Fade {
 
 pub(super) fn plugin(app: &mut App) {
     app.add_sub_state::<Pause>();
+    let freeze = pause_time;
+    // a shared game never freezes: the others keep playing in it // multiplayer
+    let freeze = freeze.run_if(not(is_shared_game)); // multiplayer
     app.add_systems(
         OnEnter(Pause::On),
-        (spawn_pause_menu, pause_time, freeze_background),
+        (spawn_pause_menu, freeze, freeze_background),
     );
     app.add_systems(OnExit(Pause::On), (unpause_time, unfreeze_background));
     // photo mode freezes the game the same way, only without the menu
     #[cfg(feature = "dev")]
-    app.add_systems(OnEnter(Pause::Photo), (pause_time, freeze_background));
+    let photo_freeze = pause_time;
+    #[cfg(feature = "dev")]
+    let photo_freeze = photo_freeze.run_if(not(is_shared_game)); // multiplayer
+    #[cfg(feature = "dev")]
+    app.add_systems(OnEnter(Pause::Photo), (photo_freeze, freeze_background));
     #[cfg(feature = "dev")]
     app.add_systems(OnExit(Pause::Photo), (unpause_time, unfreeze_background));
     app.add_observer(activate_pause_button.run_if(in_state(Pause::On)));

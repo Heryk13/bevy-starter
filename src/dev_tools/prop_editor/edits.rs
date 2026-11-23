@@ -1,13 +1,16 @@
 use bevy::input::mouse::{AccumulatedMouseScroll, MouseScrollUnit};
 use bevy::picking::hover::Hovered;
+use bevy::platform::collections::HashSet;
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
+use serde::{Deserialize, Serialize};
 
 use super::super::register_inner_key;
 use super::library::PropPreferences;
 use super::window::PropCell;
 use super::{PropEditor, PropKind};
 use crate::input::{Action, ActionName, Binding, Controls, Page, register_action};
+use crate::multiplayer::is_joined; // multiplayer
 use crate::save::Session;
 use crate::screens::Screen;
 use crate::screens::gameplay::map::{
@@ -63,7 +66,12 @@ pub(super) fn plugin(app: &mut App) {
         register_inner_key(app, name);
     }
     app.init_resource::<HoveredProp>();
-    app.add_observer(apply_map_edit.run_if(in_state(Screen::Gameplay)));
+    app.init_resource::<LockedProps>();
+    let apply_edits = apply_map_edit.run_if(in_state(Screen::Gameplay));
+    // a joined game sends its edits to the host, which sends their changes back // multiplayer
+    let apply_edits = apply_edits.run_if(not(is_joined)); // multiplayer
+    app.add_observer(apply_edits);
+    app.add_observer(apply_map_change.run_if(in_state(Screen::Gameplay)));
     app.add_observer(take_new_prop.run_if(in_state(PropEditor::On)));
     app.add_systems(
         Update,
@@ -83,23 +91,42 @@ pub(super) fn plugin(app: &mut App) {
 
 // ==== Events =================================================================
 
-/// A change to the map, the one way the editor changes it: applied to the world and to the game
-/// in progress by `apply_map_edit`. It names props by `PropId`, never by `Entity`, so the
-/// same edit means the same on another machine.
-#[derive(Event, Clone, PartialEq, Debug)]
+/// What a player asks of the map, the one way the editor changes it: `apply_map_edit` turns it
+/// into the `MapChange` it makes. It names props by `PropId`, never by `Entity`, so the same
+/// edit means the same on another machine; in a game joined, it goes to the host instead.
+#[derive(Event, Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub(crate) enum MapEdit {
     Place {
         file: String,
+        #[serde(with = "transform_parts")]
         transform: Transform,
     },
     // where a prop stands and how it collides, both: putting a prop down keeps its mode, and
     // choosing a mode keeps where it stands, so one edit serves both, in every genre
     Update {
         id: PropId,
+        #[serde(with = "transform_parts")]
         transform: Transform,
         mode: PropMode,
     },
     Delete {
+        id: PropId,
+    },
+}
+
+/// What an edit made of the map, every id settled: a new prop with the id it took, a prop
+/// moved or given a mode, a prop gone. `apply_map_change` applies it; a host sends it to the
+/// games that joined, which apply it the same way, so only the host ever hands out an id.
+#[derive(Event, Serialize, Deserialize, Clone, PartialEq, Debug)]
+pub(crate) enum MapChange {
+    Placed(PlacedProp),
+    Updated {
+        id: PropId,
+        #[serde(with = "transform_parts")]
+        transform: Transform,
+        mode: PropMode,
+    },
+    Deleted {
         id: PropId,
     },
 }
@@ -124,18 +151,31 @@ pub(crate) struct PropsSheet;
 #[derive(Resource, Default)]
 pub(crate) struct HoveredProp(pub(crate) Option<Entity>);
 
+/// The props another player holds, which this one cannot pick up until they are put down.
+/// Always empty in a game played alone; multiplayer fills it.
+#[derive(Resource, Default)]
+pub(crate) struct LockedProps(pub(crate) HashSet<PropId>);
+
 // ==== Systems ================================================================
 
 /// Applies an edit to the game in progress, which its next save keeps, then to the world: a
 /// new prop spawned, a prop moved or given a mode, or removed. The default map, a file, only
 /// changes by Save as Default Map.
-fn apply_map_edit(
-    edit: On<MapEdit>,
+fn apply_map_edit(edit: On<MapEdit>, mut commands: Commands, session: Res<Session>) {
+    let map = session.game.map.clone().unwrap_or_default();
+    commands.trigger(change_of(&map, &edit));
+}
+
+/// Applies a change to the game in progress, then to the world: a new prop spawned, a prop
+/// moved or given a mode, or removed. Every edit comes here as its change, and so does every
+/// change a host sends to a game that joined it.
+fn apply_map_change(
+    change: On<MapChange>,
     mut commands: Commands,
     mut session: ResMut<Session>,
     mut props: Query<(Entity, &Prop, &mut Transform, &PropMode)>,
 ) {
-    let map = applied(session.game.map.take().unwrap_or_default(), &edit);
+    let map = with_change(session.game.map.take().unwrap_or_default(), &change);
     let map = &*session.game.map.insert(map);
     let entity_of = |id: PropId| {
         props
@@ -143,13 +183,11 @@ fn apply_map_edit(
             .find(|(_, prop, _, _)| prop.0 == id)
             .map(|(entity, _, _, _)| entity)
     };
-    match &*edit {
-        MapEdit::Place { .. } => {
-            if let Some(placed) = map.props.last() {
-                commands.spawn(prop_bundle(placed));
-            }
+    match &*change {
+        MapChange::Placed(placed) => {
+            commands.spawn(prop_bundle(placed));
         }
-        MapEdit::Update {
+        MapChange::Updated {
             id,
             transform,
             mode,
@@ -169,7 +207,7 @@ fn apply_map_edit(
                 }
             }
         }
-        MapEdit::Delete { id } => {
+        MapChange::Deleted { id } => {
             if let Some(entity) = entity_of(*id) {
                 commands.entity(entity).despawn();
             }
@@ -214,7 +252,8 @@ fn put_down_or_pick_up(
     mouse: Res<ButtonInput<MouseButton>>,
     sheets: Query<&Hovered, With<PropsSheet>>,
     held: Query<(Entity, &PropFile, &Transform, &PropMode, Option<&Prop>), With<Held>>,
-    placed: Query<&Transform, With<Prop>>,
+    placed: Query<(&Transform, &Prop)>,
+    locked: Res<LockedProps>,
     hovered: Res<HoveredProp>,
     mut preferences: ResMut<PropPreferences>,
 ) {
@@ -242,8 +281,10 @@ fn put_down_or_pick_up(
         }
         return;
     }
+    // a prop another player holds stays where it is until they put it down
     if let Some(entity) = hovered.0
-        && let Ok(transform) = placed.get(entity)
+        && let Ok((transform, prop)) = placed.get(entity)
+        && !locked.0.contains(&prop.0)
     {
         commands.entity(entity).insert(Held {
             from: Some(*transform),
@@ -345,25 +386,42 @@ pub(super) fn put_back(commands: &mut Commands, entity: Entity, held: &Held, pro
     }
 }
 
-/// Returns `map` with `edit` applied: a new prop takes `next_id`, which then moves on, and a
-/// deleted prop's id is never handed out again; a prop placed or moved has no resting place
-/// any more. An edit naming a prop the map lacks changes
-/// nothing.
-fn applied(mut map: MapFile, edit: &MapEdit) -> MapFile {
+/// Returns the change `edit` makes of `map`: a new prop takes `next_id`, and every other edit
+/// carries on as it is, with the prop's id.
+fn change_of(map: &MapFile, edit: &MapEdit) -> MapChange {
     match edit {
-        MapEdit::Place { file, transform } => {
-            map.props.push(PlacedProp {
-                id: PropId(map.next_id),
-                file: file.clone(),
-                position: transform.translation,
-                rotation: transform.rotation,
-                scale: transform.scale.x,
-                mode: PropMode::default(),
-                resting: None,
-            });
-            map.next_id += 1;
-        }
+        MapEdit::Place { file, transform } => MapChange::Placed(PlacedProp {
+            id: PropId(map.next_id),
+            file: file.clone(),
+            position: transform.translation,
+            rotation: transform.rotation,
+            scale: transform.scale.x,
+            mode: PropMode::default(),
+            resting: None,
+        }),
         MapEdit::Update {
+            id,
+            transform,
+            mode,
+        } => MapChange::Updated {
+            id: *id,
+            transform: *transform,
+            mode: *mode,
+        },
+        MapEdit::Delete { id } => MapChange::Deleted { id: *id },
+    }
+}
+
+/// Returns `map` with `change` in it: `next_id` moves past a prop placed, so a deleted prop's id
+/// is never handed out again; a prop placed or moved has no resting place any more. A change
+/// naming a prop the map lacks changes nothing.
+fn with_change(mut map: MapFile, change: &MapChange) -> MapFile {
+    match change {
+        MapChange::Placed(placed) => {
+            map.next_id = map.next_id.max(placed.id.0 + 1);
+            map.props.push(placed.clone());
+        }
+        MapChange::Updated {
             id,
             transform,
             mode,
@@ -377,7 +435,7 @@ fn applied(mut map: MapFile, edit: &MapEdit) -> MapFile {
                 placed.resting = None;
             }
         }
-        MapEdit::Delete { id } => map.props.retain(|placed| placed.id != *id),
+        MapChange::Deleted { id } => map.props.retain(|placed| placed.id != *id),
     }
     map
 }
@@ -392,6 +450,31 @@ fn scaled(scale: f32, notches: f32) -> f32 {
     (scale * PROP_SCALE_STEP.powf(notches)).clamp(PROP_SCALE_MIN, PROP_SCALE_MAX)
 }
 
+/// Writes a `Transform` as its three parts, which serde can write, for an edit sent to another
+/// machine: Bevy's own `Transform` is written only with a feature this game does not build.
+mod transform_parts {
+    use bevy::prelude::{Quat, Transform, Vec3};
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    pub(super) fn serialize<S: Serializer>(
+        transform: &Transform,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        (transform.translation, transform.rotation, transform.scale).serialize(serializer)
+    }
+
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Transform, D::Error> {
+        let (translation, rotation, scale) = <(Vec3, Quat, Vec3)>::deserialize(deserializer)?;
+        Ok(Transform {
+            translation,
+            rotation,
+            scale,
+        })
+    }
+}
+
 // ==== Tests ==================================================================
 
 #[cfg(test)]
@@ -400,6 +483,12 @@ mod tests {
     use crate::screens::gameplay::map::PropRest;
 
     const TOLERANCE: f32 = 1e-4;
+
+    /// Returns `map` with `edit` made, as a game played alone makes it.
+    fn applied(map: MapFile, edit: &MapEdit) -> MapFile {
+        let change = change_of(&map, edit);
+        with_change(map, &change)
+    }
 
     fn map_of(ids: &[u32]) -> MapFile {
         MapFile {
