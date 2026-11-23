@@ -44,9 +44,9 @@ pub(crate) struct PlacedProp {
     pub(crate) rotation: Quat,
     pub(crate) scale: f32,
     pub(crate) mode: PropMode,
-    // only a physics prop that moved has one, and the default map none: left out of the file
-    // then, so the default map reads as it did
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    // only a physics prop that moved has one, and the default map none. Always written, as
+    // `None` too: the network writes every field, in order, with nothing to say one is left out
+    #[serde(default)]
     pub(crate) resting: Option<PropRest>,
 }
 
@@ -273,12 +273,6 @@ mod tests {
         };
         prop.resting = Some(rest);
         assert_eq!(prop.transform().translation, rest.position);
-    }
-
-    #[test]
-    fn a_prop_that_never_moved_writes_no_resting() {
-        let text = ron::to_string(&placed(0, "props/a.glb")).unwrap();
-        assert!(!text.contains("resting"));
     }
 
     #[cfg(feature = "dev")]
