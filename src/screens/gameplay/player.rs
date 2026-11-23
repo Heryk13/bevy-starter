@@ -268,6 +268,7 @@ mod tests {
             },
             map: None,
             camera: CameraView::default(), // camera: switch
+            world_id: 0,                   // multiplayer
         };
         let ron_text = ron::to_string(&game_data).unwrap();
         let read_back: GameData = ron::from_str(&ron_text).unwrap();
