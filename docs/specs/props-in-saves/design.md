@@ -1,7 +1,6 @@
 # Props in saves: each save keeps its own props, the default map starts a new game
 
-Status: **built** 2026-11-23, on `main` and `3d/player`. Not yet tried in the game (`just run`
-pending).
+Status: **built** 2026-11-23, on `main` and `3d/player`, tried in the game.
 Date: 2026-11-23
 Bevy: 0.20.0
 Roadmap: a change to row 13 (the prop editor, `docs/specs/prop-editor/design.md`, built), asked
