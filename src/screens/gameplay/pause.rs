@@ -3,6 +3,7 @@ use bevy::ui_widgets::Activate;
 
 use crate::fade::Fade;
 use crate::i18n::{Language, Translations};
+use crate::multiplayer::LanButton; // multiplayer
 use crate::overlays::Overlay;
 use crate::save::{SaveFinished, Session, has_unsaved_progress};
 use crate::screens::Screen;
@@ -125,6 +126,7 @@ fn spawn_pause_menu(mut commands: Commands) {
                         (menu_button("pause-save"), PauseAction::SaveGame),
                         (menu_button("pause-load-game"), PauseAction::LoadGame),
                         (menu_button("pause-settings"), PauseAction::Settings),
+                        (menu_button("pause-open-to-lan"), LanButton), // multiplayer
                         (
                             menu_button("pause-quit-to-menu"),
                             PauseAction::Quit(QuitTo::Menu)
