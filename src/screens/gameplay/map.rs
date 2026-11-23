@@ -3,36 +3,39 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::save::Session;
 use crate::screens::Screen;
 
 // ==== Config =================================================================
 
-// in the assets folder, committed: the map is part of the game, not the player's
+// in the assets folder, committed: the default map is part of the game, not the player's
 const MAP_FILE_NAME: &str = "map.ron";
 const ASSETS_DIR_NAME: &str = "assets";
 
 // ==== Plugin =================================================================
 
-/// The map file: where every prop placed with the editor stands, read on entering gameplay,
-/// release builds included, so each prop starts where it was put. A prop spawns here as a
-/// plain entity, a `Prop` with its `PropFile`, its `PropMode` and its `Transform`; what it
-/// looks like and how it collides are the genre's, which observe `PropFile`.
+/// The props of the game in progress, kept in its save, release builds included: on entering
+/// gameplay a game with none yet, a new one or one saved before props were, gets a copy of the
+/// default map, `assets/map.ron`, and each prop spawns as a plain entity, a `Prop` with its
+/// `PropFile`, its `PropMode` and its `Transform`. What it looks like and how it collides are
+/// the genre's, which observe `PropFile`.
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(OnEnter(Screen::Gameplay), spawn_map_props);
 }
 
 // ==== Map ====================================================================
 
-/// The map file: every placed prop, and the id the next one takes.
+/// A map: every placed prop, and the id the next one takes. The default map is one, in
+/// `assets/map.ron`, and so is the map each save keeps.
 #[derive(Serialize, Deserialize, Clone, Default, PartialEq, Debug)]
 pub(crate) struct MapFile {
     pub(crate) next_id: u32,
     pub(crate) props: Vec<PlacedProp>,
 }
 
-/// One prop where the editor put it. `file` is its asset path from `assets/`
-/// (`props/douglas_pine.glb`), the way every `.ron` under `assets/` names an asset, so the
-/// file explorer asks before deleting a file the map places.
+/// One prop where the editor put it, and where physics left it since, if it moved. `file` is
+/// its asset path from `assets/` (`props/douglas_pine.glb`), the way every `.ron` under
+/// `assets/` names an asset, so the file explorer asks before deleting a file the map places.
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub(crate) struct PlacedProp {
     pub(crate) id: PropId,
@@ -41,6 +44,17 @@ pub(crate) struct PlacedProp {
     pub(crate) rotation: Quat,
     pub(crate) scale: f32,
     pub(crate) mode: PropMode,
+    // only a physics prop that moved has one, and the default map none: left out of the file
+    // then, so the default map reads as it did
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) resting: Option<PropRest>,
+}
+
+/// Where physics left a prop: kept in the save, so a pushed box loads where it came to rest.
+#[derive(Serialize, Deserialize, Clone, Copy, PartialEq, Debug)]
+pub(crate) struct PropRest {
+    pub(crate) position: Vec3,
+    pub(crate) rotation: Quat,
 }
 
 /// A placed prop's id, the same on every machine, where an `Entity` is not: what an edit
@@ -59,13 +73,32 @@ pub(crate) enum PropMode {
 }
 
 impl PlacedProp {
-    /// Returns where the prop stands, as its entity's `Transform`.
+    /// Returns where the prop stands, as its entity's `Transform`: where physics left it, or
+    /// where it was placed.
     pub(crate) fn transform(&self) -> Transform {
+        let (translation, rotation) = match self.resting {
+            Some(rest) => (rest.position, rest.rotation),
+            None => (self.position, self.rotation),
+        };
         Transform {
-            translation: self.position,
-            rotation: self.rotation,
+            translation,
+            rotation,
             scale: Vec3::splat(self.scale),
         }
+    }
+}
+
+impl MapFile {
+    /// Returns the map as the default map keeps it: every prop where it was placed, none where
+    /// physics left it, so a test played before writing it never rearranges it. Only the
+    /// editor writes the default map, and only dev builds have the editor.
+    #[cfg(feature = "dev")]
+    pub(crate) fn as_placed(&self) -> MapFile {
+        let mut map = self.clone();
+        for placed in &mut map.props {
+            placed.resting = None;
+        }
+        map
     }
 }
 
@@ -82,12 +115,16 @@ pub(crate) struct PropFile(pub(crate) String);
 
 // ==== Systems ================================================================
 
-/// Spawns every placed prop of the map file whose asset is on disk, and warns about each
-/// whose asset is gone: that one stays in the map, so the file put back brings it back.
-fn spawn_map_props(mut commands: Commands) {
-    let map = read_map().unwrap_or_default();
+/// Spawns every prop of the game in progress whose asset is on disk, a game with none yet
+/// getting a copy of the default map first, and warns about each whose asset is gone: that one
+/// stays in the map, so the file put back brings it back.
+fn spawn_map_props(mut commands: Commands, mut session: ResMut<Session>) {
+    let map = session
+        .game
+        .map
+        .get_or_insert_with(|| read_map().unwrap_or_default());
     let assets = assets_dir();
-    let (present, missing) = props_to_spawn(&map, |file| assets.join(file).is_file());
+    let (present, missing) = props_to_spawn(map, |file| assets.join(file).is_file());
     for placed in present {
         commands.spawn(prop_bundle(placed));
     }
@@ -186,6 +223,7 @@ mod tests {
             rotation: Quat::from_rotation_y(0.5),
             scale: 1.5,
             mode: PropMode::Physics,
+            resting: None,
         }
     }
 
@@ -223,5 +261,41 @@ mod tests {
         let (present, missing) = props_to_spawn(&map, |file| file == "props/here.glb");
         assert_eq!(present.len(), 1);
         assert_eq!(missing.first().map(|placed| placed.id), Some(PropId(1)));
+    }
+
+    #[test]
+    fn a_prop_physics_moved_stands_where_it_came_to_rest() {
+        let mut prop = placed(0, "props/a.glb");
+        assert_eq!(prop.transform().translation, prop.position);
+        let rest = PropRest {
+            position: Vec3::new(9.0, 0.0, 9.0),
+            rotation: Quat::IDENTITY,
+        };
+        prop.resting = Some(rest);
+        assert_eq!(prop.transform().translation, rest.position);
+    }
+
+    #[test]
+    fn a_prop_that_never_moved_writes_no_resting() {
+        let text = ron::to_string(&placed(0, "props/a.glb")).unwrap();
+        assert!(!text.contains("resting"));
+    }
+
+    #[cfg(feature = "dev")]
+    #[test]
+    fn the_default_map_keeps_where_props_were_placed() {
+        let mut map = MapFile {
+            next_id: 1,
+            props: vec![placed(0, "props/a.glb")],
+        };
+        if let Some(prop) = map.props.first_mut() {
+            prop.resting = Some(PropRest {
+                position: Vec3::splat(9.0),
+                rotation: Quat::IDENTITY,
+            });
+        }
+        let placed_map = map.as_placed();
+        assert_eq!(placed_map.props.first().and_then(|prop| prop.resting), None);
+        assert_eq!(placed_map.props.len(), 1);
     }
 }

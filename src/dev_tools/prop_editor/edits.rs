@@ -8,9 +8,10 @@ use super::library::PropPreferences;
 use super::window::PropCell;
 use super::{PropEditor, PropKind};
 use crate::input::{Action, ActionName, Binding, Controls, Page, register_action};
+use crate::save::Session;
 use crate::screens::Screen;
 use crate::screens::gameplay::map::{
-    MapFile, PlacedProp, Prop, PropFile, PropId, PropMode, prop_bundle, read_map, write_map,
+    MapFile, PlacedProp, Prop, PropFile, PropId, PropMode, prop_bundle,
 };
 
 // ==== Config =================================================================
@@ -39,7 +40,7 @@ const PROP_TURN_STEP_RAD: f32 = PROP_TURN_STEP_DEG.to_radians();
 // ==== Plugin =================================================================
 
 /// What the editor does to props: every change goes through one `MapEdit`, applied to the
-/// world and written to the map file in one place, so multiplayer can later send the same
+/// world and to the game in progress in one place, so multiplayer can later send the same
 /// edit to the host first. A click on a thumbnail takes a new prop into the hand and each click
 /// in the world places one, until the thumbnail is pressed again; a click on
 /// a placed one picks it up, and another click puts it down; R turns the held prop, the wheel
@@ -82,8 +83,8 @@ pub(super) fn plugin(app: &mut App) {
 
 // ==== Events =================================================================
 
-/// A change to the map, the one way the editor changes it: applied to the world and written
-/// to the map file by `apply_map_edit`. It names props by `PropId`, never by `Entity`, so the
+/// A change to the map, the one way the editor changes it: applied to the world and to the game
+/// in progress by `apply_map_edit`. It names props by `PropId`, never by `Entity`, so the
 /// same edit means the same on another machine.
 #[derive(Event, Clone, PartialEq, Debug)]
 pub(crate) enum MapEdit {
@@ -125,22 +126,17 @@ pub(crate) struct HoveredProp(pub(crate) Option<Entity>);
 
 // ==== Systems ================================================================
 
-/// Applies an edit to the map file, then to the world: a new prop spawned, a prop moved or
-/// given a mode, or removed. A map that cannot be read is left alone, never written over.
+/// Applies an edit to the game in progress, which its next save keeps, then to the world: a
+/// new prop spawned, a prop moved or given a mode, or removed. The default map, a file, only
+/// changes by Save as Default Map.
 fn apply_map_edit(
     edit: On<MapEdit>,
     mut commands: Commands,
+    mut session: ResMut<Session>,
     mut props: Query<(Entity, &Prop, &mut Transform, &PropMode)>,
 ) {
-    let Some(map) = read_map() else {
-        error!("the map file could not be read, so this edit is not kept");
-        return;
-    };
-    let map = applied(map, &edit);
-    if let Err(err) = write_map(&map) {
-        error!("could not write the map file: {err}");
-        return;
-    }
+    let map = applied(session.game.map.take().unwrap_or_default(), &edit);
+    let map = &*session.game.map.insert(map);
     let entity_of = |id: PropId| {
         props
             .iter()
@@ -350,7 +346,8 @@ pub(super) fn put_back(commands: &mut Commands, entity: Entity, held: &Held, pro
 }
 
 /// Returns `map` with `edit` applied: a new prop takes `next_id`, which then moves on, and a
-/// deleted prop's id is never handed out again. An edit naming a prop the map lacks changes
+/// deleted prop's id is never handed out again; a prop placed or moved has no resting place
+/// any more. An edit naming a prop the map lacks changes
 /// nothing.
 fn applied(mut map: MapFile, edit: &MapEdit) -> MapFile {
     match edit {
@@ -362,6 +359,7 @@ fn applied(mut map: MapFile, edit: &MapEdit) -> MapFile {
                 rotation: transform.rotation,
                 scale: transform.scale.x,
                 mode: PropMode::default(),
+                resting: None,
             });
             map.next_id += 1;
         }
@@ -375,6 +373,8 @@ fn applied(mut map: MapFile, edit: &MapEdit) -> MapFile {
                 placed.rotation = transform.rotation;
                 placed.scale = transform.scale.x;
                 placed.mode = *mode;
+                // placed again, so where physics had left it no longer counts
+                placed.resting = None;
             }
         }
         MapEdit::Delete { id } => map.props.retain(|placed| placed.id != *id),
@@ -397,6 +397,7 @@ fn scaled(scale: f32, notches: f32) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::screens::gameplay::map::PropRest;
 
     const TOLERANCE: f32 = 1e-4;
 
@@ -412,6 +413,7 @@ mod tests {
                     rotation: Quat::IDENTITY,
                     scale: 1.0,
                     mode: PropMode::Fixed,
+                    resting: None,
                 })
                 .collect(),
         }
@@ -449,6 +451,26 @@ mod tests {
         assert_eq!(map.props[0], map_of(&[0, 1]).props[0]);
         assert_eq!(map.props[1].position, Vec3::new(5.0, 0.0, 0.0));
         assert!((map.props[1].scale - 2.0).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn moving_a_prop_forgets_where_physics_left_it() {
+        let mut map = map_of(&[0]);
+        if let Some(prop) = map.props.first_mut() {
+            prop.resting = Some(PropRest {
+                position: Vec3::splat(9.0),
+                rotation: Quat::IDENTITY,
+            });
+        }
+        let map = applied(
+            map,
+            &MapEdit::Update {
+                id: PropId(0),
+                transform: Transform::from_xyz(1.0, 0.0, 0.0),
+                mode: PropMode::Physics,
+            },
+        );
+        assert_eq!(map.props.first().and_then(|prop| prop.resting), None);
     }
 
     #[test]
