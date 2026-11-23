@@ -73,26 +73,54 @@ pub(crate) struct Controls<'w, 's> {
     // an `Option`: a world without keyboard focus, as a test's, has no field to type in
     focus: Option<Res<'w, InputFocus>>,
     text_fields: Query<'w, 's, (), With<EditableText>>,
+    gamepads: Query<'w, 's, &'static Gamepad>,
 }
 
 impl Controls<'_, '_> {
     /// Tells whether what the action is bound to went down this frame. An action nobody
     /// registered was never pressed.
     pub(crate) fn just_pressed(&self, action: ActionName) -> bool {
-        match self.heard(action) {
+        let bound = match self.heard(action) {
             Some(Binding::Key(key)) => self.keys.just_pressed(key),
             Some(Binding::Mouse(button)) => self.mouse.just_pressed(button),
-            None => false,
-        }
+            None => return false,
+        };
+        bound || self.on_any_pad(action, Gamepad::just_pressed)
     }
 
     /// Tells whether what the action is bound to is held down.
     pub(crate) fn pressed(&self, action: ActionName) -> bool {
-        match self.heard(action) {
+        let bound = match self.heard(action) {
             Some(Binding::Key(key)) => self.keys.pressed(key),
             Some(Binding::Mouse(button)) => self.mouse.pressed(button),
-            None => false,
+            None => return false,
+        };
+        bound || self.on_any_pad(action, Gamepad::pressed)
+    }
+
+    /// Tells whether `test` holds for one of the action's gamepad buttons, on any gamepad.
+    fn on_any_pad(
+        &self,
+        action: ActionName,
+        test: impl Fn(&Gamepad, GamepadButton) -> bool,
+    ) -> bool {
+        self.bindings
+            .pads(action)
+            .any(|button| self.gamepads.iter().any(|pad| test(pad, button)))
+    }
+
+    /// Returns where a stick points, right and up, read by `read` (`Gamepad::left_stick`, what
+    /// the menus and a genre's walk go by, or `Gamepad::right_stick`, what a genre looks around
+    /// by): the one pushed furthest of all the gamepads', or none pushed.
+    pub(crate) fn stick(&self, read: impl Fn(&Gamepad) -> Vec2) -> Vec2 {
+        if self.bindings.listening.is_some() {
+            return Vec2::ZERO;
         }
+        self.gamepads
+            .iter()
+            .map(read)
+            .max_by(|a, b| a.length_squared().total_cmp(&b.length_squared()))
+            .unwrap_or(Vec2::ZERO)
     }
 
     /// Returns what the action is bound to, as `Bindings::heard` hears it, a text field
@@ -113,6 +141,17 @@ pub(crate) fn action_just_pressed(action: ActionName) -> impl FnMut(Controls) ->
     move |controls: Controls| controls.just_pressed(action)
 }
 
+/// Lets a gamepad button do what an action does, beside its key: called by the feature that
+/// registered the action, for the few a gamepad needs (pause, jump, the camera). An action may
+/// take more than one. Unlike a key, it is not changed on the Controls page.
+pub(crate) fn register_pad(app: &mut App, action: ActionName, button: GamepadButton) {
+    app.init_resource::<Bindings>();
+    app.world_mut()
+        .resource_mut::<Bindings>()
+        .pads
+        .push((action, button));
+}
+
 // ==== Resources ==============================================================
 
 /// Every action the game has, in the order the features registered them, each with what it
@@ -126,6 +165,8 @@ pub(crate) struct Bindings {
     unknown: SavedBindings,
     // the action waiting for the player to press what it will be bound to, if any
     listening: Option<ActionName>,
+    // the gamepad buttons that do what an action does, each beside its action
+    pads: Vec<(ActionName, GamepadButton)>,
 }
 
 impl Bindings {
@@ -213,6 +254,14 @@ impl Bindings {
             .find(|bound| bound.action.name == action)
             .filter(|bound| !typing || bound.action.label.is_none())
             .map(|bound| bound.binding)
+    }
+
+    /// Returns the gamepad buttons that do what the action does.
+    fn pads(&self, action: ActionName) -> impl Iterator<Item = GamepadButton> + '_ {
+        self.pads
+            .iter()
+            .filter(move |(name, _)| *name == action)
+            .map(|(_, button)| *button)
     }
 
     /// Returns what the action is bound to, or `None` for one nobody registered.
@@ -378,6 +427,26 @@ mod tests {
         let forward_is_pressed = |controls: Controls| controls.pressed(FORWARD);
 
         assert!(world.run_system_once(forward_is_pressed).unwrap());
+        world.resource_mut::<Bindings>().listen(BACK);
+        assert!(!world.run_system_once(forward_is_pressed).unwrap());
+    }
+
+    #[test]
+    fn a_gamepad_button_does_what_its_action_does() {
+        let mut world = World::new();
+        let mut bindings = bindings();
+        bindings.pads.push((FORWARD, GamepadButton::DPadUp));
+        world.insert_resource(bindings);
+        world.init_resource::<ButtonInput<KeyCode>>();
+        world.init_resource::<ButtonInput<MouseButton>>();
+        let mut pad = Gamepad::default();
+        pad.digital_mut().press(GamepadButton::DPadUp);
+        world.spawn(pad);
+        let forward_is_pressed = |controls: Controls| controls.pressed(FORWARD);
+        let back_is_pressed = |controls: Controls| controls.pressed(BACK);
+
+        assert!(world.run_system_once(forward_is_pressed).unwrap());
+        assert!(!world.run_system_once(back_is_pressed).unwrap());
         world.resource_mut::<Bindings>().listen(BACK);
         assert!(!world.run_system_once(forward_is_pressed).unwrap());
     }
