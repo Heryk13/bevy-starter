@@ -5,6 +5,7 @@ use super::{dev_window, register_inner_key, spawn_dev_window};
 use crate::input::{
     Action, ActionName, Binding, Bindings, Controls, Page, action_just_pressed, register_action,
 };
+use crate::multiplayer::is_shared_game; // multiplayer
 use crate::overlays::{binding_legend, keycap};
 use crate::screens::Pause;
 use crate::ui::{ACCENT, BODY_FONT_SIZE_PX, Icon, TEXT, custom_icon, font};
@@ -82,7 +83,9 @@ pub(super) fn plugin(app: &mut App) {
         )
             .chain()
             // hidden in photo mode, so it neither opens nor steps behind a photo
-            .run_if(not(in_state(Pause::Photo))),
+            .run_if(not(in_state(Pause::Photo)))
+            // off in a shared game: the host runs the world for everyone // multiplayer
+            .run_if(not(is_shared_game)), // multiplayer
     );
     app.add_observer(reset_slow_motion);
 }
