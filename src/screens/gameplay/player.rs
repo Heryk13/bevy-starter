@@ -15,6 +15,8 @@ use crate::screens::gameplay::playroom::PlayroomCamera;
 use crate::screens::{Pause, Screen};
 
 mod first_person; // camera: first-person
+// every camera's: the camera on the body, the mouse look and the cursor
+mod look;
 
 // ==== Config =================================================================
 
@@ -75,10 +77,10 @@ pub(super) fn plugin(app: &mut App) {
         );
     }
     app.add_observer(spawn_player.run_if(in_state(Screen::Gameplay)));
+    app.add_plugins(look::plugin);
     app.add_plugins(first_person::plugin); // camera: first-person
-    // walk_player reads the yaw that the camera's look writes, with no order between them:
-    // naming the camera's system here would tie the body to a file a game may delete, and a
-    // turn read one frame late is a few milliseconds no one can feel. record_player_state
+    // walk_player reads the yaw that the look (`look.rs`) writes, with no order between them:
+    // a turn read one frame late is a few milliseconds no one can feel. record_player_state
     // has no order either: against the look for the same reason, and against the autosave,
     // which reads the session it writes, since a save a frame behind is a few centimetres
     // off. Both only in Pause::Off: a save loaded from the pause menu replaces the session
