@@ -35,3 +35,6 @@ options it left out, as they still name template branches.
 - **The game is formatted again after the removals** (found by the first `just check-combos`):
   without multiplayer, `cargo fmt --check` failed in three files, a signature that now fits one
   line and two calls whose last argument had gone. It compiled; only the format differed.
+- **`just check-combos` passed all 20 games** on its second run (2026-11-24, 47 minutes, against
+  the template and the CLI as pushed): each one's `just check`, formatting, clippy in dev and
+  release, and its tests, from 334 to 390 of them.
