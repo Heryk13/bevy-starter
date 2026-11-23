@@ -7,8 +7,9 @@ For setup and the day-to-day commands, see the [README](../README.md).
 
 [`create-bevy-starter`](https://github.com/Heryk13/create-bevy-starter) does step 0 and the
 three renames of step 1, empties `docs/specs/`, drops the Branches section of the README and
-of `CONTRIBUTING.md`, deletes `tools/`, the template's own scripts for its branch tree, and
-makes the first commit. The steps below are the manual path, and what is left after it.
+of `CONTRIBUTING.md`, deletes `tools/`, the template's own scripts for its branch tree, deletes
+the cameras, split screen and multiplayer not chosen, and makes the first commit. The steps
+below are the manual path, and what is left after it.
 
 0. Start from the branch closest to the game: `main` for the bare template, or a variant
    such as `3d/base` or `2d/base` (see [Branches](https://github.com/Heryk13/bevy-starter#branches)).
