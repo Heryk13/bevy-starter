@@ -45,7 +45,7 @@ pub(crate) struct LanButton;
 
 /// Marks the server this game runs while hosting.
 #[derive(Component)]
-struct HostServer;
+pub(super) struct HostServer;
 
 // ==== Resources ==============================================================
 
@@ -221,6 +221,8 @@ fn open_lan(commands: &mut Commands) {
         ))
         .id();
     commands.trigger(Start { entity: server });
+    #[cfg(feature = "dev")]
+    commands.insert_resource(super::OwnId(HOST_ID));
     match UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).and_then(|socket| {
         socket.set_broadcast(true)?;
         Ok(socket)

@@ -6,6 +6,7 @@ use bevy::ui_widgets::{Activate, ScrollArea, TextInput};
 use super::PropEditor;
 use super::edits::Held;
 use super::library::{LibraryEntry, PropLibrary, PropPreferences, PropThumbnails};
+use crate::multiplayer::is_joined; // multiplayer
 use crate::save::Session;
 use crate::screens::gameplay::map::{Prop, PropFile, write_map};
 use crate::ui::{
@@ -61,7 +62,10 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(press_tab.run_if(in_state(PropEditor::On)));
     app.add_observer(press_sort.run_if(in_state(PropEditor::On)));
     app.add_observer(press_star.run_if(in_state(PropEditor::On)));
-    app.add_observer(press_save_default_map.run_if(in_state(PropEditor::On)));
+    let save_default_map = press_save_default_map.run_if(in_state(PropEditor::On));
+    // the default map is the host's: a joined game's button does nothing // multiplayer
+    let save_default_map = save_default_map.run_if(not(is_joined)); // multiplayer
+    app.add_observer(save_default_map);
 }
 
 // ==== Widgets ================================================================

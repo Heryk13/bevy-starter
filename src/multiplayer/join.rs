@@ -40,7 +40,7 @@ pub(super) fn plugin(app: &mut App) {
 
 /// Marks this game's connection to a host.
 #[derive(Component)]
-struct HostLink;
+pub(super) struct HostLink;
 
 // ==== Systems ================================================================
 
@@ -202,6 +202,8 @@ pub(super) fn join(
         ))
         .id();
     commands.trigger(Connect { entity: link });
+    #[cfg(feature = "dev")]
+    commands.insert_resource(super::OwnId(client_id));
     *network = Network::Joining {
         since_secs: now_secs,
     };

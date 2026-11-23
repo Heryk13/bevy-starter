@@ -12,6 +12,7 @@ use crate::screens::gameplay::map::MapFile;
 mod find_server;
 mod host;
 mod join;
+mod props;
 mod remote;
 mod world;
 
@@ -84,6 +85,8 @@ pub(crate) fn plugin(app: &mut App) {
     .add_direction(NetworkDirection::Bidirectional);
     app.init_resource::<Network>();
     app.init_resource::<PendingNotice>();
+    #[cfg(feature = "dev")]
+    app.init_resource::<OwnId>();
     app.add_systems(OnEnter(Screen::Menu), show_pending_notice);
     app.add_plugins((
         host::plugin,
@@ -91,6 +94,7 @@ pub(crate) fn plugin(app: &mut App) {
         find_server::plugin,
         remote::plugin,
         world::plugin,
+        props::plugin,
     ));
 }
 
@@ -165,6 +169,12 @@ pub(crate) struct RemotePlayer {
 /// A notice to show as the menu comes back: why a shared game ended for this player.
 #[derive(Resource, Default)]
 struct PendingNotice(Option<&'static str>);
+
+/// The id the others know this game's player by: `HOST_ID` hosting, its netcode id joined.
+// only the prop editor's locks read it, and only dev builds have the editor
+#[cfg(feature = "dev")]
+#[derive(Resource, Clone, Copy, Default)]
+struct OwnId(u64);
 
 // ==== Systems ================================================================
 
