@@ -27,8 +27,8 @@ const PRIVATE_KEY: [u8; 32] = *b"bevy-starter lan co-op key 2026!";
 const TICK: Duration = Duration::from_micros(16_667);
 
 // ---- players ----------------------------------------------------------------
-// the host one of them
-const MAX_PLAYERS: u32 = 10;
+// the host one of them; a genre places that many players at the start
+pub(crate) const MAX_PLAYERS: u32 = 10;
 
 // ---- finding games: a broadcast on the LAN ----------------------------------
 const DISCOVERY_PORT: u16 = 5889;
