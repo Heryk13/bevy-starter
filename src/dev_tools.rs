@@ -15,6 +15,7 @@ mod photo_mode;
 mod physics_debug;
 // read by each genre, which shows the props, moves the camera and stops the player
 pub(crate) mod prop_editor;
+mod prop_editor_3d;
 mod recording;
 mod slow_motion;
 // read by each player, which puts its body on the capsule and walks by the multiplier
@@ -75,6 +76,8 @@ pub(super) fn plugin(app: &mut App) {
         speed::plugin,
         recording::plugin,
         prop_editor::plugin,
+        // no key of its own: the editor's, after it, the 3D models, thumbnails and placing
+        prop_editor_3d::plugin,
         file_explorer::plugin,
     ));
 }
