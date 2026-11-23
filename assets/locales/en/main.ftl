@@ -48,6 +48,8 @@ action-move-forward = Move Forward
 action-move-back = Move Back
 action-move-left = Move Left
 action-move-right = Move Right
+action-swap-shoulder = Swap Shoulder
+action-switch-camera = Switch Camera
 
 ## save and load
 

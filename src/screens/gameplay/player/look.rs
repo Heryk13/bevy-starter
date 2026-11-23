@@ -35,9 +35,10 @@ const LOOK_PITCH_LIMIT_RAD: f32 = LOOK_PITCH_LIMIT_DEG.to_radians();
 
 /// The playroom's camera and the mouse look, whichever camera the game keeps: the camera hangs
 /// from the body at eye height, the mouse turns the body across and tilts the camera up and
-/// down, and the cursor is held while it does. Where the camera sits is each camera's file's:
-/// `first_person.rs` at the eyes, `third_person.rs` over the shoulder. Every camera needs this
-/// file, so it carries no marker and stays whichever cameras a game keeps.
+/// down, and the cursor is held while it does. Where the camera sits is each camera's own
+/// file's, which this one never names, so a camera a game leaves out takes nothing from it.
+/// Every camera needs this file, so it carries no marker and stays whichever cameras a game
+/// keeps.
 pub(super) fn plugin(app: &mut App) {
     app.add_observer(spawn_playroom_camera.run_if(in_state(Screen::Gameplay)));
     // every frame and on every screen: the cursor must come back the moment a modal opens

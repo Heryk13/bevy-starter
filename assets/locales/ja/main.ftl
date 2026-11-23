@@ -48,6 +48,8 @@ action-move-forward = 前進
 action-move-back = 後退
 action-move-left = 左へ移動
 action-move-right = 右へ移動
+action-swap-shoulder = 肩を切り替え
+action-switch-camera = カメラ切り替え
 
 ## save and load
 

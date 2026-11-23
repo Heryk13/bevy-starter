@@ -47,6 +47,8 @@ action-move-forward = Mover para Frente
 action-move-back = Mover para Trás
 action-move-left = Mover para a Esquerda
 action-move-right = Mover para a Direita
+action-swap-shoulder = Trocar de Ombro
+action-switch-camera = Trocar Câmera
 
 ## save and load
 

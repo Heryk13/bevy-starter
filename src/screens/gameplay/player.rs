@@ -14,9 +14,11 @@ use crate::screens::gameplay::map::Prop;
 use crate::screens::gameplay::playroom::PlayroomCamera;
 use crate::screens::{Pause, Screen};
 
+pub(crate) mod camera_switch; // camera: switch
 mod first_person; // camera: first-person
 // every camera's: the camera on the body, the mouse look and the cursor
 mod look;
+mod third_person; // camera: third-person
 
 // ==== Config =================================================================
 
@@ -79,6 +81,8 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(spawn_player.run_if(in_state(Screen::Gameplay)));
     app.add_plugins(look::plugin);
     app.add_plugins(first_person::plugin); // camera: first-person
+    app.add_plugins(third_person::plugin); // camera: third-person
+    app.add_plugins(camera_switch::plugin); // camera: switch
     // walk_player reads the yaw that the look (`look.rs`) writes, with no order between them:
     // a turn read one frame late is a few milliseconds no one can feel. record_player_state
     // has no order either: against the look for the same reason, and against the autosave,
@@ -216,6 +220,7 @@ fn walk_velocity(input: Vec2, rotation: Quat) -> Vec3 {
 
 #[cfg(test)]
 mod tests {
+    use super::camera_switch::CameraView; // camera: switch
     use super::*;
     use crate::save::GameData;
 
@@ -258,6 +263,7 @@ mod tests {
                 pitch: 0.5,
             },
             map: None,
+            camera: CameraView::default(), // camera: switch
         };
         let ron_text = ron::to_string(&game_data).unwrap();
         let read_back: GameData = ron::from_str(&ron_text).unwrap();

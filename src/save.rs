@@ -6,6 +6,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use crate::disk::{game_data_dir, write_atomic};
 use crate::screens::gameplay::map::MapFile;
 use crate::screens::gameplay::player::PlayerState;
+use crate::screens::gameplay::player::camera_switch::CameraView; // camera: switch
 
 mod picture;
 
@@ -65,6 +66,7 @@ pub(crate) struct GameData {
     // the props of this game, `None` until gameplay first copies the default map in: a new
     // game, and a save written before props were saved
     pub(crate) map: Option<MapFile>,
+    pub(crate) camera: CameraView, // camera: switch
 }
 
 /// Says whether a save the player asked for was written, so whoever shows it decides how,
