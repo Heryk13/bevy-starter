@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::dev_tools::speed::{SpeedMultiplier, Speedometer};
 use crate::input::{Action, ActionName, Binding, Controls, Page, register_action};
 use crate::save::Session;
+use crate::screens::gameplay::map::Prop;
 use crate::screens::gameplay::playroom::PlayroomCamera;
 use crate::screens::{Pause, Screen};
 
@@ -121,14 +122,18 @@ pub(crate) struct Player;
 
 /// Spawns the player where the session left them, the spawn point in a new game, once the
 /// playroom's colliders are ready, since a dynamic body spawned before them falls through
-/// the floor on the first physics step.
+/// the floor on the first physics step. A prop's colliders being ready is not the level's.
 fn spawn_player(
-    _: On<ColliderConstructorHierarchyReady>,
+    ready: On<ColliderConstructorHierarchyReady>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     session: Res<Session>,
+    props: Query<(), With<Prop>>,
 ) {
+    if props.contains(ready.entity) {
+        return;
+    }
     let body = (
         RigidBody::Dynamic,
         Collider::capsule(PLAYER_RADIUS_M, PLAYER_SEGMENT_LENGTH_M),
