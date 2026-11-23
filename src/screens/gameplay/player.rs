@@ -5,6 +5,8 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "dev")]
+use crate::dev_tools::prop_editor::PropEditor;
+#[cfg(feature = "dev")]
 use crate::dev_tools::speed::{SpeedMultiplier, Speedometer};
 use crate::input::{Action, ActionName, Binding, Controls, Page, register_action};
 use crate::save::Session;
@@ -82,9 +84,13 @@ pub(super) fn plugin(app: &mut App) {
     // off. Both only in Pause::Off: a save loaded from the pause menu replaces the session
     // while the screen is still Gameplay, and recording then would write the body that is
     // about to go over the position just loaded
+    let walk = walk_player.run_if(in_state(Pause::Off));
+    // the prop editor's free camera takes the walk keys, a dev tool's, so not in a release build
+    #[cfg(feature = "dev")]
+    let walk = walk.run_if(not(in_state(PropEditor::On)));
     app.add_systems(
         Update,
-        (walk_player, record_player_state).run_if(in_state(Pause::Off)),
+        (walk, record_player_state.run_if(in_state(Pause::Off))),
     );
 }
 

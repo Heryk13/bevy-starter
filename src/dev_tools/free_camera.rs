@@ -1,20 +1,24 @@
+use bevy::input::common_conditions::input_pressed;
 use bevy::input::mouse::AccumulatedMouseMotion;
 use bevy::prelude::*;
 
 use super::fly::{RISE, SINK, fly_velocity};
 use super::photo_mode::{PhotoHint, register_photo_hint};
+use super::prop_editor::PropEditor;
 use crate::input::Controls;
-use crate::screens::Pause;
 use crate::screens::gameplay::player::{
-    MOVE_BACK, MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT, walk_input,
+    MOVE_BACK, MOVE_FORWARD, MOVE_LEFT, MOVE_RIGHT, Player, walk_input,
 };
 use crate::screens::gameplay::playroom::PlayroomCamera;
+use crate::screens::{Pause, Screen};
 use crate::ui::Icon;
 
 // ==== Config =================================================================
 
 // ---- moving: slow, since photos are taken close to the player ---------------
 const FREE_CAMERA_SPEED_M_PER_S: f32 = 3.0;
+// faster in the prop editor: a map is built across the whole level
+const EDITOR_CAMERA_SPEED_M_PER_S: f32 = 8.0;
 
 // ---- turning: as first person turns -----------------------------------------
 const FREE_CAMERA_LOOK_RAD_PER_PX: f32 = 0.002;
@@ -31,9 +35,12 @@ const FREE_CAMERA_PITCH_LIMIT_RAD: f32 = FREE_CAMERA_PITCH_LIMIT_DEG.to_radians(
 
 // ==== Plugin =================================================================
 
-/// Photo mode's 3D free camera: the view leaves the player to frame the photo, turned by the
-/// mouse and moved by the walk keys, Rise and Sink, through walls if need be, and comes back
-/// where it was as photo mode ends. It counts real time, since the game is frozen.
+/// Photo mode's 3D free camera, and the prop editor's: the view leaves the player to frame the
+/// photo or to build the map, moved by the walk keys, Rise and Sink, through walls if need
+/// be, and comes back where it was as photo mode or the editor ends. Photo mode turns it with
+/// the mouse; the editor only while the right button is held, as Unreal's does, since the rest
+/// of the time the mouse clicks props. The editor lifts it off the body, which the running
+/// game still moves. It counts real time, since photo mode freezes the game.
 pub(super) fn plugin(app: &mut App) {
     for (icon, actions, words) in [
         (
@@ -55,29 +62,59 @@ pub(super) fn plugin(app: &mut App) {
     }
     app.add_systems(OnEnter(Pause::Photo), keep_camera_home);
     app.add_systems(
+        OnEnter(PropEditor::On),
+        (keep_camera_home, lift_camera_off_body).chain(),
+    );
+    app.add_systems(
         Update,
-        (turn_free_camera, move_free_camera)
+        (
+            turn_free_camera.run_if(
+                in_state(Pause::Photo)
+                    .or_else(in_state(PropEditor::On).and_then(input_pressed(MouseButton::Right))),
+            ),
+            move_free_camera,
+        )
             .chain()
-            .run_if(in_state(Pause::Photo)),
+            .run_if(in_state(Pause::Photo).or_else(in_state(PropEditor::On))),
     );
     app.add_systems(OnExit(Pause::Photo), bring_camera_home);
+    app.add_systems(
+        OnExit(PropEditor::On),
+        (put_camera_on_body, bring_camera_home).chain(),
+    );
 }
 
 // ==== Components =============================================================
 
-/// Where the camera was as photo mode began, in its parent's space, to put it back after.
+/// Where the camera was as photo mode or the editor began, in its parent's space, to put it
+/// back after.
 #[derive(Component)]
 struct FreeCameraHome(Transform);
 
 // ==== Systems ================================================================
 
-/// Keeps where the camera is as photo mode begins.
+/// Keeps where the camera is as photo mode or the editor begins.
 fn keep_camera_home(
     mut commands: Commands,
     camera: Single<(Entity, &Transform), With<PlayroomCamera>>,
 ) {
     let (entity, transform) = *camera;
     commands.entity(entity).insert(FreeCameraHome(*transform));
+}
+
+/// Lifts the camera off the body as the editor opens, where it is in the world, so the body
+/// the running game still moves never drags it along. It goes with gameplay, as it would on
+/// the body.
+fn lift_camera_off_body(
+    mut commands: Commands,
+    camera: Single<(Entity, &GlobalTransform, &mut Transform), With<PlayroomCamera>>,
+) {
+    let (entity, global, mut transform) = camera.into_inner();
+    *transform = global.compute_transform();
+    commands
+        .entity(entity)
+        .remove::<ChildOf>()
+        .insert(DespawnOnExit(Screen::Gameplay));
 }
 
 /// Turns the camera with the mouse, across and up and down, in its parent's space.
@@ -91,26 +128,44 @@ fn turn_free_camera(
 }
 
 /// Moves the camera where it looks by the walk keys, and straight up and down by Rise and
-/// Sink. In its parent's space, the body's, which only ever turns about the vertical, so up
-/// there is up in the world.
+/// Sink, faster in the editor. In its parent's space: the body's in photo mode, which only
+/// ever turns about the vertical, and the world's in the editor, so up there is up in the
+/// world either way.
 fn move_free_camera(
     controls: Controls,
     time: Res<Time<Real>>,
+    editor: Option<Res<State<PropEditor>>>,
     mut camera: Single<&mut Transform, With<PlayroomCamera>>,
 ) {
+    let speed = match editor.map(|editor| *editor.get()) {
+        Some(PropEditor::On) => EDITOR_CAMERA_SPEED_M_PER_S,
+        _ => FREE_CAMERA_SPEED_M_PER_S,
+    };
     let velocity = fly_velocity(
         walk_input(&controls),
         camera.rotation,
         controls.pressed(RISE),
         controls.pressed(SINK),
-        FREE_CAMERA_SPEED_M_PER_S,
+        speed,
     );
     if velocity != Vec3::ZERO {
         camera.translation += velocity * time.delta_secs();
     }
 }
 
-/// Puts the camera back where it was as photo mode began.
+/// Puts the camera back on the body as the editor closes, for `bring_camera_home` to put it
+/// where it was there. With no body, gameplay is ending and the camera goes with it.
+fn put_camera_on_body(
+    mut commands: Commands,
+    camera: Single<Entity, With<PlayroomCamera>>,
+    body: Option<Single<Entity, With<Player>>>,
+) {
+    if let Some(body) = body {
+        commands.entity(*camera).insert(ChildOf(*body));
+    }
+}
+
+/// Puts the camera back where it was as photo mode or the editor began.
 fn bring_camera_home(
     mut commands: Commands,
     camera: Single<(Entity, &mut Transform, &FreeCameraHome), With<PlayroomCamera>>,

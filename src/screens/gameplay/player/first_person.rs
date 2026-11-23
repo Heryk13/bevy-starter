@@ -3,6 +3,8 @@ use bevy::prelude::*;
 use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 
 use super::{PLAYER_HEIGHT_M, Player};
+#[cfg(feature = "dev")]
+use crate::dev_tools::prop_editor::PropEditor;
 use crate::save::Session;
 use crate::screens::gameplay::playroom::PlayroomCamera;
 use crate::screens::{Pause, Screen};
@@ -70,9 +72,18 @@ fn hold_cursor(
     modals: Query<(), With<ClosesOnEsc>>,
     mut cursor: Single<&mut CursorOptions, With<PrimaryWindow>>,
     mut held: Local<Option<bool>>,
+    #[cfg(feature = "dev")] editor: Option<Res<State<PropEditor>>>,
+    #[cfg(feature = "dev")] mouse: Res<ButtonInput<MouseButton>>,
 ) {
     let pause = pause.map(|pause| *pause.get());
-    let locked = is_cursor_locked(pause, !modals.is_empty());
+    // the prop editor turns its camera while the right button is held, and only then: the rest
+    // of the time the cursor clicks props. The editor is a dev tool: a release build never turns
+    #[cfg(feature = "dev")]
+    let turning = editor.is_some_and(|editor| *editor.get() == PropEditor::On)
+        && mouse.pressed(MouseButton::Right);
+    #[cfg(not(feature = "dev"))]
+    let turning = false;
+    let locked = is_cursor_locked(pause, !modals.is_empty(), turning);
     // against what was last asked, not what the window says: where the OS refuses to hold the
     // cursor, Bevy puts the old mode back, and asking again every frame would only fail again
     if *held == Some(locked) {
@@ -107,15 +118,16 @@ fn look_around(
 
 /// Tells whether the cursor is held for looking around: only while the game runs, `pause`
 /// being `Off`, or in photo mode, whose free camera turns with the mouse, and no modal is
-/// open over it. Outside gameplay `pause` is `None`.
-fn is_cursor_locked(pause: Option<Pause>, modal_open: bool) -> bool {
+/// open over it; or while the prop editor turns its camera, `turning`, though its window is a
+/// modal. Outside gameplay `pause` is `None`.
+fn is_cursor_locked(pause: Option<Pause>, modal_open: bool, turning: bool) -> bool {
     let looking = match pause {
         Some(Pause::Off) => true,
         #[cfg(feature = "dev")]
         Some(Pause::Photo) => true,
         _ => false,
     };
-    looking && !modal_open
+    (looking && !modal_open) || turning
 }
 
 /// Returns the pitch after the mouse moves `delta_y_px` down the screen, held inside the
@@ -159,27 +171,32 @@ mod tests {
 
     #[test]
     fn the_cursor_is_held_while_the_game_runs_with_nothing_over_it() {
-        assert!(is_cursor_locked(Some(Pause::Off), false));
+        assert!(is_cursor_locked(Some(Pause::Off), false, false));
     }
 
     #[test]
     fn a_modal_over_the_running_game_frees_the_cursor() {
-        assert!(!is_cursor_locked(Some(Pause::Off), true));
+        assert!(!is_cursor_locked(Some(Pause::Off), true, false));
     }
 
     #[test]
     fn the_paused_game_frees_the_cursor() {
-        assert!(!is_cursor_locked(Some(Pause::On), true));
+        assert!(!is_cursor_locked(Some(Pause::On), true, false));
     }
 
     #[test]
     fn the_cursor_is_free_outside_gameplay() {
-        assert!(!is_cursor_locked(None, false));
+        assert!(!is_cursor_locked(None, false, false));
     }
 
     #[cfg(feature = "dev")]
     #[test]
     fn the_cursor_is_held_in_photo_mode_for_its_free_camera() {
-        assert!(is_cursor_locked(Some(Pause::Photo), false));
+        assert!(is_cursor_locked(Some(Pause::Photo), false, false));
+    }
+
+    #[test]
+    fn the_cursor_is_held_while_the_prop_editor_turns_its_camera() {
+        assert!(is_cursor_locked(Some(Pause::Off), true, true));
     }
 }
