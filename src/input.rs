@@ -73,7 +73,8 @@ pub(crate) struct Controls<'w, 's> {
     // an `Option`: a world without keyboard focus, as a test's, has no field to type in
     focus: Option<Res<'w, InputFocus>>,
     text_fields: Query<'w, 's, (), With<EditableText>>,
-    gamepads: Query<'w, 's, &'static Gamepad>,
+    // the first player's: a gamepad another local player took is that player's alone
+    gamepads: Query<'w, 's, &'static Gamepad, Without<GuestPad>>,
 }
 
 impl Controls<'_, '_> {
@@ -151,6 +152,13 @@ pub(crate) fn register_pad(app: &mut App, action: ActionName, button: GamepadBut
         .pads
         .push((action, button));
 }
+
+// ==== Components =============================================================
+
+/// Marks a gamepad another player on this PC plays with, as in a split screen: the actions and
+/// sticks `Controls` reads, the first player's, do not hear it. Whatever gave it out reads it.
+#[derive(Component)]
+pub(crate) struct GuestPad;
 
 // ==== Resources ==============================================================
 
