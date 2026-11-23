@@ -190,7 +190,7 @@ Each carries `.run_if(in_state(...))` for its screen, so only the one whose scre
 | `Menu` | `spawn_menu_screen`, `play_menu_music` | the closing veil finishes | `animate_veils` |
 | `Loading` | `spawn_loading_screen`, `load_gameplay_assets`, `load_intro_assets` (new games only) | the playroom is in, and the intro's assets for a new game | `leave_loading_screen` |
 | `Intro` | `spawn_intro_screen`, `play_intro_music` | the last frame is done, or skipped | `leave_intro_screen`, `skip_intro_screen` |
-| `Gameplay` | `spawn_playroom`, `match_ui_cameras_to_playroom_camera`, `spawn_sun_glare` (`playroom.rs`, `playroom/sun_glare.rs`); `spawn_player` once the colliders are ready (`player.rs`), and `spawn_first_person_camera` with it (`player/first_person.rs`) | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
+| `Gameplay` | `spawn_playroom`, `match_ui_cameras_to_playroom_camera`, `spawn_sun_glare` (`playroom.rs`, `playroom/sun_glare.rs`); `spawn_player` once the colliders are ready (`player.rs`), and `spawn_playroom_camera` with it (`player/look.rs`) | Quit to Menu, or a save picked in Load Game | `activate_pause_button` and `confirm_quit` (`pause.rs`), `start_game_from_gameplay` |
 
 ### Splash
 
@@ -311,8 +311,12 @@ drawn over the sun. Physics is avian3d, whose `PhysicsPlugins` sit in `main.rs` 
 `DefaultPlugins`, and in dev builds `PhysicsDebugPlugin` draws every collider. Once the colliders
 are built, `ColliderConstructorHierarchyReady` triggers `spawn_player` (`gameplay/player.rs`):
 a dynamic capsule with its rotation locked, where the `Session` left it, and adding its `Player`
-triggers `spawn_first_person_camera` (`player/first_person.rs`), the level's camera as the
-body's child at eye height. `walk_player` turns the four walk actions (`MOVE_FORWARD`, `MOVE_BACK`, `MOVE_LEFT`,
+triggers `spawn_playroom_camera` (`player/look.rs`), the level's camera as the body's child at
+eye height. Each camera file puts its view on it as it spawns, `FirstPersonView`
+(`first_person.rs`: at the eyes) and `ThirdPersonView` (`third_person.rs`: behind and above a
+shoulder, V swapping it, pulled in short of a wall a ray from the eyes meets), and
+`camera_switch.rs` keeps only the saved one's (`GameData::camera`); F5, a game key in release
+builds too, steps to the next in `CAMERA_VIEWS`, at once. `walk_player` turns the four walk actions (`MOVE_FORWARD`, `MOVE_BACK`, `MOVE_LEFT`,
 `MOVE_RIGHT`, which `player.rs` registers on W, S, A and D and the Controls page of Settings
 lets the player rebind) into the body's velocity across the ground,
 `look_around` turns the body for the yaw and tilts the camera for the pitch, and both run only in
@@ -322,9 +326,12 @@ modal open, and in dev builds in photo mode too, whose free camera turns with th
 pure `is_cursor_locked`), and free the rest of the time, so the pause menu, a modal and the
 menus all get it back. A modal is whatever Esc closes first, the
 `ClosesOnEsc` of `ui.rs`, so it never names the explorer, and a dev window the pointer goes
-through (the keys panel, slow motion) leaves the cursor held. Everything about the camera
-is in `first_person.rs`, and every line outside it that names it ends with
-`// camera: first-person`, so a game that keeps another camera deletes the file and those lines.
+through (the keys panel, slow motion) leaves the cursor held. Each camera is one file, and every
+line outside it that names it ends with its marker (`// camera: first-person`,
+`// camera: third-person`, and `// camera: switch` for F5), so a game that leaves a camera out
+deletes the file and those lines. The look and the cursor are the exception: every camera needs
+them, so they sit in `look.rs`, unmarked, rather than in the first camera's file, which a game
+may delete, and rather than copied into each camera, where the copies would drift apart.
 What makes a camera the level's is one component, `PlayroomCamera` in `playroom.rs`: it requires the `Camera3d` and the camera kit (exposure, sky light, bloom,
 SSAO, SMAA, `Msaa::Off`), so any camera that carries it looks the same. It draws first
 (`PLAYROOM_CAMERA_ORDER`, below the screen camera's 0), so the UI lands on top of the level.

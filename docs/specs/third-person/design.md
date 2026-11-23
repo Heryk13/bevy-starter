@@ -1,6 +1,6 @@
 # Third person: a camera over the shoulder, and F5 between it and first person
 
-Status: **designed** 2026-11-23.
+Status: **built** 2026-11-23. Not yet tried in the game (`just run` pending).
 Date: 2026-11-23
 Bevy: 0.20.0
 Roadmap: rows 15 and 17 of `docs/roadmap/roadmap.md`, from their "as agreed" sections; row 16,
@@ -65,4 +65,15 @@ effect, as in Minecraft, and the save keeps the camera chosen.
 
 ## What changed while building it
 
-Nothing yet.
+- **Steps 2 and 3 are one commit** (decided while building 2): with both views on the camera and
+  no switch to keep one, the two would fight over where it sits.
+- **The camera's place in third person is set every frame in `Pause::Off` only**, and only while
+  the camera hangs from the body: photo mode's free camera moves it on the body, out of the
+  running game, and the prop editor lifts it off the body.
+- **`CameraView`'s default is written by hand**, `CAMERA_VIEWS[0]`, so leaving a camera out never
+  strands a `#[default]` on a line of its own.
+- **The markers were tried**: a copy with `third_person.rs`, `camera_switch.rs` and their marked
+  lines deleted passes clippy, and so does one with `first_person.rs` and `camera_switch.rs`
+  deleted, ahead of row 21's `just check-combos`.
+- **README and the roadmap are `main`'s**: their lines for these rows went into `main` and reached
+  `3d/player` by the merge down.

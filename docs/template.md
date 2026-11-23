@@ -135,7 +135,10 @@ src/
       pause.rs      pause state and pause menu, freezing game time
       player.rs     the player's body, walking, and what a save keeps of them
       player/
-        first_person.rs  the camera at eye height, the mouse look and the cursor lock
+        camera_switch.rs  F5: the next camera, at once, kept in the save
+        first_person.rs  the camera at eye height
+        look.rs       every camera's: the camera on the body, the mouse look, the cursor lock
+        third_person.rs  the camera over the shoulder, V to swap it, pulled in by walls
       playroom.rs   the test level, its colliders, sun and sky, and the kit its cameras carry
       playroom/
         lighting.rs   dark insides, lamps and the sky's light at openings, from the level's marks
