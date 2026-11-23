@@ -94,6 +94,14 @@ src/
     photo_mode/
       photo.rs      E: a PNG of the game alone in gallery/, a flash, a click, a notice
     physics_debug.rs  F6: the outline of every collider, the player's capsule included
+    prop_editor.rs  F10: props from assets/props/ placed into assets/map.ron, its state
+    prop_editor/
+      edits.rs      every change to the map: place, update, delete; holding, R, the wheel
+      library.rs    the props on disk, files dropped in, favourites and recents
+      window.rs     the drawer's tabs, search, sort and grid of thumbnails
+    prop_editor_3d.rs  the 3D props: models, thumbnails, placing on the surface
+    prop_editor_3d/
+      mode_menu.rs  a right click: fixed, physics or no collision
     recording.rs    F9: a video of the game alone into gallery/, its states and REC
     recording/
       bar.rs        the bar: sound, frame rate, timer, Record
@@ -123,6 +131,7 @@ src/
     intro.rs        intro: frame sequence with its soundtrack
     gameplay.rs     the game itself, the playroom so far
     gameplay/
+      map.rs        the map file: where each prop stands, spawned in every build
       pause.rs      pause state and pause menu, freezing game time
       player.rs     the player's body, walking, and what a save keeps of them
       player/
@@ -131,6 +140,7 @@ src/
       playroom/
         lighting.rs   dark insides, lamps and the sky's light at openings, from the level's marks
         sun_glare.rs  the glare drawn over the sun, as a camera sees it
+      props.rs      a prop's model and the body of its mode
   save.rs           the game in progress and the save files, shared
   save/
     picture.rs      the picture a save carries: taking it, encoding it, its file
@@ -220,6 +230,13 @@ Three folders are read whole, so what to drop in them matters more than the file
 
 Formats follow Bevy's features in `Cargo.toml`: `jpeg` for the photographic backgrounds and
 `wav` for the short UI sounds, on top of the png and ogg vorbis Bevy already reads.
+
+`assets/props/` and `assets/map.ron` are the prop editor's (F10): the props it offers, and where
+each one placed stands. `main`, the Empty game, has neither, and a missing map is an empty one.
+`3d/player` ships a Douglas pine (`douglas_pine.glb`) and `2d/player` a picture of it
+(`douglas_pine.png`), each placed once in its map: delete it in the editor and its file to start
+with none. A genre says which files its props are by inserting a `PropKind`, and observes
+`PropFile` to show each prop.
 
 `assets/fonts/` and `assets/locales/` are not placeholders, and they are not loaded at runtime
 either: `src/i18n.rs` compiles them into the game with `include_bytes!` and `include_str!`, so
