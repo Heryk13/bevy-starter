@@ -145,6 +145,7 @@ src/
         camera_switch.rs  F5: the next camera, at once, kept in the save
         first_person.rs  the camera at eye height
         look.rs       every camera's: the camera on the body, the mouse look, the cursor lock
+        others.rs     the other players, in a game played together: capsules, the ring
         third_person.rs  the camera over the shoulder, V to swap it, pulled in by walls
       playroom.rs   the test level, its colliders, sun and sky, and the kit its cameras carry
       playroom/
