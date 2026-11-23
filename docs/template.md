@@ -125,6 +125,8 @@ src/
       map.rs        the game's props, from its save or the default map, spawned in every build
       pause.rs      pause state and pause menu, freezing game time
       player.rs     a square that walks the room, the camera following it near an edge
+      player/
+        others.rs     the other players, in a game played together: squares, the ring
       playroom.rs   the test room: an ASCII map drawn in tiles
       props.rs      a prop's image
   save.rs           the game in progress and the save files, shared
