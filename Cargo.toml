@@ -11,10 +11,9 @@ bevy = { version = "0.20.0", features = ["jpeg", "wav"] }
 # the translations: fluent turns a key and its arguments into a sentence in the
 # player's language, unic-langid names the language for its plural rules
 fluent-bundle = "0.16"
-# multiplayer: the connection, over UDP with netcode, and the messages each game sends. Not its
-# replication nor its interpolation, which corrupted messages in the spike, and which a game
-# whose players each move their own body does not need
-lightyear = { version = "0.31.0", default-features = false, features = ["std", "client", "server", "netcode", "udp"] }
+# the connection, over UDP with netcode, and the messages each game sends; not its # multiplayer
+# replication nor its interpolation, which corrupted messages in the spike # multiplayer
+lightyear = { version = "0.31.0", default-features = false, features = ["std", "client", "server", "netcode", "udp"] } # multiplayer
 # not used directly: its `logging` feature sends parley's known warning about Japanese
 # text through `log`, where main.rs filters it; without it, debug builds `eprintln!` it
 icu_provider = { version = "2.3.1", features = ["logging"] }
