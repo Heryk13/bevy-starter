@@ -8,8 +8,13 @@ use super::Network;
 use super::host::HostServer;
 use super::join::HostLink;
 use crate::dev_tools::prop_editor::PropKind;
-use crate::dev_tools::prop_editor::library::{PropFileAdded, is_prop_file, props_dir};
+use crate::dev_tools::prop_editor::library::{
+    PROPS_DIR_NAME, PropFileAdded, is_prop_file, props_dir,
+};
 use crate::disk::write_atomic;
+use crate::save::Session;
+use crate::screens::Screen;
+use crate::screens::gameplay::map::{Prop, prop_bundle};
 
 // ==== Config =================================================================
 
@@ -54,7 +59,9 @@ pub(super) fn plugin(app: &mut App) {
                 receive_uploads,
             )
                 .run_if(resource_equals(Network::Hosting)),
-            (ask_for_missing_props, receive_downloads).run_if(resource_equals(Network::Joined)),
+            // from the moment the host is reached, not only once in its game: the list it sends as
+            // a player connects comes before the world, and a message unread in its frame is lost
+            (ask_for_missing_props, receive_downloads),
         ),
     );
 }
@@ -180,14 +187,32 @@ fn upload_dropped_file(
 
 /// Writes the files the host sends, each once whole.
 fn receive_downloads(
+    mut commands: Commands,
     mut receivers: Query<&mut MessageReceiver<FileChunk>, With<HostLink>>,
     mut incoming: ResMut<Incoming>,
     kind: Option<Res<PropKind>>,
+    session: Res<Session>,
+    screen: Res<State<Screen>>,
+    props: Query<&Prop>,
 ) {
     let extensions = kind.as_deref().map_or(&[][..], |kind| kind.extensions);
     for mut receiver in &mut receivers {
         for chunk in receiver.receive() {
-            take_chunk(&mut incoming, chunk, extensions);
+            let Some(name) = take_chunk(&mut incoming, chunk, extensions) else {
+                continue;
+            };
+            // the props the map places with this file were skipped as gameplay began: they
+            // come in now that it is here
+            if *screen.get() != Screen::Gameplay {
+                continue;
+            }
+            let file = format!("{PROPS_DIR_NAME}/{name}");
+            let placed = session.game.map.iter().flat_map(|map| &map.props);
+            for waiting in placed.filter(|placed| placed.file == file) {
+                if !props.iter().any(|prop| prop.0 == waiting.id) {
+                    commands.spawn(prop_bundle(waiting));
+                }
+            }
         }
     }
 }
@@ -278,18 +303,18 @@ fn chunks_of(name: &str) -> Vec<FileChunk> {
 }
 
 /// Adds a piece to the file it belongs to, refusing a name or a size that is not a prop's, and
-/// writes the file into the props folder once it is whole.
-fn take_chunk(incoming: &mut Incoming, chunk: FileChunk, extensions: &[&str]) {
+/// writes the file into the props folder once it is whole, returning its name then.
+fn take_chunk(incoming: &mut Incoming, chunk: FileChunk, extensions: &[&str]) -> Option<String> {
     let Some(name) = safe_name(&chunk.name, extensions) else {
         warn!("refused a file named {:?}: not a prop's name", chunk.name);
-        return;
+        return None;
     };
     if chunk.total > MAX_FILE_BYTES {
         warn!(
             "refused {name}: {} bytes is more than a prop may be",
             chunk.total
         );
-        return;
+        return None;
     }
     let (total, bytes) = incoming
         .0
@@ -300,7 +325,7 @@ fn take_chunk(incoming: &mut Incoming, chunk: FileChunk, extensions: &[&str]) {
         *total = chunk.total;
         bytes.clear();
         if chunk.offset != 0 {
-            return;
+            return None;
         }
     }
     bytes.extend_from_slice(&chunk.bytes);
@@ -308,10 +333,14 @@ fn take_chunk(incoming: &mut Incoming, chunk: FileChunk, extensions: &[&str]) {
         let whole = std::mem::take(bytes);
         incoming.0.remove(&name);
         match write_atomic(&props_dir().join(&name), whole) {
-            Ok(()) => info!("received the prop {name}"),
+            Ok(()) => {
+                info!("received the prop {name}");
+                return Some(name);
+            }
             Err(err) => error!("could not write the prop {name}: {err}"),
         }
     }
+    None
 }
 
 // ==== Tests ==================================================================
