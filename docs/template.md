@@ -149,6 +149,7 @@ src/
         first_person.rs  the camera at eye height
         look.rs       every camera's: the camera on the body, the mouse look, the cursor lock
         others.rs     the other players, in a game played together: capsules, the ring
+        split_screen.rs  a second player on this PC: Select on a gamepad, the window cut in two
         third_person.rs  the camera over the shoulder, V to swap it, pulled in by walls
       playroom.rs   the test level, its colliders, sun and sky, and the kit its cameras carry
       playroom/
