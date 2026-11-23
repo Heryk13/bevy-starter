@@ -80,7 +80,7 @@ src/
     photo_mode.rs   F3: the game frozen, the dev windows hidden, a bar of its keys
     photo_mode/
       photo.rs      E: a PNG of the game alone in gallery/, a flash, a click, a notice
-    prop_editor.rs  F10: props from assets/props/ placed into assets/map.ron, its state
+    prop_editor.rs  F10: props from assets/props/ placed into the game and its save, its state
     prop_editor/
       edits.rs      every change to the map: place, update, delete; holding, R, the wheel
       library.rs    the props on disk, files dropped in, favourites and recents
@@ -114,7 +114,7 @@ src/
     intro.rs        intro: frame sequence with its soundtrack
     gameplay.rs     the game itself, the playroom so far
     gameplay/
-      map.rs        the map file: where each prop stands, spawned in every build
+      map.rs        the game's props, from its save or the default map, spawned in every build
       pause.rs      pause state and pause menu, freezing game time
       playroom.rs   the test room: an ASCII map drawn in tiles
   save.rs           the game in progress and the save files, shared
@@ -185,8 +185,10 @@ Three folders are read whole, so what to drop in them matters more than the file
 Formats follow Bevy's features in `Cargo.toml`: `jpeg` for the photographic backgrounds and
 `wav` for the short UI sounds, on top of the png and ogg vorbis Bevy already reads.
 
-`assets/props/` and `assets/map.ron` are the prop editor's (F10): the props it offers, and where
-each one placed stands. `main`, the Empty game, has neither, and a missing map is an empty one.
+`assets/props/` and `assets/map.ron` are the prop editor's (F10): the props it offers, and the
+default map, the props a new game starts with. The editor edits the game being played, which
+each save keeps, and its Save as Default Map writes that game's props as the default. `main`,
+the Empty game, has neither, and a missing map is an empty one.
 `3d/player` ships a Douglas pine (`douglas_pine.glb`) and `2d/player` a picture of it
 (`douglas_pine.png`), each placed once in its map: delete it in the editor and its file to start
 with none. A genre says which files its props are by inserting a `PropKind`, and observes
