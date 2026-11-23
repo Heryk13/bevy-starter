@@ -6,6 +6,7 @@
 menu-new-game = はじめから
 menu-continue = つづきから
 menu-load-game = ロード
+menu-find-server = サーバーを探す
 menu-settings = 設定
 menu-credits = クレジット
 menu-quit = 終了
@@ -17,6 +18,8 @@ pause-resume = 再開
 pause-save = セーブ
 pause-load-game = ロード
 pause-settings = 設定
+pause-open-to-lan = LANに公開
+pause-close-lan = LANを閉じる
 pause-quit-to-menu = タイトルへ戻る
 pause-quit-to-desktop = ゲーム終了
 
@@ -24,14 +27,25 @@ pause-quit-to-desktop = ゲーム終了
 
 dialog-yes = はい
 dialog-no = いいえ
+dialog-ok = OK
 dialog-quit-without-saving = セーブせずに終了しますか？
 dialog-overwrite-save = このデータに上書きしますか？
 dialog-delete-save = このデータを削除しますか？
 dialog-reset-controls = すべての操作をデフォルトに戻しますか？
+notice-could-not-join = そのゲームに参加できませんでした。
+notice-host-ended = ホストがゲームを終了しました。
 
 ## overlays
 
 overlay-close = 閉じる
+
+## find server
+
+find-server-title = サーバーを探す
+find-server-refresh = 更新
+find-server-empty = ネットワーク上にゲームが見つかりません。
+find-server-by-ip = IPで参加
+find-server-join = 参加
 credits-title = クレジット
 credits-made-with = Bevyで制作
 settings-title = 設定

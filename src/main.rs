@@ -14,6 +14,7 @@ mod disk;
 mod fade;
 mod i18n;
 mod input;
+mod multiplayer; // multiplayer
 mod overlays;
 mod save;
 mod screens;
@@ -65,6 +66,7 @@ fn main() {
     app.add_plugins(screens::plugin);
     app.add_plugins(ui::plugin);
     app.add_plugins(overlays::plugin);
+    app.add_plugins(multiplayer::plugin); // multiplayer
     app.add_systems(Startup, spawn_screen_camera);
 
     app.run();
