@@ -76,8 +76,10 @@ fn press_lan_button(
         Network::Offline => {
             open_lan(&mut commands);
             *network = Network::Hosting;
-            // pressed in the pause menu, which froze the game: a shared game never freezes
+            // pressed in the pause menu, which froze the game: a shared game never freezes, nor
+            // runs slowed, since the host runs the world for everyone
             time.unpause();
+            time.set_relative_speed(1.0);
         }
         Network::Hosting => {
             stop_servers(&mut commands, &servers);
