@@ -7,10 +7,13 @@ use crate::dev_tools::prop_editor::PropEditor;
 #[cfg(feature = "dev")]
 use crate::dev_tools::speed::{SpeedMultiplier, Speedometer};
 use crate::input::{Action, ActionName, Binding, Controls, Page, register_action};
+use crate::multiplayer::NetworkedBody; // multiplayer
 use crate::save::Session;
 use crate::screens::gameplay::playroom::TILE_DISPLAY_PX;
 use crate::screens::{Pause, Screen};
 use crate::ui::ACCENT;
+
+mod others; // multiplayer
 
 // ==== Config =================================================================
 
@@ -62,6 +65,7 @@ pub(super) fn plugin(app: &mut App) {
         );
     }
     app.add_systems(OnEnter(Screen::Gameplay), spawn_player);
+    app.add_plugins(others::plugin); // multiplayer
     // record_player_state has no order against the autosave, which reads the session it
     // writes: a save a frame behind is a few pixels off. All three only in Pause::Off, as in
     // 3D: a save loaded from the pause menu replaces the session while the screen is still
@@ -101,6 +105,7 @@ fn spawn_player(mut commands: Commands, session: Res<Session>) {
         Sprite::from_color(ACCENT, Vec2::splat(PLAYER_SIZE_PX)),
         Transform::from_translation(session.game.player.position.extend(PLAYER_Z)),
         Player,
+        NetworkedBody, // multiplayer
         DespawnOnExit(Screen::Gameplay),
     );
     // on speed's capsule (F8), a dev tool's, so not in a release build
