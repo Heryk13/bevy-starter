@@ -4,7 +4,9 @@ use bevy::text::{EditableText, TextCursorStyle};
 use bevy::ui_widgets::{Activate, ScrollArea, TextInput};
 
 use super::PropEditor;
+use super::edits::Held;
 use super::library::{LibraryEntry, PropLibrary, PropPreferences, PropThumbnails};
+use crate::screens::gameplay::map::{Prop, PropFile};
 use crate::ui::{
     ACCENT, BORDER, BORDER_PX, ButtonKind, FIELD_FILL, Icon, SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED,
     custom_icon, font, laid_out_button, muted_text, words_button,
@@ -33,6 +35,8 @@ const GRID_GAP_PX: f32 = 10.0;
 const CELL_WIDTH_PX: f32 = 112.0;
 const CELL_PADDING_PX: f32 = 6.0;
 const CELL_RADIUS_PX: f32 = 12.0;
+// around the cell whose prop is in the hand, each click placing one: the toggle on
+const SELECTED_BORDER_PX: f32 = 2.0;
 const THUMBNAIL_PX: f32 = 88.0;
 const THUMBNAIL_ICON_PX: f32 = 40.0;
 const STAR_PX: f32 = 22.0;
@@ -251,7 +255,8 @@ fn fill_props_controls(
 }
 
 /// Spawns the grid's cells again whenever what it shows changes: the library, the view, the
-/// favourites and recents, a thumbnail made; and as the window opens.
+/// favourites and recents, a thumbnail made, the prop in the hand; and as the window opens. The
+/// cell whose new prop is in the hand has a border: its thumbnail is toggled on.
 fn fill_props_grid(
     mut commands: Commands,
     library: Res<PropLibrary>,
@@ -259,17 +264,22 @@ fn fill_props_grid(
     preferences: Res<PropPreferences>,
     thumbnails: Res<PropThumbnails>,
     grids: Query<(Entity, Ref<PropsGrid>)>,
+    in_hand: Query<&PropFile, (With<Held>, Without<Prop>)>,
+    mut shown_in_hand: Local<Option<String>>,
 ) {
     let Ok((grid, added)) = grids.single() else {
         return;
     };
+    let selected = in_hand.single().ok().map(|file| file.0.clone());
     let changed = library.is_changed()
         || view.is_changed()
         || preferences.is_changed()
-        || thumbnails.is_changed();
+        || thumbnails.is_changed()
+        || *shown_in_hand != selected;
     if !changed && !added.is_added() {
         return;
     }
+    *shown_in_hand = selected.clone();
     commands.entity(grid).despawn_children();
     let shown = shown_props(&library.0, &view, &preferences);
     if shown.is_empty() && view.tab == PropsTab::All && view.search.is_empty() {
@@ -282,7 +292,11 @@ fn fill_props_grid(
     for entry in shown {
         let thumbnail = thumbnails.0.get(&entry.file).cloned();
         let favourite = preferences.favourites.contains(&entry.file);
-        commands.spawn((prop_cell(entry, thumbnail, favourite), ChildOf(grid)));
+        let is_selected = selected.as_ref() == Some(&entry.file);
+        commands.spawn((
+            prop_cell(entry, thumbnail, favourite, is_selected),
+            ChildOf(grid),
+        ));
     }
 }
 
@@ -326,6 +340,7 @@ fn prop_cell(
     entry: &LibraryEntry,
     thumbnail: Option<Handle<Image>>,
     favourite: bool,
+    selected: bool,
 ) -> impl Bundle {
     // one bundle either way, the image or the icon seen-through: a function returns one type
     let (image_color, icon_color) = match thumbnail {
@@ -351,13 +366,18 @@ fn prop_cell(
         )],
     );
     let star_color = if favourite { TEXT } else { STAR_UNMARKED };
+    // a border rather than the primary button: its white fill would hide the white name
+    let selected_color = if selected { ACCENT } else { Color::NONE };
     (
         Node {
             width: px(CELL_WIDTH_PX),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
+            border: UiRect::all(px(SELECTED_BORDER_PX)),
+            border_radius: BorderRadius::all(px(CELL_RADIUS_PX)),
             ..default()
         },
+        BorderColor::all(selected_color),
         children![
             (
                 laid_out_button(
