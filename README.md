@@ -12,6 +12,8 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
 - Key bindings: a feature registers its actions by name and never reads a key itself; the ones
   a player may change are listed on a Controls page in Settings, each rebound to another key or
   mouse button, remembered between runs
+- Gamepads: the d-pad or the left stick moves through the menus, A presses and B goes back;
+  Start pauses, and a genre walks by the left stick and looks around by the right
 - English, Brazilian Portuguese and Japanese, switched live from Settings, following the OS
   language on the first run; translations in `assets/locales/`, drawn in Noto Sans JP
 - Loading screen with a progress bar over the real asset load and a shuffled slideshow

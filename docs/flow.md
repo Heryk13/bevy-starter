@@ -58,6 +58,10 @@ The overlay is drawn over whatever screen is below, and that screen keeps runnin
 an overlay never changes `Screen`, so no `DespawnOnExit(Screen::X)` fires and nothing is lost.
 That is why the menu music keeps playing while Settings is open.
 
+Esc, in these flows, is also Start or B on a gamepad: both are the pause action's buttons
+(`overlays.rs`). A gamepad moves through the buttons of the topmost layer only, so a dialog or
+an overlay keeps its focus over what is under it (`ui/navigation.rs`).
+
 **Multiplayer** (`src/multiplayer.rs` and its folder; every line outside them that names it ends
 with `// multiplayer`) keeps where this game stands on the network in `Network`: `Offline`,
 `Hosting`, `Joining`, `Joined`.

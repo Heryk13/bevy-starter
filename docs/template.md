@@ -138,6 +138,7 @@ src/
   ui.rs             the look: palette, type and text, shared
   ui/
     button.rs       buttons, their paint and their sounds
+    navigation.rs   the menus with a gamepad: the d-pad or a stick moves the focus, A presses
     panel.rs        floating roots, cards, their entrance and dialogs
     blur.rs         a camera per floating layer and the glass behind every panel
 docs/
