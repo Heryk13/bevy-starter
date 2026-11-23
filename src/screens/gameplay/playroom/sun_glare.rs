@@ -4,7 +4,7 @@ use bevy::light::NotShadowCaster;
 use bevy::prelude::*;
 use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-use super::SUN_DIRECTION;
+use super::{PlayroomCamera, SUN_DIRECTION};
 use crate::screens::Screen;
 
 // ==== Config =================================================================
@@ -95,8 +95,9 @@ fn spawn_sun_glare(
 /// runs after propagation, so it sets the glare's `GlobalTransform` too: it has no parent,
 /// so the two are the same.
 fn place_sun_glare(
-    // the one 3D camera: a second one, from a glTF or a branch below, would skip this silently
-    camera: Single<&GlobalTransform, (With<Camera3d>, Without<SunGlare>)>,
+    // the playroom's, not any 3D camera: a branch below draws with others, as the prop
+    // editor's thumbnails do, and a `Camera3d` filter would skip this while one is up
+    camera: Single<&GlobalTransform, (With<PlayroomCamera>, Without<SunGlare>)>,
     glare: Single<(&mut Transform, &mut GlobalTransform), With<SunGlare>>,
 ) {
     let (mut transform, mut global_transform) = glare.into_inner();
