@@ -20,6 +20,9 @@ const THIRD_PERSON_RISE_M: f32 = 0.3;
 const THIRD_PERSON_SHOULDER_M: f32 = 0.6;
 // how far in front of a wall the camera stops, so it never shows the wall's inside
 const THIRD_PERSON_WALL_GAP_M: f32 = 0.2;
+// half the width under which a thing between the eyes and the camera is seen past rather than
+// pulling the camera in: a trunk, a post, a railing, but no wall
+const NARROW_HALF_WIDTH_M: f32 = 0.5;
 
 // ==== Plugin =================================================================
 
@@ -88,7 +91,10 @@ fn swap_shoulder(mut views: Query<&mut ThirdPersonView>) {
 
 /// Puts the camera behind and above the eyes, over the shoulder, turned with the pitch around
 /// them, and pulls it in to short of a wall a ray from the eyes meets on the way, the body
-/// itself left out. Only while it hangs from the body: the prop editor lifts it off.
+/// itself left out. Something narrow the ray meets, a trunk or a post, leaves it where it is:
+/// two more rays, `NARROW_HALF_WIDTH_M` to either side, tell a wall, which one of them meets
+/// too, from a thing the player is seen past. Only while it hangs from the body: the prop
+/// editor lifts it off.
 fn put_camera_behind(
     spatial: SpatialQuery,
     bodies: Query<(Entity, &GlobalTransform), With<Player>>,
@@ -102,12 +108,22 @@ fn put_camera_behind(
         let wanted = behind(transform.rotation, view.shoulder);
         let eyes_world = body_global.transform_point(eyes);
         let towards = body_global.transform_point(eyes + wanted) - eyes_world;
-        let hit = Dir3::new(towards).ok().and_then(|direction| {
-            let filter = SpatialQueryFilter::default().with_excluded_entities([body]);
+        let Ok(direction) = Dir3::new(towards) else {
+            continue;
+        };
+        let filter = SpatialQueryFilter::default().with_excluded_entities([body]);
+        let hit_from = |origin: Vec3| {
             spatial
-                .cast_ray(eyes_world, direction, towards.length(), true, &filter)
+                .cast_ray(origin, direction, towards.length(), true, &filter)
                 .map(|hit| hit.distance)
-        });
+        };
+        // across the view, in the world: the camera's own right, turned with the body
+        let side = body_global.rotation() * transform.rotation * Vec3::X * NARROW_HALF_WIDTH_M;
+        let hit = blocking_hit(
+            hit_from(eyes_world),
+            hit_from(eyes_world - side),
+            hit_from(eyes_world + side),
+        );
         transform.translation = eyes + wanted * reach(towards.length(), hit);
     }
 }
@@ -123,6 +139,13 @@ fn behind(pitch: Quat, shoulder: Shoulder) -> Vec3 {
         Shoulder::Left => -THIRD_PERSON_SHOULDER_M,
     };
     pitch * Vec3::new(side, THIRD_PERSON_RISE_M, THIRD_PERSON_DISTANCE_M)
+}
+
+/// Returns what stops the camera, of what the ray from the eyes hit, `center`, given what the
+/// rays either side of it hit, `left` and `right`: nothing when neither of those hit anything,
+/// since what the middle one met is narrow enough to see the player past.
+fn blocking_hit(center: Option<f32>, left: Option<f32>, right: Option<f32>) -> Option<f32> {
+    center.filter(|_| left.is_some() || right.is_some())
 }
 
 /// Returns how much of the way from the eyes the camera may go, `distance` away, when a ray
@@ -176,5 +199,22 @@ mod tests {
         assert!((reach(distance, Some(hit)) - expected).abs() < TOLERANCE);
         assert!((reach(distance, None) - 1.0).abs() < TOLERANCE);
         assert!(reach(distance, Some(0.0)).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn a_narrow_thing_leaves_the_camera_where_it_is() {
+        assert_eq!(blocking_hit(Some(1.0), None, None), None);
+    }
+
+    #[test]
+    fn a_wall_or_its_corner_stops_the_camera() {
+        assert_eq!(blocking_hit(Some(1.0), Some(1.0), Some(1.0)), Some(1.0));
+        assert_eq!(blocking_hit(Some(1.0), Some(1.2), None), Some(1.0));
+        assert_eq!(blocking_hit(Some(1.0), None, Some(1.2)), Some(1.0));
+    }
+
+    #[test]
+    fn nothing_in_the_middle_stops_nothing() {
+        assert_eq!(blocking_hit(None, Some(1.0), Some(1.0)), None);
     }
 }

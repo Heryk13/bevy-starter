@@ -314,7 +314,8 @@ a dynamic capsule with its rotation locked, where the `Session` left it, and add
 triggers `spawn_playroom_camera` (`player/look.rs`), the level's camera as the body's child at
 eye height. Each camera file puts its view on it as it spawns, `FirstPersonView`
 (`first_person.rs`: at the eyes) and `ThirdPersonView` (`third_person.rs`: behind and above a
-shoulder, V swapping it, pulled in short of a wall a ray from the eyes meets), and
+shoulder, V swapping it, pulled in short of a wall a ray from the eyes meets, though not of something narrow, a trunk
+or a post, which two more rays to either side pass), and
 `camera_switch.rs` keeps only the saved one's (`GameData::camera`); F5, a game key in release
 builds too, steps to the next in `CAMERA_VIEWS`, at once. `walk_player` turns the four walk actions (`MOVE_FORWARD`, `MOVE_BACK`, `MOVE_LEFT`,
 `MOVE_RIGHT`, which `player.rs` registers on W, S, A and D and the Controls page of Settings
