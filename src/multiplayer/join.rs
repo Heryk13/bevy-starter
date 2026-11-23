@@ -51,6 +51,7 @@ fn enter_host_game(
     mut receivers: Query<&mut MessageReceiver<WorldState>, With<HostLink>>,
     mut network: ResMut<Network>,
     mut fresh: ResMut<FreshInWorld>,
+    mut time: ResMut<Time<Virtual>>,
 ) {
     if !matches!(*network, Network::Joining { .. }) {
         return;
@@ -65,6 +66,8 @@ fn enter_host_game(
     fresh.0 = fresh_here;
     *network = Network::Joined;
     info!("joined the host's game");
+    // the host runs the world: this game follows it at its pace, never slowed
+    time.set_relative_speed(1.0);
     commands.trigger(StartGame {
         session,
         destination: LoadingDestination::Gameplay,
