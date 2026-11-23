@@ -36,8 +36,9 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   recording (F9: a bar to set the sound, 30 or 60 fps and a countdown, then E records an
   `.mp4` of the game alone, its own UI and sound included and the dev UI never, into
   `gallery/`; the sound is Windows-only, and nothing is installed outside cargo), the prop
-  editor (F10: a drawer of the files in `assets/props/` while the game keeps running; click a
-  thumbnail, then the world, to place one, R turns it, the wheel scales it, Delete removes it,
+  editor (F10: a drawer of the files in `assets/props/` while the game keeps running; a click
+  on a thumbnail toggles it, and while it is on each click in the world places one; a click on
+  a placed prop picks it up to move it, R turns it, the wheel scales it, Delete removes it,
   and every change is written at once to `assets/map.ron`, which release builds read too; on
   `3d/player` a right click picks fixed, physics or no collision, on `2d/player` in front of
   the player or behind) and the

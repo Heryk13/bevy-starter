@@ -218,3 +218,7 @@ the players by the merge down; 6 to 9 on `3d/player`; 10 on `2d/player`.
   now reads the image back (`ReadbackOnce`) until a pixel is drawn, within
   `THUMBNAIL_GIVE_UP_SECS` (20 s), under a brighter light and an ambient one. The sun's glare
   follows the `PlayroomCamera` rather than the one `Camera3d`, which a thumbnail camera broke.
+- **A thumbnail is a toggle** (the user's call after the first `just run`): a click turns it on,
+  and while it is on each click in the world places one, the next one already in the hand, until
+  a click on it, Esc or Delete turns it off. Its cell has a white border. Being on is no state of
+  its own: it is a new prop of that file in the hand.
