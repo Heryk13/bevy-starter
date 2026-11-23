@@ -63,17 +63,17 @@ pub(super) fn plugin(app: &mut App) {
 
 /// Returns the root every overlay spawns in: floating above the screen and the pause menu,
 /// blurring and dimming them, and blocking clicks to them. Its one child is `overlay_card()`.
-fn overlay_root() -> impl Bundle {
+pub(crate) fn overlay_root() -> impl Bundle {
     floating_root(OVERLAY_Z_INDEX)
 }
 
 /// Returns the card every overlay draws its panel on.
-fn overlay_card() -> impl Bundle {
+pub(crate) fn overlay_card() -> impl Bundle {
     card(OVERLAY_WIDTH_PX)
 }
 
 /// Returns the row at the bottom of a card that holds its Close, on the right.
-fn close_footer() -> impl Bundle {
+pub(crate) fn close_footer() -> impl Bundle {
     (
         Node {
             justify_content: JustifyContent::End,
@@ -94,6 +94,7 @@ pub(crate) enum Overlay {
     Settings,
     SaveGame,
     LoadGame,
+    FindServer, // multiplayer
 }
 
 // ==== Components =============================================================

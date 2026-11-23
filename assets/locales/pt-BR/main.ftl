@@ -5,6 +5,7 @@
 menu-new-game = Novo Jogo
 menu-continue = Continuar
 menu-load-game = Carregar
+menu-find-server = Encontrar Servidor
 menu-settings = Opções
 menu-credits = Créditos
 menu-quit = Sair
@@ -16,6 +17,8 @@ pause-resume = Retomar
 pause-save = Salvar
 pause-load-game = Carregar
 pause-settings = Opções
+pause-open-to-lan = Abrir para LAN
+pause-close-lan = Fechar LAN
 pause-quit-to-menu = Voltar ao Menu
 pause-quit-to-desktop = Sair do Jogo
 
@@ -23,14 +26,25 @@ pause-quit-to-desktop = Sair do Jogo
 
 dialog-yes = Sim
 dialog-no = Não
+dialog-ok = OK
 dialog-quit-without-saving = Sair sem salvar?
 dialog-overwrite-save = Sobrescrever este jogo salvo?
 dialog-delete-save = Apagar este jogo salvo?
 dialog-reset-controls = Restaurar todos os controles para o padrão?
+notice-could-not-join = Não foi possível entrar nesse jogo.
+notice-host-ended = O host encerrou o jogo.
 
 ## overlays
 
 overlay-close = Fechar
+
+## find server
+
+find-server-title = Encontrar Servidor
+find-server-refresh = Atualizar
+find-server-empty = Nenhum jogo encontrado na rede.
+find-server-by-ip = Entrar por IP
+find-server-join = Entrar
 credits-title = Créditos
 credits-made-with = Feito com Bevy
 settings-title = Opções
