@@ -1,6 +1,6 @@
 # Multiplayer core: open a game to the LAN, find it, join it, see each other
 
-Status: **designed** 2026-11-23.
+Status: **built** 2026-11-23, tried with two windows on one PC; Radmin between two PCs still to try.
 Date: 2026-11-23
 Bevy: 0.20.0, lightyear 0.31.0
 Roadmap: row 18, its part 2 of 8 (the user's plan of 2026-11-23, below), from its "as agreed"
@@ -78,4 +78,15 @@ eased step toward a pose.
 
 ## What changed while building it
 
-Nothing yet.
+- **A player branch's part is a file of its own too**, `player/others.rs` (decided while building
+  2): drawing the others is an observer, a function no marker line can carry, so the file goes
+  whole with `multiplayer.rs` and its folder. The CLI's list of what multiplayer removes is
+  `multiplayer.rs`, `multiplayer/`, `player/others.rs` and the marked lines.
+- **A joiner starts on a ring around the spawn point** (found at the first two-window try, the
+  user saw it too): both bodies started in the same place, one inside the other, and physics
+  threw one into the air. A place for each player already in, `MAX_PLAYERS` places round
+  `JOINER_RING_RADIUS_M` (2 m) in 3D and two tiles in 2D; the host keeps the middle.
+- **Joining shows no "connecting" line**: Find Server closes on Join and the menu waits up to
+  `CONNECT_TIMEOUT_SECS` before the game starts or the notice comes.
+- **The others in 3D are kinematic capsules**, so the player bumps into them and never pushes
+  them, since each player's own game moves them.
