@@ -9,6 +9,7 @@ use crate::dev_tools::prop_editor::PropEditor;
 #[cfg(feature = "dev")]
 use crate::dev_tools::speed::{SpeedMultiplier, Speedometer};
 use crate::input::{Action, ActionName, Binding, Controls, Page, register_action};
+use crate::multiplayer::NetworkedBody; // multiplayer
 use crate::save::Session;
 use crate::screens::gameplay::map::Prop;
 use crate::screens::gameplay::playroom::PlayroomCamera;
@@ -18,6 +19,7 @@ pub(crate) mod camera_switch; // camera: switch
 mod first_person; // camera: first-person
 // every camera's: the camera on the body, the mouse look and the cursor
 mod look;
+mod others; // multiplayer
 mod third_person; // camera: third-person
 
 // ==== Config =================================================================
@@ -83,6 +85,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins(first_person::plugin); // camera: first-person
     app.add_plugins(third_person::plugin); // camera: third-person
     app.add_plugins(camera_switch::plugin); // camera: switch
+    app.add_plugins(others::plugin); // multiplayer
     // walk_player reads the yaw that the look (`look.rs`) writes, with no order between them:
     // a turn read one frame late is a few milliseconds no one can feel. record_player_state
     // has no order either: against the look for the same reason, and against the autosave,
@@ -155,6 +158,7 @@ fn spawn_player(
         Transform::from_translation(session.game.player.position)
             .with_rotation(Quat::from_rotation_y(session.game.player.yaw)),
         Player,
+        NetworkedBody, // multiplayer
         DespawnOnExit(Screen::Gameplay),
     );
     // on speed's capsule (F8), a dev tool's, so not in a release build
