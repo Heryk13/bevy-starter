@@ -3,6 +3,8 @@ use bevy::window::PrimaryWindow;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "dev")]
+use crate::dev_tools::prop_editor::PropEditor;
+#[cfg(feature = "dev")]
 use crate::dev_tools::speed::{SpeedMultiplier, Speedometer};
 use crate::input::{Action, ActionName, Binding, Controls, Page, register_action};
 use crate::save::Session;
@@ -13,8 +15,8 @@ use crate::ui::ACCENT;
 // ==== Config =================================================================
 
 // ---- body: a square above the tiles -----------------------------------------
-// in front of the room's tiles, which sit at 0
-const PLAYER_Z: f32 = 1.0;
+// in front of the room's tiles, which sit at 0; the 2D prop editor puts props either side of it
+pub(crate) const PLAYER_Z: f32 = 1.0;
 
 // ---- walk -------------------------------------------------------------------
 // four tiles a second: across the room's floor in a few seconds; per second rather than
@@ -64,14 +66,14 @@ pub(super) fn plugin(app: &mut App) {
     // writes: a save a frame behind is a few pixels off. All three only in Pause::Off, as in
     // 3D: a save loaded from the pause menu replaces the session while the screen is still
     // Gameplay, and recording then would write over the position just loaded
+    let walk = (walk_player, follow_player.after(walk_player)).run_if(in_state(Pause::Off));
+    // the prop editor's free camera takes the walk keys and the camera, a dev tool's, so not
+    // in a release build
+    #[cfg(feature = "dev")]
+    let walk = walk.run_if(not(in_state(PropEditor::On)));
     app.add_systems(
         Update,
-        (
-            walk_player,
-            follow_player.after(walk_player),
-            record_player_state,
-        )
-            .run_if(in_state(Pause::Off)),
+        (walk, record_player_state.run_if(in_state(Pause::Off))),
     );
     app.add_systems(OnExit(Screen::Gameplay), bring_camera_home);
 }

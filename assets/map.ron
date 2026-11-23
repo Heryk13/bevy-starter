@@ -1,0 +1,13 @@
+(
+    next_id: 1,
+    props: [
+        (
+            id: (0),
+            file: "props/douglas_pine.png",
+            position: (128.0, 32.0, 1.5),
+            rotation: (0.0, 0.0, 0.0, 1.0),
+            scale: 1.0,
+            mode: NoCollision,
+        ),
+    ],
+)

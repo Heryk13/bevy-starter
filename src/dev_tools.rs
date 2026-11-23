@@ -13,6 +13,7 @@ mod keys_panel;
 mod photo_mode;
 // read by each genre, which shows the props, moves the camera and stops the player
 pub(crate) mod prop_editor;
+mod prop_editor_2d;
 mod recording;
 mod slow_motion;
 // read by each player, which puts its body on the capsule and walks by the multiplier
@@ -71,6 +72,8 @@ pub(super) fn plugin(app: &mut App) {
         speed::plugin,
         recording::plugin,
         prop_editor::plugin,
+        // no key of its own: the editor's, after it, the 2D images, depth and placing
+        prop_editor_2d::plugin,
         file_explorer::plugin,
     ));
 }

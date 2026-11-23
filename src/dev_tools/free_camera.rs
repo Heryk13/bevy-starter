@@ -1,7 +1,10 @@
 use bevy::input::mouse::{AccumulatedMouseScroll, MouseScrollUnit};
+use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 
 use super::photo_mode::{PhotoHint, register_photo_hint};
+use super::prop_editor::PropEditor;
+use super::prop_editor::edits::{Held, PropsSheet};
 use crate::input::Controls;
 use crate::screens::Pause;
 use crate::screens::gameplay::player::{MOVE_DOWN, MOVE_LEFT, MOVE_RIGHT, MOVE_UP, walk_input};
@@ -26,9 +29,11 @@ const ZOOM_WORDS: &str = "Zoom";
 
 // ==== Plugin =================================================================
 
-/// Photo mode's 2D free camera: the walk keys pan the screen camera and the mouse wheel
-/// zooms it, to frame the photo, and both come back as photo mode ends. It counts real time,
-/// since the game is frozen.
+/// Photo mode's 2D free camera, and the prop editor's: the walk keys pan the screen camera and
+/// the mouse wheel zooms it, to frame the photo or to build the map, and both come back as
+/// photo mode or the editor ends. In the editor the wheel scales a prop in the hand instead,
+/// and scrolls the props window under the pointer. It counts real time, since photo mode
+/// freezes the game.
 pub(super) fn plugin(app: &mut App) {
     register_photo_hint(
         app,
@@ -48,11 +53,20 @@ pub(super) fn plugin(app: &mut App) {
         },
     );
     app.add_systems(OnEnter(Pause::Photo), keep_camera_home);
+    app.add_systems(OnEnter(PropEditor::On), keep_camera_home);
     app.add_systems(
         Update,
-        (pan_free_camera, zoom_free_camera).run_if(in_state(Pause::Photo)),
+        (
+            pan_free_camera,
+            // with a prop in the editor's hand, the wheel scales it instead
+            zoom_free_camera
+                .run_if(not(any_with_component::<Held>))
+                .run_if(not(is_over_editor_window)),
+        )
+            .run_if(in_state(Pause::Photo).or_else(in_state(PropEditor::On))),
     );
     app.add_systems(OnExit(Pause::Photo), bring_camera_home);
+    app.add_systems(OnExit(PropEditor::On), bring_camera_home);
 }
 
 // ==== Components =============================================================
@@ -120,6 +134,11 @@ fn bring_camera_home(
         orthographic.scale = home.scale;
     }
     commands.entity(entity).remove::<FreeCameraHome>();
+}
+
+/// Tells whether the pointer is over the prop editor's window, whose grid the wheel scrolls.
+fn is_over_editor_window(sheets: Query<&Hovered, With<PropsSheet>>) -> bool {
+    sheets.iter().any(Hovered::get)
 }
 
 // ==== Helpers ================================================================
