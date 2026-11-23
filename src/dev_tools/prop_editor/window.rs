@@ -6,7 +6,8 @@ use bevy::ui_widgets::{Activate, ScrollArea, TextInput};
 use super::PropEditor;
 use super::edits::Held;
 use super::library::{LibraryEntry, PropLibrary, PropPreferences, PropThumbnails};
-use crate::screens::gameplay::map::{Prop, PropFile};
+use crate::save::Session;
+use crate::screens::gameplay::map::{Prop, PropFile, write_map};
 use crate::ui::{
     ACCENT, BORDER, BORDER_PX, ButtonKind, FIELD_FILL, Icon, SMALL_FONT_SIZE_PX, TEXT, TEXT_MUTED,
     custom_icon, font, laid_out_button, muted_text, words_button,
@@ -21,6 +22,7 @@ const FAVOURITES_WORDS: &str = "Favourites";
 const RECENT_WORDS: &str = "Recent";
 const BY_NAME_WORDS: &str = "Name";
 const BY_SIZE_WORDS: &str = "Size";
+const SAVE_DEFAULT_MAP_WORDS: &str = "Save as Default Map";
 const EMPTY_WORDS: &str = "No props: drop a file on the window, or put one in assets/props/";
 
 // ---- toolbar: the title, the tabs, the search field and the sort ------------
@@ -59,6 +61,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(press_tab.run_if(in_state(PropEditor::On)));
     app.add_observer(press_sort.run_if(in_state(PropEditor::On)));
     app.add_observer(press_star.run_if(in_state(PropEditor::On)));
+    app.add_observer(press_save_default_map.run_if(in_state(PropEditor::On)));
 }
 
 // ==== Widgets ================================================================
@@ -95,6 +98,10 @@ pub(super) fn window_body() -> impl Bundle {
                         PropsControls,
                     ),
                     search_field(),
+                    (
+                        words_button(SAVE_DEFAULT_MAP_WORDS, ButtonKind::Quiet),
+                        SaveDefaultMapButton,
+                    ),
                 ],
             ),
             (
@@ -163,6 +170,10 @@ struct PropsSearch;
 /// A tab's button, with the tab it shows.
 #[derive(Component)]
 struct TabButton(PropsTab);
+
+/// Marks the button that writes the game's props as the default map.
+#[derive(Component)]
+struct SaveDefaultMapButton;
 
 /// Marks the button that changes how the grid is sorted.
 #[derive(Component)]
@@ -329,6 +340,23 @@ fn press_star(
 ) {
     if let Ok(star) = stars.get(activate.entity) {
         preferences.toggle_favourite(&star.0);
+    }
+}
+
+/// Writes the game's props as the default map, `assets/map.ron`, each where it was placed, when
+/// Save as Default Map is pressed: what a new game starts with, and what a released game shows.
+fn press_save_default_map(
+    activate: On<Activate>,
+    buttons: Query<(), With<SaveDefaultMapButton>>,
+    session: Res<Session>,
+) {
+    if !buttons.contains(activate.entity) {
+        return;
+    }
+    let map = session.game.map.clone().unwrap_or_default().as_placed();
+    match write_map(&map) {
+        Ok(()) => info!("saved {} props as the default map", map.props.len()),
+        Err(err) => error!("could not write the default map: {err}"),
     }
 }
 
