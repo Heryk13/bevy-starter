@@ -1,8 +1,10 @@
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
+use bevy::window::FileDragAndDrop;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use super::super::file_explorer::copy_entry;
 use super::{PropEditor, PropKind};
 use crate::disk::{game_data_dir, write_atomic};
 use crate::screens::gameplay::map::assets_dir;
@@ -31,7 +33,9 @@ pub(super) fn plugin(app: &mut App) {
     app.add_systems(
         Update,
         (
-            rescan_props.run_if(in_state(PropEditor::On)),
+            (copy_dropped_props, rescan_props)
+                .chain()
+                .run_if(in_state(PropEditor::On)),
             save_preferences.run_if(resource_changed::<PropPreferences>),
         ),
     );
@@ -127,6 +131,33 @@ fn rescan_props(
     let found = PropLibrary(read_props(extensions));
     if *library != found {
         *library = found;
+    }
+}
+
+/// Copies a file dropped on the window from the OS's explorer into the props folder, when the
+/// genre takes it, a taken name numbered (`pine 2.glb`); anything else is refused in the log.
+/// The next rescan lists it, within a second.
+fn copy_dropped_props(mut drops: MessageReader<FileDragAndDrop>, kind: Option<Res<PropKind>>) {
+    let extensions = kind.map_or(&[][..], |kind| kind.extensions);
+    for drop in drops.read() {
+        let FileDragAndDrop::DroppedFile { path_buf, .. } = drop else {
+            continue;
+        };
+        let Some(wanted) = path_buf.file_name().map(|name| name.to_string_lossy()) else {
+            continue;
+        };
+        if path_buf.is_dir() || !is_prop_file(&wanted, extensions) {
+            warn!(
+                "not a prop this game takes ({}): {}",
+                extensions.join(", "),
+                path_buf.display()
+            );
+            continue;
+        }
+        match copy_entry(path_buf, &props_dir(), &wanted) {
+            Ok(name) => info!("added the prop {name}"),
+            Err(err) => error!("could not copy {} in: {err}", path_buf.display()),
+        }
     }
 }
 

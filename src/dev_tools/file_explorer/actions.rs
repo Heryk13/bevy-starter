@@ -114,8 +114,12 @@ pub(super) fn move_entry(from: &Path, to_dir: &Path, wanted: &str) -> io::Result
 }
 
 /// Copies the file or folder `from` into `to_dir`, as `move_entry` names it, and returns the
-/// name it got.
-pub(super) fn copy_entry(from: &Path, to_dir: &Path, wanted: &str) -> io::Result<String> {
+/// name it got. The prop editor copies a file dropped on it with it too.
+pub(in crate::dev_tools) fn copy_entry(
+    from: &Path,
+    to_dir: &Path,
+    wanted: &str,
+) -> io::Result<String> {
     std::fs::create_dir_all(to_dir)?;
     let name = free_name(wanted, from.is_dir(), &names_in(to_dir));
     copy_all(from, &to_dir.join(&name))?;
