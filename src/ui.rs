@@ -14,7 +14,7 @@ pub(crate) use button::{
 };
 // the icons by name, re-exported so this file is the only one that names the crate
 pub(crate) use lucide_icons::Icon;
-pub(crate) use panel::{CARD_GAP_PX, ClosesOnEsc, Dismiss, card, dialog, floating_root};
+pub(crate) use panel::{CARD_GAP_PX, ClosesOnEsc, Dismiss, card, dialog, floating_root, notice};
 // the dev windows are glass without being cards, and their buttons say English words; only
 // dev builds have them
 #[cfg(feature = "dev")]

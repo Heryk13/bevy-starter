@@ -152,6 +152,29 @@ pub(crate) fn dialog(
     )
 }
 
+/// Returns a modal notice with OK alone, ready to spawn over whatever it tells about.
+/// `message` is a translation key.
+pub(crate) fn notice(message: &'static str) -> impl Bundle {
+    (
+        floating_root(DIALOG_Z_INDEX),
+        Dialog,
+        ClosesOnEsc,
+        children![(
+            card(DIALOG_WIDTH_PX),
+            children![
+                (label(message), TextLayout::justify(Justify::Center)),
+                (
+                    Node {
+                        justify_content: JustifyContent::Center,
+                        ..default()
+                    },
+                    children![(button("dialog-ok", ButtonKind::Primary), CloseDialog)],
+                ),
+            ],
+        )],
+    )
+}
+
 // ==== Events =================================================================
 
 /// Asks the modal at `entity`, one carrying `ClosesOnEsc`, to close, as Esc does. Each closes

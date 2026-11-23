@@ -8,6 +8,7 @@ use super::{Screen, StartGame};
 use crate::GAME_TITLE;
 use crate::fade::approach;
 use crate::i18n::Localized;
+use crate::multiplayer::FindServerButton; // multiplayer
 use crate::overlays::Overlay;
 use crate::save::{Session, loaded_session, newest_ready, saves_on_disk};
 use crate::ui::blur::{FrozenBackground, unfreeze_background};
@@ -171,6 +172,7 @@ fn spawn_menu_screen(mut commands: Commands, asset_server: Res<AssetServer>) {
                             (menu_word("menu-new-game"), MenuAction::NewGame),
                             (menu_word("menu-continue"), MenuAction::Continue),
                             (menu_word("menu-load-game"), MenuAction::LoadGame),
+                            (menu_word("menu-find-server"), FindServerButton), // multiplayer
                             (menu_word("menu-settings"), MenuAction::Settings),
                             (menu_word("menu-credits"), MenuAction::Credits),
                             (menu_word("menu-quit"), MenuAction::Quit),
