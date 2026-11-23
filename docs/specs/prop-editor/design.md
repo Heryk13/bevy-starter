@@ -213,3 +213,8 @@ the players by the merge down; 6 to 9 on `3d/player`; 10 on `2d/player`.
   never turns, so the right button has no hold to tell apart. In Front and Behind are `PLAYER_Z`
   plus or minus `PROP_DEPTH_STEP` (0.5). The pine's picture is 128 px, from the front and 30°
   above, rendered by a Blender script; the model is mostly trunk, so that is what it shows.
+- **A thumbnail waits until it is drawn** (found at the first `just run`): the camera drew for two
+  frames and was gone, before Bevy had compiled its shaders, so the thumbnail came out empty. It
+  now reads the image back (`ReadbackOnce`) until a pixel is drawn, within
+  `THUMBNAIL_GIVE_UP_SECS` (20 s), under a brighter light and an ambient one. The sun's glare
+  follows the `PlayroomCamera` rather than the one `Camera3d`, which a thumbnail camera broke.
