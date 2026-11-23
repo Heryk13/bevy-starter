@@ -275,6 +275,7 @@ mod tests {
         assert_eq!(prop.transform().translation, rest.position);
     }
 
+    #[cfg(feature = "dev")]
     #[test]
     fn the_default_map_keeps_where_props_were_placed() {
         let mut map = MapFile {
