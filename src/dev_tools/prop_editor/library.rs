@@ -94,13 +94,6 @@ pub(crate) fn props_dir() -> PathBuf {
     assets_dir().join(PROPS_DIR_NAME)
 }
 
-// ==== Events =================================================================
-
-/// A file dropped on the window landed in the props folder, by its name there: what a game
-/// that joined another sends on to the host.
-#[derive(Event, Clone, Debug)]
-pub(crate) struct PropFileAdded(pub(crate) String);
-
 // ==== Systems ================================================================
 
 /// Reads the favourites and recents, or starts with none when the file is missing or broken.
@@ -116,7 +109,7 @@ fn load_preferences(mut commands: Commands) {
 /// genre takes it, a taken name numbered (`pine 2.glb`); anything else is refused in the log.
 /// The next rescan lists it, within a second.
 fn copy_dropped_props(
-    mut commands: Commands,
+    mut commands: Commands, // multiplayer
     mut drops: MessageReader<FileDragAndDrop>,
     kind: Option<Res<PropKind>>,
 ) {
@@ -139,7 +132,7 @@ fn copy_dropped_props(
         match copy_entry(path_buf, &props_dir(), &wanted) {
             Ok(name) => {
                 info!("added the prop {name}");
-                commands.trigger(PropFileAdded(name));
+                commands.trigger(crate::multiplayer::PropFileAdded(name)); // multiplayer
             }
             Err(err) => error!("could not copy {} in: {err}", path_buf.display()),
         }
