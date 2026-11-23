@@ -164,9 +164,9 @@ struct TabButton(PropsTab);
 #[derive(Component)]
 struct SortButton;
 
-/// Marks a prop's cell.
+/// A prop's cell, with its asset path: pressing it takes a new one of it into the hand.
 #[derive(Component)]
-struct PropCell;
+pub(super) struct PropCell(pub(super) String);
 
 /// A prop's star, with its asset path: pressing it marks or unmarks it as a favourite.
 #[derive(Component)]
@@ -388,7 +388,7 @@ fn prop_cell(
                         ],
                     ),
                 ),
-                PropCell,
+                PropCell(entry.file.clone()),
             ),
             (
                 laid_out_button(

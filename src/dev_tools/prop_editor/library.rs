@@ -21,6 +21,8 @@ const RESCAN_SECS: f32 = 1.0;
 
 // ---- preferences: the developer's own, in the data folder -------------------
 const PREFERENCES_FILE_NAME: &str = "prop_editor.ron";
+// the last props placed, newest first
+const RECENT_PROPS: usize = 20;
 
 // ==== Plugin =================================================================
 
@@ -77,6 +79,13 @@ impl PropPreferences {
             self.favourites.push(file.to_string());
         }
     }
+
+    /// Puts `file` first among the recents, once, keeping the last `RECENT_PROPS`.
+    pub(super) fn place_recent(&mut self, file: &str) {
+        self.recent.retain(|kept| kept != file);
+        self.recent.insert(0, file.to_string());
+        self.recent.truncate(RECENT_PROPS);
+    }
 }
 
 /// Returns the props folder on disk, where dropped files are copied.
@@ -93,45 +102,6 @@ fn load_preferences(mut commands: Commands) {
         .and_then(|text| ron::from_str(&text).ok())
         .unwrap_or_default();
     commands.insert_resource::<PropPreferences>(preferences);
-}
-
-/// Writes the favourites and recents whenever they change. A failure is only logged: losing
-/// a star costs nothing.
-fn save_preferences(preferences: Res<PropPreferences>) {
-    if preferences.is_added() {
-        return;
-    }
-    let Some(path) = preferences_path() else {
-        return;
-    };
-    let written = ron::to_string(&*preferences)
-        .map_err(std::io::Error::other)
-        .and_then(|text| write_atomic(&path, text));
-    if let Err(err) = written {
-        error!("could not keep the prop editor's favourites: {err}");
-    }
-}
-
-/// Reads the props folder as the window opens and every `RESCAN_SECS` while it is open, and
-/// changes the library only when what is there changed, so the window redraws only then.
-fn rescan_props(
-    time: Res<Time<Real>>,
-    editor: Res<State<PropEditor>>,
-    mut since_secs: Local<f32>,
-    kind: Option<Res<PropKind>>,
-    mut library: ResMut<PropLibrary>,
-) {
-    // the state changes as the window opens: read at once rather than a second later
-    *since_secs += time.delta_secs();
-    if *since_secs < RESCAN_SECS && !editor.is_changed() {
-        return;
-    }
-    *since_secs = 0.0;
-    let extensions = kind.map_or(&[][..], |kind| kind.extensions);
-    let found = PropLibrary(read_props(extensions));
-    if *library != found {
-        *library = found;
-    }
 }
 
 /// Copies a file dropped on the window from the OS's explorer into the props folder, when the
@@ -158,6 +128,45 @@ fn copy_dropped_props(mut drops: MessageReader<FileDragAndDrop>, kind: Option<Re
             Ok(name) => info!("added the prop {name}"),
             Err(err) => error!("could not copy {} in: {err}", path_buf.display()),
         }
+    }
+}
+
+/// Reads the props folder as the window opens and every `RESCAN_SECS` while it is open, and
+/// changes the library only when what is there changed, so the window redraws only then.
+fn rescan_props(
+    time: Res<Time<Real>>,
+    editor: Res<State<PropEditor>>,
+    mut since_secs: Local<f32>,
+    kind: Option<Res<PropKind>>,
+    mut library: ResMut<PropLibrary>,
+) {
+    // the state changes as the window opens: read at once rather than a second later
+    *since_secs += time.delta_secs();
+    if *since_secs < RESCAN_SECS && !editor.is_changed() {
+        return;
+    }
+    *since_secs = 0.0;
+    let extensions = kind.map_or(&[][..], |kind| kind.extensions);
+    let found = PropLibrary(read_props(extensions));
+    if *library != found {
+        *library = found;
+    }
+}
+
+/// Writes the favourites and recents whenever they change. A failure is only logged: losing
+/// a star costs nothing.
+fn save_preferences(preferences: Res<PropPreferences>) {
+    if preferences.is_added() {
+        return;
+    }
+    let Some(path) = preferences_path() else {
+        return;
+    };
+    let written = ron::to_string(&*preferences)
+        .map_err(std::io::Error::other)
+        .and_then(|text| write_atomic(&path, text));
+    if let Err(err) = written {
+        error!("could not keep the prop editor's favourites: {err}");
     }
 }
 
@@ -215,6 +224,26 @@ mod tests {
         assert!(is_prop_file("PINE.GLB", &["glb"]));
         assert!(!is_prop_file("pine.png", &["glb"]));
         assert!(!is_prop_file("pine", &["glb"]));
+    }
+
+    #[test]
+    fn a_recent_prop_comes_first_and_only_once() {
+        let mut preferences = PropPreferences::default();
+        preferences.place_recent("props/a.glb");
+        preferences.place_recent("props/b.glb");
+        preferences.place_recent("props/a.glb");
+        assert_eq!(preferences.recent, ["props/a.glb", "props/b.glb"]);
+    }
+
+    #[test]
+    fn the_recents_keep_only_the_last_ones() {
+        let mut preferences = PropPreferences::default();
+        for number in 0..RECENT_PROPS + 5 {
+            preferences.place_recent(&format!("props/{number}.glb"));
+        }
+        assert_eq!(preferences.recent.len(), RECENT_PROPS);
+        let newest = format!("props/{}.glb", RECENT_PROPS + 4);
+        assert_eq!(preferences.recent.first(), Some(&newest));
     }
 
     #[test]

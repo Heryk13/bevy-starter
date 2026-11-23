@@ -89,7 +89,7 @@ fn spawn_map_props(mut commands: Commands) {
     let assets = assets_dir();
     let (present, missing) = props_to_spawn(&map, |file| assets.join(file).is_file());
     for placed in present {
-        commands.spawn((prop_bundle(placed), DespawnOnExit(Screen::Gameplay)));
+        commands.spawn(prop_bundle(placed));
     }
     for placed in missing {
         warn!(
@@ -101,13 +101,15 @@ fn spawn_map_props(mut commands: Commands) {
 
 // ==== Helpers ================================================================
 
-/// Returns a placed prop's entity, as the map spawns it and the editor's edits do.
+/// Returns a placed prop's entity, as the map spawns it and the editor's edits do: gone with
+/// gameplay.
 pub(crate) fn prop_bundle(placed: &PlacedProp) -> impl Bundle {
     (
         Prop(placed.id),
         PropFile(placed.file.clone()),
         placed.mode,
         placed.transform(),
+        DespawnOnExit(Screen::Gameplay),
     )
 }
 
@@ -133,6 +135,15 @@ pub(crate) fn read_map() -> Option<MapFile> {
             None
         }
     }
+}
+
+/// Writes the map file, whole or not at all, in RON laid out a prop a block, so a commit shows
+/// which prop moved. Only the editor writes it, and only dev builds have the editor.
+#[cfg(feature = "dev")]
+pub(crate) fn write_map(map: &MapFile) -> std::io::Result<()> {
+    let text = ron::ser::to_string_pretty(map, ron::ser::PrettyConfig::default())
+        .map_err(std::io::Error::other)?;
+    crate::disk::write_atomic(&map_path(), text)
 }
 
 /// Returns the map in `text`, or `None` with an error logged when it is not one. `next_id` is
