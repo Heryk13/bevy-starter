@@ -90,9 +90,16 @@ impl PropPreferences {
 }
 
 /// Returns the props folder on disk, where dropped files are copied.
-pub(super) fn props_dir() -> PathBuf {
+pub(crate) fn props_dir() -> PathBuf {
     assets_dir().join(PROPS_DIR_NAME)
 }
+
+// ==== Events =================================================================
+
+/// A file dropped on the window landed in the props folder, by its name there: what a game
+/// that joined another sends on to the host.
+#[derive(Event, Clone, Debug)]
+pub(crate) struct PropFileAdded(pub(crate) String);
 
 // ==== Systems ================================================================
 
@@ -108,7 +115,11 @@ fn load_preferences(mut commands: Commands) {
 /// Copies a file dropped on the window from the OS's explorer into the props folder, when the
 /// genre takes it, a taken name numbered (`pine 2.glb`); anything else is refused in the log.
 /// The next rescan lists it, within a second.
-fn copy_dropped_props(mut drops: MessageReader<FileDragAndDrop>, kind: Option<Res<PropKind>>) {
+fn copy_dropped_props(
+    mut commands: Commands,
+    mut drops: MessageReader<FileDragAndDrop>,
+    kind: Option<Res<PropKind>>,
+) {
     let extensions = kind.map_or(&[][..], |kind| kind.extensions);
     for drop in drops.read() {
         let FileDragAndDrop::DroppedFile { path_buf, .. } = drop else {
@@ -126,7 +137,10 @@ fn copy_dropped_props(mut drops: MessageReader<FileDragAndDrop>, kind: Option<Re
             continue;
         }
         match copy_entry(path_buf, &props_dir(), &wanted) {
-            Ok(name) => info!("added the prop {name}"),
+            Ok(name) => {
+                info!("added the prop {name}");
+                commands.trigger(PropFileAdded(name));
+            }
             Err(err) => error!("could not copy {} in: {err}", path_buf.display()),
         }
     }
@@ -202,7 +216,7 @@ fn read_props(extensions: &[&str]) -> Vec<LibraryEntry> {
 
 /// Tells whether a file named `name` is a prop the genre takes, by its extension, whatever
 /// its case.
-pub(super) fn is_prop_file(name: &str, extensions: &[&str]) -> bool {
+pub(crate) fn is_prop_file(name: &str, extensions: &[&str]) -> bool {
     std::path::Path::new(name)
         .extension()
         .and_then(|extension| extension.to_str())
