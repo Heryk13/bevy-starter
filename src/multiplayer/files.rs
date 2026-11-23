@@ -8,9 +8,7 @@ use super::Network;
 use super::host::HostServer;
 use super::join::HostLink;
 use crate::dev_tools::prop_editor::PropKind;
-use crate::dev_tools::prop_editor::library::{
-    PROPS_DIR_NAME, PropFileAdded, is_prop_file, props_dir,
-};
+use crate::dev_tools::prop_editor::library::{PROPS_DIR_NAME, is_prop_file, props_dir};
 use crate::disk::write_atomic;
 use crate::save::Session;
 use crate::screens::Screen;
@@ -65,6 +63,13 @@ pub(super) fn plugin(app: &mut App) {
         ),
     );
 }
+
+// ==== Events =================================================================
+
+/// A file dropped on the window landed in the props folder, by its name there: what a game
+/// that joined another sends on to the host.
+#[derive(Event, Clone, Debug)]
+pub(crate) struct PropFileAdded(pub(crate) String);
 
 // ==== Messages ===============================================================
 

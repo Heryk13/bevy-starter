@@ -7,11 +7,10 @@ use super::remote::{Heading, RemoteIndex, hear_pose};
 use super::world::{FreshInWorld, joiner_session, keep_character};
 use super::{
     CONNECT_TIMEOUT_SECS, Network, NetworkedBody, PRIVATE_KEY, PROTOCOL_ID, PendingNotice, Pose,
-    PoseChannel, WorldState, pose_of,
+    PoseChannel, WorldState, notice, pose_of,
 };
 use crate::save::Session;
 use crate::screens::{LoadingDestination, Screen, StartGame};
-use crate::ui::notice;
 
 // ==== Config =================================================================
 
