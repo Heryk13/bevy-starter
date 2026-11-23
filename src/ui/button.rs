@@ -1,3 +1,4 @@
+use bevy::input_focus::{InputFocus, InputFocusVisible};
 use bevy::picking::hover::{HoverMap, Hovered};
 use bevy::picking::pointer::PointerId;
 use bevy::prelude::*;
@@ -215,8 +216,8 @@ fn load_button_sounds(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// Eases every button toward its hover and press state and paints it from there: its fill,
-/// and its ink on every text it holds. Counts real time, since the pause menu's buttons live
-/// while virtual time is frozen.
+/// and its ink on every text it holds; the button a gamepad focused counts as hovered.
+/// Counts real time, since the pause menu's buttons live while virtual time is frozen.
 fn paint_buttons(
     time: Res<Time<Real>>,
     mut buttons: Query<
@@ -231,11 +232,15 @@ fn paint_buttons(
         With<Button>,
     >,
     children: Query<&Children>,
+    focus: Res<InputFocus>,
+    focus_visible: Res<InputFocusVisible>,
     mut inks: Query<&mut TextColor, Without<OwnColor>>,
 ) {
     let step = time.delta_secs() / BUTTON_EASE_SECS;
     for (entity, kind, hovered, pressed, mut motion, mut fill) in &mut buttons {
-        let hover_target = f32::from(u8::from(hovered.get()));
+        // the button a gamepad moved to is lit as one under the pointer
+        let focused = focus_visible.0 && focus.get() == Some(entity);
+        let hover_target = f32::from(u8::from(hovered.get() || focused));
         let press_target = f32::from(u8::from(pressed));
         // a button resting where it was last painted is left alone: most buttons, most
         // frames. a new one is painted once, since its texts spawn in a color of their own,

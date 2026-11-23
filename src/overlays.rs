@@ -1,7 +1,9 @@
 use bevy::prelude::*;
 use bevy::ui_widgets::Activate;
 
-use crate::input::{Action, ActionName, Binding, Page, action_just_pressed, register_action};
+use crate::input::{
+    Action, ActionName, Binding, Page, action_just_pressed, register_action, register_pad,
+};
 use crate::save::take_pause_picture;
 use crate::screens::Pause;
 use crate::ui::blur::GlassLayers;
@@ -21,6 +23,8 @@ const PAUSE: ActionName = ActionName("pause");
 // Esc, and never another key: it closes every panel, so a player who could move it could
 // lose the way out of the menus
 const PAUSE_KEY: KeyCode = KeyCode::Escape;
+// a gamepad's Esc: Start, as every game pauses, and B, as every menu goes back
+const PAUSE_PAD_BUTTONS: [GamepadButton; 2] = [GamepadButton::Start, GamepadButton::East];
 
 // ---- overlays ---------------------------------------------------------------
 // room left above it on purpose, for anything that must draw over an overlay
@@ -51,6 +55,9 @@ pub(super) fn plugin(app: &mut App) {
             label: None,
         },
     );
+    for button in PAUSE_PAD_BUTTONS {
+        register_pad(app, PAUSE, button);
+    }
     app.add_systems(Update, apply_esc_action.run_if(action_just_pressed(PAUSE)));
     app.init_resource::<GlassLayers>();
     app.world_mut()
