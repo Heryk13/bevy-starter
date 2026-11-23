@@ -161,9 +161,14 @@ fn apply_map_edit(
                 && let Ok((_, _, mut current, current_mode)) = props.get_mut(entity)
             {
                 *current = *transform;
-                // only on a change: a genre rebuilds the body when the mode is inserted
-                if current_mode != mode {
-                    commands.entity(entity).insert(*mode);
+                // a new mode is a new prop, spawned again from the map: its body is built from
+                // its mode as it spawns, and taking apart the colliders a model's meshes got
+                // would be code in every genre
+                if current_mode != mode
+                    && let Some(placed) = map.props.iter().find(|placed| placed.id == *id)
+                {
+                    commands.entity(entity).despawn();
+                    commands.spawn(prop_bundle(placed));
                 }
             }
         }
