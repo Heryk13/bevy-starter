@@ -1,13 +1,11 @@
 use avian3d::prelude::{PhysicsDebugPlugin, PhysicsGizmos};
 use bevy::prelude::*;
 
-use super::{DEV_TOOLS_Z_INDEX, DevUi};
+use super::status::{StatusRow, spawn_status};
 use crate::input::{
     Action, ActionName, Binding, Bindings, Page, action_just_pressed, register_action,
 };
-use crate::overlays::{binding_legend, keycap};
 use crate::screens::Pause;
-use crate::ui::{SMALL_FONT_SIZE_PX, muted_text};
 
 // ==== Config =================================================================
 
@@ -19,10 +17,6 @@ const PHYSICS_DEBUG_KEY: KeyCode = KeyCode::F6;
 const PHYSICS_DEBUG_LABEL: &str = "Physics Debug";
 const COLLIDERS_WORDS: &str = "Colliders";
 const CAMERA_RAYS_WORDS: &str = "Camera Rays";
-
-// ---- status: the view on, top centre, as the F1 hint is drawn ---------------
-const STATUS_TOP_PX: f32 = 10.0;
-const STATUS_GAP_PX: f32 = 8.0;
 
 // ==== Plugin =================================================================
 
@@ -94,14 +88,14 @@ fn show_physics_outlines(view: Res<PhysicsDebugView>, mut gizmos: ResMut<GizmoCo
     }
 }
 
-/// Says which view F6 shows, top centre: its key on a keycap, beside the view's name, gone
-/// while nothing shows. Drawn by the screen camera, as the F1 hint is, and hidden in photo
-/// mode with every dev window.
+/// Says which view F6 shows in the status row (`status.rs`): its key on a keycap, beside the
+/// view's name, gone while nothing shows.
 fn show_physics_debug_status(
     mut commands: Commands,
     view: Res<PhysicsDebugView>,
     bindings: Res<Bindings>,
     shown: Query<Entity, With<PhysicsDebugStatus>>,
+    rows: Query<Entity, With<StatusRow>>,
 ) {
     for status in &shown {
         commands.entity(status).despawn();
@@ -111,32 +105,16 @@ fn show_physics_debug_status(
         PhysicsDebugView::Colliders => COLLIDERS_WORDS,
         PhysicsDebugView::CameraRays => CAMERA_RAYS_WORDS,
     };
-    let legend = bindings
-        .binding(PHYSICS_DEBUG)
-        .map(binding_legend)
-        .unwrap_or_default();
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(STATUS_TOP_PX),
-                left: px(0),
-                right: px(0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                column_gap: px(STATUS_GAP_PX),
-                ..default()
-            },
-            // over every screen root the screen camera draws
-            DEV_TOOLS_Z_INDEX,
+    if let Ok(row) = rows.single() {
+        spawn_status(
+            &mut commands,
+            row,
             PhysicsDebugStatus,
-            DevUi,
-            children![
-                keycap(PHYSICS_DEBUG, legend),
-                (Text::new(words), muted_text(SMALL_FONT_SIZE_PX)),
-            ],
-        ))
-        .insert_recursive::<Children>(Pickable::IGNORE);
+            PHYSICS_DEBUG,
+            &bindings,
+            words,
+        );
+    }
 }
 
 /// Hides the view as photo mode begins, keeping which it was: gizmos are not a dev window, so

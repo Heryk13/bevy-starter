@@ -19,6 +19,7 @@ pub(crate) mod prop_editor;
 mod prop_editor_3d;
 mod recording;
 mod slow_motion;
+mod status;
 // read by each player, which puts its body on the capsule and walks by the multiplier
 pub(crate) mod speed;
 
@@ -70,6 +71,8 @@ pub(super) fn plugin(app: &mut App) {
         fps::plugin,
         photo_mode::plugin,
         slow_motion::plugin,
+        // no key of its own: the row F6 and F7 say they are on in
+        status::plugin,
         physics_debug::plugin,
         fly::plugin,
         // no key of its own: photo mode's, after photo mode and fly, whose hint and keys it adds

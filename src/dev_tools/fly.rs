@@ -3,8 +3,9 @@ use bevy::prelude::*;
 
 use super::register_inner_key;
 use super::speed::SpeedMultiplier;
+use super::status::{StatusRow, spawn_status};
 use crate::input::{
-    Action, ActionName, Binding, Controls, Page, action_just_pressed, register_action,
+    Action, ActionName, Binding, Bindings, Controls, Page, action_just_pressed, register_action,
 };
 use crate::screens::Pause;
 use crate::screens::gameplay::player::{Player, walk_input, walk_player};
@@ -25,6 +26,7 @@ const SINK_KEY: KeyCode = KeyCode::ShiftLeft;
 const FLY_LABEL: &str = "Fly";
 const RISE_LABEL: &str = "Rise";
 const SINK_LABEL: &str = "Sink";
+const FLYING_WORDS: &str = "Flying";
 
 // ---- speed ------------------------------------------------------------------
 // fast enough to cross the map and climb above it in a few seconds; speed's multiplier
@@ -65,6 +67,8 @@ pub(super) fn plugin(app: &mut App) {
         )
             .run_if(in_state(Pause::Off)),
     );
+    app.add_observer(show_flying_status);
+    app.add_observer(hide_flying_status);
 }
 
 // ==== Components =============================================================
@@ -73,6 +77,10 @@ pub(super) fn plugin(app: &mut App) {
 /// `ColliderDisabled`, which come and go with it.
 #[derive(Component)]
 struct Flying;
+
+/// Marks the status that says the body flies.
+#[derive(Component)]
+struct FlyingStatus;
 
 // ==== Systems ================================================================
 
@@ -87,6 +95,34 @@ fn toggle_fly(mut commands: Commands, body: Single<(Entity, Has<Flying>), With<P
         commands
             .entity(body)
             .insert((Flying, GravityScale(0.0), ColliderDisabled));
+    }
+}
+
+/// Says the body flies in the status row (`status.rs`), as it starts flying.
+fn show_flying_status(
+    _: On<Add<Flying>>,
+    mut commands: Commands,
+    bindings: Res<Bindings>,
+    row: Single<Entity, With<StatusRow>>,
+) {
+    spawn_status(
+        &mut commands,
+        *row,
+        FlyingStatus,
+        FLY,
+        &bindings,
+        FLYING_WORDS,
+    );
+}
+
+/// Takes the status away as the body stops flying, or goes with gameplay.
+fn hide_flying_status(
+    _: On<Remove<Flying>>,
+    mut commands: Commands,
+    statuses: Query<Entity, With<FlyingStatus>>,
+) {
+    for status in &statuses {
+        commands.entity(status).despawn();
     }
 }
 

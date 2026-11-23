@@ -110,6 +110,7 @@ src/
       sound.rs      the game's own sound, through Windows' process loopback
     slow_motion.rs  F4: the game slowed down, stepped with Numpad − and +
     speed.rs        F8: the player's speed, and a multiplier for its walk
+    status.rs       the row, top centre, where F6 and F7 say they are on
   disk.rs           the data folder and safe file writes, shared
   fade.rs           the fade timing every screen shares
   i18n.rs           languages, translations and the UI font, shared
