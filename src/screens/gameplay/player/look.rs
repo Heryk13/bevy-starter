@@ -5,6 +5,7 @@ use bevy::window::{CursorGrabMode, CursorOptions, PrimaryWindow};
 use super::{PLAYER_HEIGHT_M, Player};
 #[cfg(feature = "dev")]
 use crate::dev_tools::prop_editor::PropEditor;
+use crate::input::Controls;
 use crate::save::Session;
 use crate::screens::gameplay::playroom::PlayroomCamera;
 use crate::screens::{Pause, Screen};
@@ -23,6 +24,8 @@ const LOOK_RAD_PER_PX: f32 = 0.002;
 // how far up and down the view tilts: short of 90°, where forward and up become one
 // direction and the view no longer knows which way is left, so it flips
 const LOOK_PITCH_LIMIT_DEG: f32 = 85.0;
+// how fast a right stick pushed all the way turns the view: half a turn in about a second
+const LOOK_STICK_RAD_PER_S: f32 = 3.0;
 
 // ---- derived from the eyes and the look -------------------------------------
 // the camera hangs from the body, placed from the capsule's centre rather than its soles:
@@ -30,6 +33,8 @@ const LOOK_PITCH_LIMIT_DEG: f32 = 85.0;
 pub(super) const EYE_OFFSET_M: f32 = EYE_HEIGHT_M - PLAYER_HEIGHT_M / 2.0;
 // the limit as Bevy's rotations take it
 const LOOK_PITCH_LIMIT_RAD: f32 = LOOK_PITCH_LIMIT_DEG.to_radians();
+// the stick's speed as the pixels of mouse it stands for, so both go one way through the look
+const LOOK_STICK_PX_PER_S: f32 = LOOK_STICK_RAD_PER_S / LOOK_RAD_PER_PX;
 
 // ==== Plugin =================================================================
 
@@ -105,16 +110,21 @@ fn hold_cursor(
 /// Turns the view with the mouse: across turns the whole body, so walking follows where the
 /// player faces, and up and down tilts only the camera, so looking down never tips the body.
 /// The pitch is read back from the camera each frame rather than kept anywhere else. The
-/// mouse's motion is already this frame's, so it is not scaled by the frame's time.
+/// mouse's motion is already this frame's, so it is not scaled by the frame's time; a right
+/// stick's push is a speed, so it is.
 pub(super) fn look_around(
     mouse_motion: Res<AccumulatedMouseMotion>,
+    controls: Controls,
+    time: Res<Time>,
     mut body: Single<&mut Transform, With<Player>>,
     mut camera: Single<&mut Transform, (With<PlayroomCamera>, Without<Player>)>,
 ) {
-    body.rotate_y(-mouse_motion.delta.x * LOOK_RAD_PER_PX);
+    let stick = controls.stick(Gamepad::right_stick);
+    let delta = look_delta_px(mouse_motion.delta, stick, time.delta_secs());
+    body.rotate_y(-delta.x * LOOK_RAD_PER_PX);
     camera.rotation = Quat::from_rotation_x(next_pitch(
         camera.rotation.to_euler(EulerRot::YXZ).1,
-        mouse_motion.delta.y,
+        delta.y,
     ));
 }
 
@@ -132,6 +142,13 @@ fn is_cursor_locked(pause: Option<Pause>, modal_open: bool, turning: bool) -> bo
         _ => false,
     };
     (looking && !modal_open) || turning
+}
+
+/// Returns how far the view turns this frame, as pixels of mouse: the mouse's own `mouse_px`,
+/// and a right stick pushed to `stick` (up being up) for `delta_secs`. Screen y grows down, so
+/// the stick's up is a negative y.
+fn look_delta_px(mouse_px: Vec2, stick: Vec2, delta_secs: f32) -> Vec2 {
+    mouse_px + Vec2::new(stick.x, -stick.y) * LOOK_STICK_PX_PER_S * delta_secs
 }
 
 /// Returns the pitch after the mouse moves `delta_y_px` down the screen, held inside the
@@ -158,6 +175,14 @@ mod tests {
     fn moving_the_mouse_down_looks_down() {
         let pitch = next_pitch(0.0, 5.0);
         assert!((pitch + (5.0 * LOOK_RAD_PER_PX)).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn a_right_stick_pushed_up_for_a_second_looks_up_at_its_speed() {
+        let delta = look_delta_px(Vec2::ZERO, Vec2::Y, 1.0);
+        let pitch = next_pitch(0.0, delta.y);
+        assert!((pitch - LOOK_STICK_RAD_PER_S.min(LOOK_PITCH_LIMIT_RAD)).abs() < TOLERANCE);
+        assert!(delta.x.abs() < TOLERANCE);
     }
 
     #[test]

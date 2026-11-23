@@ -3,7 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use super::first_person::FirstPersonView; // camera: first-person
 use super::third_person::ThirdPersonView; // camera: third-person
-use crate::input::{Action, ActionName, Binding, Page, action_just_pressed, register_action};
+use crate::input::{
+    Action, ActionName, Binding, Page, action_just_pressed, register_action, register_pad,
+};
 use crate::save::Session;
 use crate::screens::Pause;
 use crate::screens::gameplay::playroom::PlayroomCamera;
@@ -13,6 +15,8 @@ use crate::screens::gameplay::playroom::PlayroomCamera;
 // goes to the next camera: the action, and the key it starts on
 const SWITCH_CAMERA: ActionName = ActionName("switch_camera");
 const SWITCH_CAMERA_KEY: KeyCode = KeyCode::F5;
+// Y, the face button no other action takes
+const SWITCH_CAMERA_PAD_BUTTON: GamepadButton = GamepadButton::North;
 const SWITCH_CAMERA_LABEL: &str = "action-switch-camera";
 
 // the cameras F5 steps through, in order, a new game starting with the first; each on a line
@@ -37,6 +41,7 @@ pub(super) fn plugin(app: &mut App) {
             label: Some(SWITCH_CAMERA_LABEL),
         },
     );
+    register_pad(app, SWITCH_CAMERA, SWITCH_CAMERA_PAD_BUTTON);
     app.add_systems(
         Update,
         (

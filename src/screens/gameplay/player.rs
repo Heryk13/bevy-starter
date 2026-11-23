@@ -201,21 +201,24 @@ fn record_player_state(
 
 // ==== Helpers ================================================================
 
-/// Returns what the four walk actions ask for: right and forward, one per key held, each
-/// against its opposite. Fly and photo mode's free camera read the same keys.
+/// Returns what the four walk actions and the left sticks ask for: right and forward, one per
+/// key held, each against its opposite, plus how far a stick is pushed. Fly and photo mode's
+/// free camera read the same.
 pub(crate) fn walk_input(controls: &Controls) -> Vec2 {
     let axis = |positive, negative| {
         f32::from(u8::from(controls.pressed(positive)))
             - f32::from(u8::from(controls.pressed(negative)))
     };
-    Vec2::new(axis(MOVE_RIGHT, MOVE_LEFT), axis(MOVE_FORWARD, MOVE_BACK))
+    let keys = Vec2::new(axis(MOVE_RIGHT, MOVE_LEFT), axis(MOVE_FORWARD, MOVE_BACK));
+    keys + controls.stick(Gamepad::left_stick)
 }
 
 /// Returns the velocity the keys ask for, on the ground and turned to where the body faces:
-/// `input` is right and forward, one per key, made one long first so a diagonal is no
-/// faster than straight ahead, and forward is -Z, as everywhere in Bevy.
+/// `input` is right and forward, held to one long first so a diagonal is no faster than
+/// straight ahead while a stick pushed halfway walks at half the speed, and forward is -Z, as
+/// everywhere in Bevy.
 fn walk_velocity(input: Vec2, rotation: Quat) -> Vec3 {
-    let direction = input.normalize_or_zero();
+    let direction = input.clamp_length_max(1.0);
     let local = Vec3::new(direction.x, 0.0, -direction.y);
     rotation * local * PLAYER_WALK_SPEED_M_PER_S
 }
@@ -248,6 +251,12 @@ mod tests {
         let straight = walk_velocity(Vec2::new(0.0, 1.0), Quat::IDENTITY);
         let diagonal = walk_velocity(Vec2::new(1.0, 1.0), Quat::IDENTITY);
         assert!((diagonal.length() - straight.length()).abs() < TOLERANCE);
+    }
+
+    #[test]
+    fn a_stick_pushed_halfway_walks_at_half_the_speed() {
+        let half = walk_velocity(Vec2::new(0.0, 0.5), Quat::IDENTITY);
+        assert!((half.length() - PLAYER_WALK_SPEED_M_PER_S / 2.0).abs() < TOLERANCE);
     }
 
     #[test]
