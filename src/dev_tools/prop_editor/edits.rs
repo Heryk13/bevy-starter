@@ -112,9 +112,9 @@ pub(crate) struct Held {
 }
 
 /// Marks the props window's sheet, whose `Hovered` tells a click on the window from a click
-/// on the world.
+/// on the world, for the editor and for a genre finding what is under the mouse.
 #[derive(Component)]
-pub(super) struct PropsSheet;
+pub(crate) struct PropsSheet;
 
 // ==== Resources ==============================================================
 

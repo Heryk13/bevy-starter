@@ -45,16 +45,17 @@ pub(super) fn plugin(app: &mut App) {
 
 // ==== Library ================================================================
 
-/// The props on disk the genre takes, by name: what the window lists.
+/// The props on disk the genre takes, by name: what the window lists, and what a genre makes
+/// thumbnails of.
 #[derive(Resource, Default, PartialEq)]
-pub(super) struct PropLibrary(pub(super) Vec<LibraryEntry>);
+pub(crate) struct PropLibrary(pub(crate) Vec<LibraryEntry>);
 
 /// A prop's file: its asset path (`props/douglas_pine.glb`), its name, and its size on disk.
 #[derive(Clone, PartialEq, Debug)]
-pub(super) struct LibraryEntry {
-    pub(super) file: String,
-    pub(super) name: String,
-    pub(super) size: u64,
+pub(crate) struct LibraryEntry {
+    pub(crate) file: String,
+    pub(crate) name: String,
+    pub(crate) size: u64,
 }
 
 /// The thumbnail of each prop's file, by its asset path, which the genre makes: the image
