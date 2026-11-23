@@ -7,11 +7,14 @@ use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
 
 use crate::screens::Screen;
+use crate::screens::gameplay::map::MapFile;
 
 mod find_server;
 mod host;
 mod join;
+mod props;
 mod remote;
+mod world;
 
 pub(crate) use find_server::FindServerButton;
 pub(crate) use host::LanButton;
@@ -73,15 +76,39 @@ pub(crate) fn plugin(app: &mut App) {
         ..default()
     })
     .add_direction(NetworkDirection::Bidirectional);
+    app.register_message::<WorldState>()
+        .add_direction(NetworkDirection::ServerToClient);
+    app.add_channel::<WorldChannel>(ChannelSettings {
+        mode: ChannelMode::OrderedReliable(ReliableSettings::default()),
+        ..default()
+    })
+    .add_direction(NetworkDirection::Bidirectional);
     app.init_resource::<Network>();
     app.init_resource::<PendingNotice>();
+    #[cfg(feature = "dev")]
+    app.init_resource::<OwnId>();
     app.add_systems(OnEnter(Screen::Menu), show_pending_notice);
     app.add_plugins((
         host::plugin,
         join::plugin,
         find_server::plugin,
         remote::plugin,
+        world::plugin,
+        props::plugin,
     ));
+}
+
+// ==== Run Conditions =========================================================
+
+/// Tells whether this game is shared with others, hosting or joined: a shared game never
+/// freezes, since the others keep playing in it.
+pub(crate) fn is_shared_game(network: Option<Res<Network>>) -> bool {
+    network.is_some_and(|network| matches!(*network, Network::Hosting | Network::Joined))
+}
+
+/// Tells whether this game joined another's: the world is the host's, not this player's.
+pub(crate) fn is_joined(network: Option<Res<Network>>) -> bool {
+    network.is_some_and(|network| *network == Network::Joined)
 }
 
 // ==== Network ================================================================
@@ -110,6 +137,17 @@ struct Pose {
 /// The channel poses go by: unreliable, since a lost pose is replaced by the next a tick later.
 struct PoseChannel;
 
+/// The host's world as a player joins it: which world it is, and its props, so the joiner sees
+/// the host's map and is put back where it stood the last time it was in this world.
+#[derive(Serialize, Deserialize, Clone, Debug)]
+struct WorldState {
+    world_id: u64,
+    map: MapFile,
+}
+
+/// The channel the world goes by: reliable and in order, since nothing replaces a lost edit.
+struct WorldChannel;
+
 // the host's own player, which no joiner's id can be: netcode ids come from the joiners' clocks
 const HOST_ID: u64 = u64::MAX;
 
@@ -131,6 +169,12 @@ pub(crate) struct RemotePlayer {
 /// A notice to show as the menu comes back: why a shared game ended for this player.
 #[derive(Resource, Default)]
 struct PendingNotice(Option<&'static str>);
+
+/// The id the others know this game's player by: `HOST_ID` hosting, its netcode id joined.
+// only the prop editor's locks read it, and only dev builds have the editor
+#[cfg(feature = "dev")]
+#[derive(Resource, Clone, Copy, Default)]
+struct OwnId(u64);
 
 // ==== Systems ================================================================
 
