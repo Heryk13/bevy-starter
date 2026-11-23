@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 
 use super::{Screen, StartGame};
+use crate::multiplayer::is_joined; // multiplayer
 use crate::save::{
     Session, autosave_is_due, new_autosave_path, saves_dir, take_save_picture, write_save,
 };
@@ -28,7 +29,9 @@ pub(super) fn plugin(app: &mut App) {
             count_play_time.run_if(in_state(Screen::Gameplay)),
             autosave_game
                 .after(count_play_time)
-                .run_if(in_state(pause::Pause::Off)),
+                .run_if(in_state(pause::Pause::Off))
+                // a joiner's world is the host's to save // multiplayer
+                .run_if(not(is_joined)), // multiplayer
         ),
     );
 }
