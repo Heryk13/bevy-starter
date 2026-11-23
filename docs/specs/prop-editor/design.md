@@ -1,7 +1,7 @@
 # Prop editor: place, move, turn, scale and delete props on F10, kept in a map file
 
 Status: **built** 2026-11-23: the base on `main`, the 3D editor on `3d/player`, the 2D editor on
-`2d/player`. Not yet tried in the game (`just run` pending).
+`2d/player`. Tried in the game on `3d/player`.
 Date: 2026-11-23
 Bevy: 0.20.0
 Roadmap: row 13 of `docs/roadmap/roadmap.md`, from its "Prop editor, as agreed so far"
