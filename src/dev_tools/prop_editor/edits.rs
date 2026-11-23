@@ -40,7 +40,8 @@ const PROP_TURN_STEP_RAD: f32 = PROP_TURN_STEP_DEG.to_radians();
 
 /// What the editor does to props: every change goes through one `MapEdit`, applied to the
 /// world and written to the map file in one place, so multiplayer can later send the same
-/// edit to the host first. A click on a thumbnail takes a new prop into the hand, a click on
+/// edit to the host first. A click on a thumbnail takes a new prop into the hand and each click
+/// in the world places one, until the thumbnail is pressed again; a click on
 /// a placed one picks it up, and another click puts it down; R turns the held prop, the wheel
 /// scales it, Delete removes it, Esc puts it back. Where the held prop goes, and which prop is
 /// under the mouse, are the genre's.
@@ -180,20 +181,25 @@ fn apply_map_edit(
     }
 }
 
-/// Takes a new prop into the hand when its thumbnail is pressed, in place of one already
-/// held: it has the file and starts with no `Prop`, at the origin until the genre moves it to
-/// the mouse.
+/// Toggles a thumbnail when it is pressed: takes a new prop of its file into the hand, in place
+/// of one already held, or lets it go when that file's new prop is the one in the hand. The
+/// new prop has the file and no `Prop`, at the origin until the genre moves it to the mouse.
 fn take_new_prop(
     activate: On<Activate>,
     mut commands: Commands,
     cells: Query<&PropCell>,
-    held: Query<(Entity, &Held, Option<&Prop>)>,
+    held: Query<(Entity, &Held, &PropFile, Option<&Prop>)>,
 ) {
     let Ok(cell) = cells.get(activate.entity) else {
         return;
     };
-    for (entity, held, prop) in &held {
+    let mut was_in_hand = false;
+    for (entity, held, file, prop) in &held {
+        was_in_hand |= prop.is_none() && file.0 == cell.0;
         put_back(&mut commands, entity, held, prop);
+    }
+    if was_in_hand {
+        return;
     }
     commands.spawn((
         PropFile(cell.0.clone()),
@@ -204,8 +210,9 @@ fn take_new_prop(
     ));
 }
 
-/// On a left click over the world, not the window: puts the held prop down where it is, a new
-/// one placed and the recents told; with none held, picks up the prop under the mouse.
+/// On a left click over the world, not the window: puts the held prop down where it is; a new
+/// one is placed, the recents told, and stays in the hand, so its thumbnail places one per
+/// click until it is pressed again. With none held, picks up the prop under the mouse.
 fn put_down_or_pick_up(
     mut commands: Commands,
     mouse: Res<ButtonInput<MouseButton>>,
@@ -230,7 +237,6 @@ fn put_down_or_pick_up(
                 });
             }
             None => {
-                commands.entity(entity).despawn();
                 commands.trigger(MapEdit::Place {
                     file: file.0.clone(),
                     transform: *transform,
