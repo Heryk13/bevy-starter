@@ -40,8 +40,8 @@ const ENTRANCE_RISE_PX: f32 = 12.0;
 const ENTRANCE_START_SCALE: f32 = 0.96;
 
 // ---- dialog: drawn above the overlays, to ask over any of them --------------
-const DIALOG_Z_INDEX: GlobalZIndex = GlobalZIndex(200);
-const DIALOG_WIDTH_PX: f32 = 400.0;
+pub(crate) const DIALOG_Z_INDEX: GlobalZIndex = GlobalZIndex(200);
+pub(crate) const DIALOG_WIDTH_PX: f32 = 400.0;
 
 // ==== Plugin =================================================================
 
@@ -152,29 +152,6 @@ pub(crate) fn dialog(
     )
 }
 
-/// Returns a modal notice with OK alone, ready to spawn over whatever it tells about.
-/// `message` is a translation key.
-pub(crate) fn notice(message: &'static str) -> impl Bundle {
-    (
-        floating_root(DIALOG_Z_INDEX),
-        Dialog,
-        ClosesOnEsc,
-        children![(
-            card(DIALOG_WIDTH_PX),
-            children![
-                (label(message), TextLayout::justify(Justify::Center)),
-                (
-                    Node {
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    },
-                    children![(button("dialog-ok", ButtonKind::Primary), CloseDialog)],
-                ),
-            ],
-        )],
-    )
-}
-
 // ==== Events =================================================================
 
 /// Asks the modal at `entity`, one carrying `ClosesOnEsc`, to close, as Esc does. Each closes
@@ -188,7 +165,7 @@ pub(crate) struct Dismiss {
 
 /// Marks the root of an open dialog, so either of its answers can close it.
 #[derive(Component)]
-struct Dialog;
+pub(crate) struct Dialog;
 
 /// Marks the root of a modal that Esc closes before anything under it: a dialog, or a dev
 /// tool's window over the running game. Esc sends the topmost one, the highest
@@ -198,7 +175,7 @@ pub(crate) struct ClosesOnEsc;
 
 /// Marks both dialog buttons: either answer closes the dialog.
 #[derive(Component)]
-struct CloseDialog;
+pub(crate) struct CloseDialog;
 
 /// Marks a card, so its root's entrance can find it and the blur can give it its glass.
 #[derive(Component)]
