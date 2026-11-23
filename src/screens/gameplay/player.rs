@@ -251,6 +251,7 @@ mod tests {
             player: PlayerState {
                 position: Vec2::new(12.0, -34.0),
             },
+            map: None,
         };
         let read_back: GameData = ron::from_str(&ron::to_string(&game_data).unwrap()).unwrap();
         assert!(
