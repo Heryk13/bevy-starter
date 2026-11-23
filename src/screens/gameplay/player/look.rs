@@ -121,11 +121,7 @@ pub(super) fn look_around(
 ) {
     let stick = controls.stick(Gamepad::right_stick);
     let delta = look_delta_px(mouse_motion.delta, stick, time.delta_secs());
-    body.rotate_y(-delta.x * LOOK_RAD_PER_PX);
-    camera.rotation = Quat::from_rotation_x(next_pitch(
-        camera.rotation.to_euler(EulerRot::YXZ).1,
-        delta.y,
-    ));
+    turn_view(&mut body, &mut camera, delta);
 }
 
 // ==== Helpers ================================================================
@@ -144,10 +140,21 @@ fn is_cursor_locked(pause: Option<Pause>, modal_open: bool, turning: bool) -> bo
     (looking && !modal_open) || turning
 }
 
+/// Turns a view by `delta_px` pixels of mouse: across turns the `body`, so walking follows
+/// where it faces, and up and down tilts only its `camera`, held inside the limit. The look of
+/// every body that looks around, the player's and a split screen's other players'.
+pub(super) fn turn_view(body: &mut Transform, camera: &mut Transform, delta_px: Vec2) {
+    body.rotate_y(-delta_px.x * LOOK_RAD_PER_PX);
+    camera.rotation = Quat::from_rotation_x(next_pitch(
+        camera.rotation.to_euler(EulerRot::YXZ).1,
+        delta_px.y,
+    ));
+}
+
 /// Returns how far the view turns this frame, as pixels of mouse: the mouse's own `mouse_px`,
 /// and a right stick pushed to `stick` (up being up) for `delta_secs`. Screen y grows down, so
 /// the stick's up is a negative y.
-fn look_delta_px(mouse_px: Vec2, stick: Vec2, delta_secs: f32) -> Vec2 {
+pub(super) fn look_delta_px(mouse_px: Vec2, stick: Vec2, delta_secs: f32) -> Vec2 {
     mouse_px + Vec2::new(stick.x, -stick.y) * LOOK_STICK_PX_PER_S * delta_secs
 }
 

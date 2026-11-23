@@ -20,6 +20,7 @@ mod first_person; // camera: first-person
 // every camera's: the camera on the body, the mouse look and the cursor
 mod look;
 mod others; // multiplayer
+mod split_screen; // split screen
 mod third_person; // camera: third-person
 
 // ==== Config =================================================================
@@ -86,6 +87,7 @@ pub(super) fn plugin(app: &mut App) {
     app.add_plugins(third_person::plugin); // camera: third-person
     app.add_plugins(camera_switch::plugin); // camera: switch
     app.add_plugins(others::plugin); // multiplayer
+    app.add_plugins(split_screen::plugin); // split screen
     // walk_player reads the yaw that the look (`look.rs`) writes, with no order between them:
     // a turn read one frame late is a few milliseconds no one can feel. record_player_state
     // has no order either: against the look for the same reason, and against the autosave,
@@ -150,11 +152,7 @@ fn spawn_player(
         return;
     }
     let body = (
-        RigidBody::Dynamic,
-        Collider::capsule(PLAYER_RADIUS_M, PLAYER_SEGMENT_LENGTH_M),
-        LockedAxes::ROTATION_LOCKED,
-        Mesh3d(meshes.add(Capsule3d::new(PLAYER_RADIUS_M, PLAYER_SEGMENT_LENGTH_M))),
-        MeshMaterial3d(materials.add(StandardMaterial::default())),
+        capsule_body(&mut meshes, &mut materials),
         Transform::from_translation(session.game.player.position)
             .with_rotation(Quat::from_rotation_y(session.game.player.yaw)),
         Player,
@@ -200,6 +198,21 @@ fn record_player_state(
 }
 
 // ==== Helpers ================================================================
+
+/// Returns a body the size of a person that walks with physics: a capsule that falls, is
+/// pushed and pushes, and never tips over. The player's, and a split screen's other players'.
+fn capsule_body(
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<StandardMaterial>,
+) -> impl Bundle {
+    (
+        RigidBody::Dynamic,
+        Collider::capsule(PLAYER_RADIUS_M, PLAYER_SEGMENT_LENGTH_M),
+        LockedAxes::ROTATION_LOCKED,
+        Mesh3d(meshes.add(Capsule3d::new(PLAYER_RADIUS_M, PLAYER_SEGMENT_LENGTH_M))),
+        MeshMaterial3d(materials.add(StandardMaterial::default())),
+    )
+}
 
 /// Returns what the four walk actions and the left sticks ask for: right and forward, one per
 /// key held, each against its opposite, plus how far a stick is pushed. Fly and photo mode's
