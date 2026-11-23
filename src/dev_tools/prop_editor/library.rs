@@ -12,7 +12,7 @@ use crate::screens::gameplay::map::assets_dir;
 // ==== Config =================================================================
 
 // inside the assets folder, and the asset path a prop's file starts with
-const PROPS_DIR_NAME: &str = "props";
+pub(crate) const PROPS_DIR_NAME: &str = "props";
 
 // ---- rescan: how often the open window reads the folder again ---------------
 // ponytail: a read of one small folder a second, rather than the file watcher, which
