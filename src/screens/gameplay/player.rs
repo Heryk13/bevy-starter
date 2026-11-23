@@ -257,6 +257,7 @@ mod tests {
                 position: Vec2::new(12.0, -34.0),
             },
             map: None,
+            world_id: 0, // multiplayer
         };
         let read_back: GameData = ron::from_str(&ron::to_string(&game_data).unwrap()).unwrap();
         assert!(
