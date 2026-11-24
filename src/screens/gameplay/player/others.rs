@@ -1,4 +1,4 @@
-use avian3d::prelude::{Collider, RigidBody};
+use avian3d::prelude::{AngularVelocity, Collider, LinearVelocity, RigidBody};
 use bevy::prelude::*;
 
 use super::{PLAYER_RADIUS_M, PLAYER_SEGMENT_LENGTH_M};
@@ -69,11 +69,17 @@ fn start_beside_the_others(
 }
 
 /// Makes every physics prop kinematic in a game joined: the host's physics moves them, and
-/// this game only follows where the host says they are.
+/// this game only follows where the host says they are. Still, too: a kinematic body keeps
+/// moving at the speed it has, and one dynamic for a step, placed or let go, has started to
+/// fall, which no pose of the host stops once its own prop is at rest.
 fn follow_host_physics(mut commands: Commands, props: Query<(Entity, &RigidBody), With<Prop>>) {
     for (entity, body) in &props {
         if *body == RigidBody::Dynamic {
-            commands.entity(entity).insert(RigidBody::Kinematic);
+            commands.entity(entity).insert((
+                RigidBody::Kinematic,
+                LinearVelocity::ZERO,
+                AngularVelocity::ZERO,
+            ));
         }
     }
 }
