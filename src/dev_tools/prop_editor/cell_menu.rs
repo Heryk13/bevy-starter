@@ -11,8 +11,8 @@ use super::super::{DEV_TOOLS_Z_INDEX, DevUi, dev_window};
 use super::edits::PropsSheet;
 use super::files::PropFileEdit;
 use super::library::{
-    OpenFolder, PROPS_DIR_NAME, PropFolders, PropLibrary, PropPreferences, folder_of,
-    inside_folder, is_prop_file, parent_folder,
+    OpenFolder, PropFolders, PropLibrary, PropPreferences, folder_of, inside_folder, inside_props,
+    is_prop_file, parent_folder,
 };
 use super::window::{FolderCell, PropCell, PropsGrid};
 use super::{PropEditor, PropKind};
@@ -347,13 +347,6 @@ fn names_in(folder: &str, library: &PropLibrary, folders: &PropFolders) -> Vec<S
     files.chain(subfolders).collect()
 }
 
-/// Returns the path inside the props folder of a prop's file, from its asset path.
-fn inside_props(file: &str) -> &str {
-    file.strip_prefix(PROPS_DIR_NAME)
-        .and_then(|rest| rest.strip_prefix('/'))
-        .unwrap_or(file)
-}
-
 // ==== Tests ==================================================================
 
 #[cfg(test)]
@@ -378,10 +371,5 @@ mod tests {
         let folders = PropFolders(vec!["trees".to_string(), "trees/firs".to_string()]);
         assert_eq!(names_in("trees", &library, &folders), ["pine.glb", "firs"]);
         assert_eq!(names_in("", &library, &folders), ["rock.glb", "trees"]);
-    }
-
-    #[test]
-    fn a_prop_file_is_named_inside_the_props_folder() {
-        assert_eq!(inside_props("props/trees/pine.glb"), "trees/pine.glb");
     }
 }

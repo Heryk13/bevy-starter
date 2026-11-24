@@ -215,7 +215,7 @@ fn preferences_path() -> Option<PathBuf> {
 /// Returns the files in the props folder and every folder in it whose extension is one of
 /// `extensions`, sorted by asset path, and those folders, sorted by their path inside it. A
 /// missing folder, as in an Empty game, holds none.
-fn read_props(extensions: &[&str]) -> (Vec<LibraryEntry>, Vec<String>) {
+pub(crate) fn read_props(extensions: &[&str]) -> (Vec<LibraryEntry>, Vec<String>) {
     let mut entries = Vec::new();
     let mut folders = Vec::new();
     // folders still to read, by their path inside the props folder: no recursion, so no
@@ -262,11 +262,15 @@ pub(super) fn inside_folder(folder: &str, name: &str) -> String {
 /// Returns the folder a prop's file is in, by its path inside the props folder, from its asset
 /// path: `trees` for `props/trees/pine.glb`, empty for `props/pine.glb`.
 pub(super) fn folder_of(file: &str) -> &str {
-    let inside = file
-        .strip_prefix(PROPS_DIR_NAME)
+    parent_folder(inside_props(file))
+}
+
+/// Returns the path inside the props folder of a prop's file, from its asset path:
+/// `trees/pine.glb` for `props/trees/pine.glb`.
+pub(crate) fn inside_props(file: &str) -> &str {
+    file.strip_prefix(PROPS_DIR_NAME)
         .and_then(|rest| rest.strip_prefix('/'))
-        .unwrap_or(file);
-    parent_folder(inside)
+        .unwrap_or(file)
 }
 
 /// Returns the folder `path` is in, inside the props folder: `trees` for `trees/pines`, empty
@@ -313,6 +317,7 @@ mod tests {
 
     #[test]
     fn a_prop_is_in_the_folder_its_asset_path_names() {
+        assert_eq!(inside_props("props/trees/pine.glb"), "trees/pine.glb");
         assert_eq!(folder_of("props/pine.glb"), "");
         assert_eq!(folder_of("props/trees/pine.glb"), "trees");
         assert_eq!(folder_of("props/trees/pines/pine.glb"), "trees/pines");
