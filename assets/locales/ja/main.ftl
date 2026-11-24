@@ -34,6 +34,7 @@ dialog-delete-save = このデータを削除しますか？
 dialog-reset-controls = すべての操作をデフォルトに戻しますか？
 notice-could-not-join = そのゲームに参加できませんでした。
 notice-host-ended = ホストがゲームを終了しました。
+notice-open-to-lan = ゲームをLANに公開しました。同じネットワークの友達は「サーバーを探す」から参加できます。
 
 ## overlays
 

@@ -67,7 +67,8 @@ with `// multiplayer`) keeps where this game stands on the network in `Network`:
 `Hosting`, `Joining`, `Joined`.
 
 ```
-  Offline --Open to LAN (pause menu)--> Hosting --Close LAN / leaving gameplay--> Offline
+  Offline --Open to LAN (pause menu)--> Hosting, back in the game, "open to LAN"
+  Hosting --Close LAN (pause menu) / leaving gameplay--> Offline
   Offline --Join (Find Server)--> Joining --connected--> Joined --> a new game, into gameplay
                                      +--not in time / full--> Offline, "could not join"
   Joined --host gone, or leaving gameplay--> Offline, the menu, "the host ended the game"
@@ -75,8 +76,9 @@ with `// multiplayer`) keeps where this game stands on the network in `Network`:
 
 The host runs a lightyear server (netcode over UDP, `GAME_PORT`) inside its own game and
 broadcasts on `DISCOVERY_PORT` every second; Find Server listens and lists each game heard, and
-takes an address typed. Each game sends its `NetworkedBody`'s pose (the genre puts that on its
-player); the host relays every pose to everyone, and each game shows the others as
+takes an address typed; a joined game's pause menu has no Open to LAN. Each game sends its
+`NetworkedBody`'s pose (the genre puts that on its player); the host relays every pose to
+everyone, and each game shows the others as
 `RemotePlayer`s (`multiplayer/remote.rs`), which a player branch draws in its
 `player/others.rs`, a joiner starting on a ring around the spawn point.
 A shared game never freezes: entering `Pause::On` or `Pause::Photo` pauses no time while hosting
