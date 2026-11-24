@@ -100,7 +100,8 @@ does not get the folder:
 | `just tools/test`                      | Try the two on a throwaway repository                            |
 
 Both check every branch they change with `just check`, stop at the first conflict or failed
-check, and ask before pushing.
+check, and ask before pushing. They are `sh` scripts: on Windows, `sh` must be on `PATH` (Git for
+Windows brings it), while the game's own recipes run in PowerShell there.
 
 ## Requirements
 
@@ -108,7 +109,6 @@ check, and ask before pushing.
 - [just](https://github.com/casey/just)
 - [cargo-about](https://github.com/EmbarkStudios/cargo-about), used by `just release`:
   `cargo install cargo-about --locked --features cli`
-- **Windows:** `sh` on `PATH` (e.g. [Git for Windows](https://git-scm.com/)), used by `just` recipes
 - **Linux:** Bevy's [system dependencies](https://github.com/bevyengine/bevy/blob/main/docs/linux_dependencies.md)
 
 ## Usage
