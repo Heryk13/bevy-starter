@@ -34,6 +34,7 @@ dialog-delete-save = Delete this save?
 dialog-reset-controls = Reset all controls to their defaults?
 notice-could-not-join = Could not join that game.
 notice-host-ended = The host ended the game.
+notice-open-to-lan = Your game is open to LAN. Friends on your network can join it from Find Server.
 
 ## overlays
 
