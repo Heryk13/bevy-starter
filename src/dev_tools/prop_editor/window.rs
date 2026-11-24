@@ -5,7 +5,10 @@ use bevy::ui_widgets::{Activate, ScrollArea, TextInput};
 
 use super::PropEditor;
 use super::edits::Held;
-use super::library::{LibraryEntry, PropLibrary, PropPreferences, PropThumbnails};
+use super::library::{
+    LibraryEntry, OpenFolder, PropFolders, PropLibrary, PropPreferences, PropThumbnails, folder_of,
+    parent_folder,
+};
 use crate::multiplayer::is_joined; // multiplayer
 use crate::save::Session;
 use crate::screens::gameplay::map::{Prop, PropFile, write_map};
@@ -18,6 +21,9 @@ use crate::ui::{
 
 // ---- words: English, as every dev tool's, never read in a release build -----
 const WINDOW_TITLE: &str = "Props";
+// between the folders of the path the title shows, as the explorer writes it
+const PATH_SEPARATOR: &str = " › ";
+const BACK_WORDS: &str = "Back";
 const ALL_WORDS: &str = "All";
 const FAVOURITES_WORDS: &str = "Favourites";
 const RECENT_WORDS: &str = "Recent";
@@ -49,8 +55,10 @@ const STAR_UNMARKED: Color = Color::srgba(1.0, 1.0, 1.0, 0.3);
 
 // ==== Plugin =================================================================
 
-/// The props window's insides: the tabs (All, Favourites, Recent), the search field, the sort
-/// by name or by size, and the grid of thumbnails, each with its name and a star.
+/// The props window's insides: the path of the folder open, with Back out of it, the tabs (All,
+/// Favourites, Recent), the search field, the sort by name or by size, and the grid: on All
+/// the folder open, its folders first and a click on one opening it, then its props, each with
+/// its thumbnail, its name and a star. A search looks in every folder.
 pub(super) fn plugin(app: &mut App) {
     app.init_resource::<PropsView>();
     app.add_systems(
@@ -59,6 +67,8 @@ pub(super) fn plugin(app: &mut App) {
             .chain()
             .run_if(in_state(PropEditor::On)),
     );
+    app.add_observer(press_folder.run_if(in_state(PropEditor::On)));
+    app.add_observer(press_back.run_if(in_state(PropEditor::On)));
     app.add_observer(press_tab.run_if(in_state(PropEditor::On)));
     app.add_observer(press_sort.run_if(in_state(PropEditor::On)));
     app.add_observer(press_star.run_if(in_state(PropEditor::On)));
@@ -91,7 +101,8 @@ pub(super) fn window_body() -> impl Bundle {
                     (
                         Text::new(WINDOW_TITLE),
                         font(SMALL_FONT_SIZE_PX),
-                        TextColor(TEXT)
+                        TextColor(TEXT),
+                        PropsTitle,
                     ),
                     (
                         Node {
@@ -159,9 +170,17 @@ fn search_field() -> impl Bundle {
 
 // ==== Components =============================================================
 
-/// Marks the row the tabs and the sort button are spawned in.
+/// Marks the window's title, which writes the path of the folder open.
+#[derive(Component)]
+struct PropsTitle;
+
+/// Marks the row Back, the tabs and the sort button are spawned in.
 #[derive(Component)]
 struct PropsControls;
+
+/// Marks the button that goes up out of the folder open.
+#[derive(Component)]
+struct BackButton;
 
 /// Marks the grid the props' cells are spawned in.
 #[derive(Component)]
@@ -186,6 +205,10 @@ struct SortButton;
 /// A prop's cell, with its asset path: pressing it takes a new one of it into the hand.
 #[derive(Component)]
 pub(super) struct PropCell(pub(super) String);
+
+/// A folder's cell, with its path inside the props folder: pressing it opens it.
+#[derive(Component)]
+pub(super) struct FolderCell(pub(super) String);
 
 /// A prop's star, with its asset path: pressing it marks or unmarks it as a favourite.
 #[derive(Component)]
@@ -232,20 +255,38 @@ fn read_search(fields: Query<&EditableText, With<PropsSearch>>, mut view: ResMut
     }
 }
 
-/// Spawns the tabs and the sort button again whenever the view changes, the tab shown as the
-/// primary button, and as the window opens.
+/// Writes the path of the folder open on the title, and spawns Back, while a folder is open on
+/// All, the tabs and the sort button again whenever the view or the folder changes, the tab
+/// shown as the primary button, and as the window opens.
 fn fill_props_controls(
     mut commands: Commands,
     view: Res<PropsView>,
+    open: Res<OpenFolder>,
     rows: Query<(Entity, Ref<PropsControls>)>,
+    mut titles: Query<&mut Text, With<PropsTitle>>,
 ) {
     let Ok((row, added)) = rows.single() else {
         return;
     };
-    if !view.is_changed() && !added.is_added() {
+    if !view.is_changed() && !open.is_changed() && !added.is_added() {
         return;
     }
+    let shows_folder = view.tab == PropsTab::All && view.search.is_empty();
+    for mut title in &mut titles {
+        title.0 = if shows_folder {
+            folder_title(&open.0)
+        } else {
+            WINDOW_TITLE.to_string()
+        };
+    }
     commands.entity(row).despawn_children();
+    if shows_folder && !open.0.is_empty() {
+        commands.spawn((
+            words_button(BACK_WORDS, ButtonKind::Quiet),
+            BackButton,
+            ChildOf(row),
+        ));
+    }
     for (tab, words) in [
         (PropsTab::All, ALL_WORDS),
         (PropsTab::Favourites, FAVOURITES_WORDS),
@@ -269,12 +310,15 @@ fn fill_props_controls(
     ));
 }
 
-/// Spawns the grid's cells again whenever what it shows changes: the library, the view, the
-/// favourites and recents, a thumbnail made, the prop in the hand; and as the window opens. The
-/// cell whose new prop is in the hand has a border: its thumbnail is toggled on.
+/// Spawns the grid's cells again whenever what it shows changes: the library, its folders, the
+/// folder open, the view, the favourites and recents, a thumbnail made, the prop in the hand;
+/// and as the window opens. The folders come first. The cell whose new prop is in the hand has
+/// a border: its thumbnail is toggled on.
 fn fill_props_grid(
     mut commands: Commands,
     library: Res<PropLibrary>,
+    folders: Res<PropFolders>,
+    open: Res<OpenFolder>,
     view: Res<PropsView>,
     preferences: Res<PropPreferences>,
     thumbnails: Res<PropThumbnails>,
@@ -287,6 +331,8 @@ fn fill_props_grid(
     };
     let selected = in_hand.single().ok().map(|file| file.0.clone());
     let changed = library.is_changed()
+        || folders.is_changed()
+        || open.is_changed()
         || view.is_changed()
         || preferences.is_changed()
         || thumbnails.is_changed()
@@ -296,13 +342,18 @@ fn fill_props_grid(
     }
     *shown_in_hand = selected.clone();
     commands.entity(grid).despawn_children();
-    let shown = shown_props(&library.0, &view, &preferences);
-    if shown.is_empty() && view.tab == PropsTab::All && view.search.is_empty() {
+    let shown = shown_props(&library.0, &open.0, &view, &preferences);
+    let shown_folders = shown_folders(&folders.0, &open.0, &view);
+    let empty_props_folder = library.0.is_empty() && folders.0.is_empty();
+    if empty_props_folder && view.tab == PropsTab::All && view.search.is_empty() {
         commands.spawn((
             Text::new(EMPTY_WORDS),
             muted_text(SMALL_FONT_SIZE_PX),
             ChildOf(grid),
         ));
+    }
+    for folder in shown_folders {
+        commands.spawn((folder_cell(folder), ChildOf(grid)));
     }
     for entry in shown {
         let thumbnail = thumbnails.0.get(&entry.file).cloned();
@@ -312,6 +363,24 @@ fn fill_props_grid(
             prop_cell(entry, thumbnail, favourite, is_selected),
             ChildOf(grid),
         ));
+    }
+}
+
+/// Opens the folder whose cell is pressed.
+fn press_folder(activate: On<Activate>, cells: Query<&FolderCell>, mut open: ResMut<OpenFolder>) {
+    if let Ok(cell) = cells.get(activate.entity) {
+        open.0.clone_from(&cell.0);
+    }
+}
+
+/// Goes up out of the folder open when Back is pressed.
+fn press_back(
+    activate: On<Activate>,
+    buttons: Query<(), With<BackButton>>,
+    mut open: ResMut<OpenFolder>,
+) {
+    if buttons.contains(activate.entity) {
+        open.0 = parent_folder(&open.0).to_string();
     }
 }
 
@@ -464,18 +533,111 @@ fn prop_cell(
     )
 }
 
+/// Returns a folder's cell: a folder icon and its name, in a button that opens it, as tall as a
+/// prop's cell so the grid's rows line up.
+fn folder_cell(folder: &str) -> impl Bundle {
+    let name = folder.rsplit('/').next().unwrap_or(folder).to_string();
+    (
+        Node {
+            width: px(CELL_WIDTH_PX),
+            flex_direction: FlexDirection::Column,
+            align_items: AlignItems::Center,
+            border: UiRect::all(px(SELECTED_BORDER_PX)),
+            border_radius: BorderRadius::all(px(CELL_RADIUS_PX)),
+            ..default()
+        },
+        children![(
+            laid_out_button(
+                Node {
+                    width: percent(100),
+                    flex_direction: FlexDirection::Column,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::all(px(CELL_PADDING_PX)),
+                    border_radius: BorderRadius::all(px(CELL_RADIUS_PX)),
+                    ..default()
+                },
+                ButtonKind::Choice,
+                (
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        align_items: AlignItems::Center,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                    children![
+                        (
+                            Node {
+                                width: px(THUMBNAIL_PX),
+                                height: px(THUMBNAIL_PX),
+                                justify_content: JustifyContent::Center,
+                                align_items: AlignItems::Center,
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                            children![(
+                                custom_icon(Icon::Folder, THUMBNAIL_ICON_PX, TEXT_MUTED),
+                                Pickable::IGNORE
+                            )],
+                        ),
+                        (
+                            Text::new(name),
+                            font(SMALL_FONT_SIZE_PX),
+                            TextColor(TEXT),
+                            Pickable::IGNORE,
+                        ),
+                    ],
+                ),
+            ),
+            FolderCell(folder.to_string()),
+        )],
+    )
+}
+
+/// Returns the title over the grid for the folder open: `Props`, then each folder of its path.
+fn folder_title(open: &str) -> String {
+    let mut title = WINDOW_TITLE.to_string();
+    for folder in open.split('/').filter(|folder| !folder.is_empty()) {
+        title.push_str(PATH_SEPARATOR);
+        title.push_str(folder);
+    }
+    title
+}
+
+/// Returns the folders the grid shows from `folders`: on All with nothing searched, those right
+/// inside the folder `open`, by name; none on any other tab, nor in a search, whose props come
+/// from every folder.
+fn shown_folders<'a>(folders: &'a [String], open: &str, view: &PropsView) -> Vec<&'a String> {
+    if view.tab != PropsTab::All || !view.search.trim().is_empty() {
+        return Vec::new();
+    }
+    let mut shown: Vec<&String> = folders
+        .iter()
+        .filter(|folder| parent_folder(folder) == open)
+        .collect();
+    shown.sort_by_key(|folder| folder.to_lowercase());
+    shown
+}
+
 /// Returns the props the grid shows from `entries`: those of the view's tab whose name holds
 /// the text searched for, whatever its case, in the view's order; Recent keeps its own, the
-/// newest first.
+/// newest first. On All with nothing searched, only the props of the folder `open`; a search
+/// looks in every folder.
 fn shown_props<'a>(
     entries: &'a [LibraryEntry],
+    open: &str,
     view: &PropsView,
     preferences: &PropPreferences,
 ) -> Vec<&'a LibraryEntry> {
     let search = view.search.trim().to_lowercase();
     let matches = |entry: &&LibraryEntry| entry.name.to_lowercase().contains(&search);
+    let in_open_folder =
+        |entry: &&LibraryEntry| !search.is_empty() || folder_of(&entry.file) == open;
     let mut shown: Vec<&LibraryEntry> = match view.tab {
-        PropsTab::All => entries.iter().filter(matches).collect(),
+        PropsTab::All => entries
+            .iter()
+            .filter(in_open_folder)
+            .filter(matches)
+            .collect(),
         PropsTab::Favourites => entries
             .iter()
             .filter(|entry| preferences.favourites.contains(&entry.file))
@@ -526,7 +688,7 @@ mod tests {
             search: "pine".to_string(),
             ..default()
         };
-        let shown = shown_props(&entries, &view, &PropPreferences::default());
+        let shown = shown_props(&entries, "", &view, &PropPreferences::default());
         assert_eq!(names(&shown), ["Pine.glb", "PINECONE.glb"]);
     }
 
@@ -537,14 +699,19 @@ mod tests {
             sort: PropsSort::Size,
             ..default()
         };
-        let shown = shown_props(&entries, &view, &PropPreferences::default());
+        let shown = shown_props(&entries, "", &view, &PropPreferences::default());
         assert_eq!(names(&shown), ["b.glb", "c.glb", "a.glb"]);
     }
 
     #[test]
     fn sorting_by_name_ignores_case() {
         let entries = [entry("b.glb", 1), entry("A.glb", 1), entry("c.glb", 1)];
-        let shown = shown_props(&entries, &PropsView::default(), &PropPreferences::default());
+        let shown = shown_props(
+            &entries,
+            "",
+            &PropsView::default(),
+            &PropPreferences::default(),
+        );
         assert_eq!(names(&shown), ["A.glb", "b.glb", "c.glb"]);
     }
 
@@ -560,7 +727,7 @@ mod tests {
             ..default()
         };
         assert_eq!(
-            names(&shown_props(&entries, &view, &preferences)),
+            names(&shown_props(&entries, "", &view, &preferences)),
             ["b.glb"]
         );
     }
@@ -580,7 +747,61 @@ mod tests {
             tab: PropsTab::Recent,
             ..default()
         };
-        let shown = shown_props(&entries, &view, &preferences);
+        let shown = shown_props(&entries, "", &view, &preferences);
         assert_eq!(names(&shown), ["b.glb", "a.glb"]);
+    }
+
+    fn entry_in(folder: &str, name: &str) -> LibraryEntry {
+        LibraryEntry {
+            file: format!("props/{folder}/{name}"),
+            name: name.to_string(),
+            size: 1,
+        }
+    }
+
+    #[test]
+    fn all_shows_only_the_props_of_the_folder_open() {
+        let entries = [entry("rock.glb", 1), entry_in("trees", "pine.glb")];
+        let view = PropsView::default();
+        let preferences = PropPreferences::default();
+        assert_eq!(
+            names(&shown_props(&entries, "", &view, &preferences)),
+            ["rock.glb"]
+        );
+        assert_eq!(
+            names(&shown_props(&entries, "trees", &view, &preferences)),
+            ["pine.glb"]
+        );
+    }
+
+    #[test]
+    fn a_search_looks_in_every_folder_and_lists_no_folder() {
+        let entries = [entry("pine.glb", 1), entry_in("trees", "pine 2.glb")];
+        let folders = ["trees".to_string()];
+        let view = PropsView {
+            search: "pine".to_string(),
+            ..default()
+        };
+        let shown = shown_props(&entries, "", &view, &PropPreferences::default());
+        assert_eq!(names(&shown), ["pine 2.glb", "pine.glb"]);
+        assert!(shown_folders(&folders, "", &view).is_empty());
+    }
+
+    #[test]
+    fn the_folders_shown_are_those_right_inside_the_folder_open() {
+        let folders = [
+            "rocks".to_string(),
+            "trees".to_string(),
+            "trees/pines".to_string(),
+        ];
+        let view = PropsView::default();
+        assert_eq!(shown_folders(&folders, "", &view), ["rocks", "trees"]);
+        assert_eq!(shown_folders(&folders, "trees", &view), ["trees/pines"]);
+    }
+
+    #[test]
+    fn the_title_writes_the_path_of_the_folder_open() {
+        assert_eq!(folder_title(""), "Props");
+        assert_eq!(folder_title("trees/pines"), "Props › trees › pines");
     }
 }
