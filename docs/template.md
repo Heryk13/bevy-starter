@@ -103,7 +103,7 @@ src/
       window.rs     the drawer's tabs, search, sort and grid of thumbnails
     prop_editor_3d.rs  the 3D props: models, thumbnails, placing on the surface
     prop_editor_3d/
-      mode_menu.rs  a right click: fixed, physics or no collision
+      mode_menu.rs  a right click: fixed, physics or no collision, or delete the prop
     recording.rs    F9: a video of the game alone into gallery/, its states and REC
     recording/
       bar.rs        the bar: sound, frame rate, timer, Record
