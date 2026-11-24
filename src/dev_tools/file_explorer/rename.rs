@@ -152,7 +152,7 @@ fn give_up_rename(
 /// Tells whether `name`, with its outer spaces already trimmed, can be what was called `old`:
 /// not empty, not `.` or `..`, with no character Windows refuses, and not the name of another
 /// entry of its folder, `taken`, whatever the case of its letters, as Windows compares them.
-fn is_name_allowed(name: &str, old: &str, taken: &[String]) -> bool {
+pub(in crate::dev_tools) fn is_name_allowed(name: &str, old: &str, taken: &[String]) -> bool {
     let is_other_entry = |other: &String| {
         other.to_lowercase() == name.to_lowercase() && other.to_lowercase() != old.to_lowercase()
     };
