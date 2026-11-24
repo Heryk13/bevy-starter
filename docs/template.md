@@ -83,10 +83,11 @@ src/
       photo.rs      E: a PNG of the game alone in gallery/, a flash, a click, a notice
     prop_editor.rs  F10: props from assets/props/ placed into the game and its save, its state
     prop_editor/
-      cell_menu.rs  a prop file's right-click menu: Delete, the file to the Trash, its props gone
+      cell_menu.rs  the right-click menus: favourite, rename, delete, new folder
       edits.rs      every change to the map: place, update, delete; holding, R, the wheel
-      library.rs    the props on disk, files dropped in, favourites and recents
-      window.rs     the drawer's tabs, search, sort and grid of thumbnails
+      files.rs      every change to the props folder: a folder made, a rename, a delete
+      library.rs    the props and folders on disk, files dropped in, favourites and recents
+      window.rs     the drawer's path and Back, tabs, search, sort, grid of folders and props
     recording.rs    F9: a video of the game alone into gallery/, its states and REC
     recording/
       bar.rs        the bar: sound, frame rate, timer, Record
@@ -104,7 +105,7 @@ src/
     find_server.rs  Find Server: the games heard, Refresh, join by IP
     host.rs         Open to LAN: the server, the broadcast, relaying poses
     join.rs         joining, sending and hearing poses, the host leaving
-    files.rs        dev builds: the props' files, through the host, both ways
+    files.rs        dev builds: the props' files and folders, through the host, both ways
     props.rs        the props of a shared world: edits, locks, the host's physics
     remote.rs       the other players' bodies, eased to their poses
     world.rs        the host's world for a joiner, and the joiner's character per world

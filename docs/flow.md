@@ -84,13 +84,14 @@ everyone, and each game shows the others as
 `RemotePlayer`s (`multiplayer/remote.rs`), which a player branch draws in its
 `player/others.rs`, a joiner starting on a ring around the spawn point.
 A shared game never freezes: entering `Pause::On` or `Pause::Photo` pauses no time while hosting
-or joined (`is_shared_game`), nor stills the view the glass blurs, and slow motion stays off. The host's game is the world, with an
-id (`GameData::world_id`); a joiner gets it and its props (`WorldState`) as it connects, keeps
+or joined (`is_shared_game`), nor stills the view the glass blurs, and slow motion stays off.
+The host's game is the world, with an id (`GameData::world_id`); a joiner gets it and its props (`WorldState`) as it connects, keeps
 only its own character, per world, in `characters.ron` (`multiplayer/world.rs`), and has no Save,
 Load Game nor autosave. Every prop edit goes through the host (`MapEdit` asked, `MapChange` made,
 `multiplayer/props.rs`), a prop held is locked for the others, the host's physics moves every
-physics prop for all, and in dev builds the props' files go through the host both ways
-(`multiplayer/files.rs`).
+physics prop for all, and in dev builds the props' files and folders go through the host both
+ways, a folder made, a name changed or a file deleted as a `PropFileEdit` asked and a
+`PropFileChange` made (`multiplayer/files.rs`).
 
 ## The pause flow
 
@@ -185,14 +186,21 @@ it was, and with none held closes it. F3 does nothing while it is open, as both 
 
 Its window is a drawer along the bottom, `ClosesOnEsc`, letting the pointer through around it,
 so `3d/player` frees the cursor while it is open and holds it again only while the right button
-turns the camera. The props are the files in `assets/props/` the genre takes (`PropKind`), read
-again every second while the window is open; a right click on one's cell deletes it, the file to
-the file explorer's Trash and every prop placed from it. Every change goes through one
+turns the camera. The props are the files in `assets/props/` and its folders the genre takes
+(`PropKind`), read again every second while the window is open, which shows one folder at a
+time (`OpenFolder`). A right click opens a menu: on a prop's cell Favourite, Rename and Delete,
+on a folder's Rename and Delete, on the empty space New Folder. A right click never presses a
+button anywhere in the game (`ui/button.rs`). Every change to the folder goes through one
+`PropFileEdit` (`prop_editor/files.rs`), which `apply_prop_file_edit` settles into the
+`PropFileChange` it makes: a rename carries every asset path under the old name along, the
+game's props, the default map's, the favourites and recents; a delete goes to the file
+explorer's Trash with every prop placed from it. Every change to the map goes through one
 `MapEdit` (`Place`, `Update`, `Delete`), which `apply_map_edit` applies to the game in progress,
-`Session::game.map`, and to the world; the next save keeps it, an autosave included. Save as Default Map writes that
-map, each prop where it was placed, to `assets/map.ron`. `screens/gameplay/map.rs`, in every
-build, spawns the game's props on entering gameplay, a game with no map yet (a new one, or one
-saved before props were) getting a copy of `assets/map.ron` first; each is a `Prop`, a
+`Session::game.map`, and to the world; the next save keeps it, an autosave included. Save as
+Default Map writes that map, each prop where it was placed, to `assets/map.ron`.
+`screens/gameplay/map.rs`, in every build, spawns the game's props on entering gameplay, a game
+with no map yet (a new one, or one saved before props were) getting a copy of `assets/map.ron`
+first; each is a `Prop`, a
 `PropFile`, a `PropMode` and a `Transform`, and a genre observes `PropFile` to put the model or
 the image on it, and on `3d/player` the body of its mode. There a physics prop's resting place
 (`resting`) goes into the session in `Pause::Off`, as the player's state does, so a save keeps a

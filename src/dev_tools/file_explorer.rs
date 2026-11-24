@@ -23,9 +23,10 @@ mod usage;
 use drawer::{DrawerHeight, ExplorerDrawer, slide_transform};
 use listing::Place;
 
-// the prop editor copies the files dropped on it, and deletes its files, the way the explorer
-// does
-pub(super) use actions::{copy_entry, trash_asset};
+// the prop editor copies the files dropped on it, makes and deletes its folders and files, and
+// names them, the way the explorer does
+pub(super) use actions::{copy_entry, new_folder, trash_asset};
+pub(super) use rename::is_name_allowed;
 // and opens its menus where they fit, as the explorer's do
 pub(super) use menu::menu_place;
 

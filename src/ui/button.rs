@@ -51,6 +51,9 @@ pub(super) fn plugin(app: &mut App) {
     // no run_if in this file: a button lives on any screen and inside any overlay, so
     // there is no state these systems could be gated on
     app.add_systems(Startup, load_button_sounds);
+    app.init_resource::<PressingButton>();
+    app.add_observer(remember_pressing_button);
+    app.add_observer(press_only_with_the_primary_button);
     app.add_systems(
         Update,
         (paint_buttons, play_button_sounds, point_at_pressables),
@@ -203,6 +206,18 @@ struct ButtonSounds {
     hover: Handle<AudioSource>,
 }
 
+/// Which pointer button pressed last. Bevy's buttons take any of them, so a right click would
+/// press one, and let go, activate it; `press_only_with_the_primary_button` reads it to undo
+/// that.
+#[derive(Resource)]
+struct PressingButton(PointerButton);
+
+impl Default for PressingButton {
+    fn default() -> Self {
+        Self(PointerButton::Primary)
+    }
+}
+
 // ==== Systems ================================================================
 
 /// Loads the button sounds once, so playing one never waits on the asset server.
@@ -213,6 +228,25 @@ fn load_button_sounds(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
 
     commands.insert_resource(button_sounds);
+}
+
+/// Remembers which pointer button pressed, before Bevy's own observer presses the button
+/// under it: it writes the resource at once, and Bevy's press lands later, as a command.
+fn remember_pressing_button(press: On<PointerPress>, mut pressing: ResMut<PressingButton>) {
+    pressing.0 = press.button;
+}
+
+/// Takes a button's press back when another pointer button than the primary made it: the
+/// right button opens menus, the middle one nothing, and neither activates what it is over.
+fn press_only_with_the_primary_button(
+    add: On<Add<Pressed>>,
+    mut commands: Commands,
+    buttons: Query<(), With<Button>>,
+    pressing: Res<PressingButton>,
+) {
+    if pressing.0 != PointerButton::Primary && buttons.contains(add.entity) {
+        commands.entity(add.entity).remove::<Pressed>();
+    }
 }
 
 /// Eases every button toward its hover and press state and paints it from there: its fill,
@@ -495,5 +529,29 @@ mod tests {
                 );
             }
         }
+    }
+
+    // ---- pressing -----------------------------------------------------------
+
+    /// Returns whether a button is still pressed once `pointer_button` pressed it.
+    fn stays_pressed(pointer_button: PointerButton) -> bool {
+        let mut app = App::new();
+        app.insert_resource(PressingButton(pointer_button));
+        app.add_observer(press_only_with_the_primary_button);
+        let button = app.world_mut().spawn(Button).id();
+        app.world_mut().entity_mut(button).insert(Pressed);
+        app.world_mut().flush();
+        app.world().entity(button).contains::<Pressed>()
+    }
+
+    #[test]
+    fn the_primary_button_presses_a_button() {
+        assert!(stays_pressed(PointerButton::Primary));
+    }
+
+    #[test]
+    fn the_right_and_middle_buttons_never_press_one() {
+        assert!(!stays_pressed(PointerButton::Secondary));
+        assert!(!stays_pressed(PointerButton::Middle));
     }
 }
