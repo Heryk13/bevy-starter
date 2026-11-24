@@ -16,6 +16,8 @@ pub(crate) mod edits;
 pub(crate) mod library;
 
 mod cell_menu;
+// the props folder's edits, which multiplayer sends to the host
+pub(crate) mod files;
 mod window;
 
 use edits::{DELETE_PROP, Held, PropsSheet, TURN_PROP, put_back};
@@ -40,8 +42,8 @@ const WINDOW_HEIGHT_PX: f32 = 280.0;
 /// `screens/gameplay/map.rs` reads. It knows no genre: a genre inserts its `PropKind`, shows
 /// the props, moves the held one and the camera. Esc puts a held prop back, then closes it,
 /// and anything that leaves `Pause::Off` closes it too, since its state lives inside it. Its
-/// parts are files of their own: the library of props on disk, the window that lists them, a
-/// prop file's right-click menu, and the edits made to the map.
+/// parts are files of their own: the library of props on disk, the window that lists them, its
+/// right-click menus, the edits made to the props folder, and those made to the map.
 pub(super) fn plugin(app: &mut App) {
     register_action(
         app,
@@ -58,6 +60,7 @@ pub(super) fn plugin(app: &mut App) {
         library::plugin,
         window::plugin,
         cell_menu::plugin,
+        files::plugin,
         edits::plugin,
     ));
     app.add_systems(

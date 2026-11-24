@@ -26,10 +26,13 @@ const RECENT_PROPS: usize = 20;
 
 // ==== Plugin =================================================================
 
-/// What the editor offers: the files in `assets/props/` the genre takes, read again while the
-/// window is open so a file added shows at once, and the developer's favourites and recents.
+/// What the editor offers: the files in `assets/props/` and its folders the genre takes, and
+/// the folders themselves, read again while the window is open so a file added shows at once;
+/// the folder open, where a file dropped lands; and the developer's favourites and recents.
 pub(super) fn plugin(app: &mut App) {
     app.init_resource::<PropLibrary>();
+    app.init_resource::<PropFolders>();
+    app.init_resource::<OpenFolder>();
     app.init_resource::<PropThumbnails>();
     app.add_systems(Startup, load_preferences);
     app.add_systems(
@@ -45,12 +48,23 @@ pub(super) fn plugin(app: &mut App) {
 
 // ==== Library ================================================================
 
-/// The props on disk the genre takes, by name: what the window lists, and what a genre makes
-/// thumbnails of.
+/// The props on disk the genre takes, in every folder, by asset path: what the window lists,
+/// and what a genre makes thumbnails of.
 #[derive(Resource, Default, PartialEq)]
 pub(crate) struct PropLibrary(pub(crate) Vec<LibraryEntry>);
 
-/// A prop's file: its asset path (`props/douglas_pine.glb`), its name, and its size on disk.
+/// Every folder inside the props folder, at any depth, by its path inside it (`trees/pines`),
+/// sorted.
+#[derive(Resource, Default, PartialEq)]
+pub(super) struct PropFolders(pub(super) Vec<String>);
+
+/// The folder the window shows, by its path inside the props folder, empty for the props
+/// folder itself: where the grid looks, and where a file dropped or a folder made lands.
+#[derive(Resource, Default, PartialEq)]
+pub(super) struct OpenFolder(pub(super) String);
+
+/// A prop's file: its asset path (`props/trees/douglas_pine.glb`), its name, and its size on
+/// disk.
 #[derive(Clone, PartialEq, Debug)]
 pub(crate) struct LibraryEntry {
     pub(crate) file: String,
@@ -105,13 +119,14 @@ fn load_preferences(mut commands: Commands) {
     commands.insert_resource::<PropPreferences>(preferences);
 }
 
-/// Copies a file dropped on the window from the OS's explorer into the props folder, when the
+/// Copies a file dropped on the window from the OS's explorer into the folder open, when the
 /// genre takes it, a taken name numbered (`pine 2.glb`); anything else is refused in the log.
 /// The next rescan lists it, within a second.
 fn copy_dropped_props(
     mut commands: Commands, // multiplayer
     mut drops: MessageReader<FileDragAndDrop>,
     kind: Option<Res<PropKind>>,
+    open: Res<OpenFolder>,
 ) {
     let extensions = kind.map_or(&[][..], |kind| kind.extensions);
     for drop in drops.read() {
@@ -129,10 +144,11 @@ fn copy_dropped_props(
             );
             continue;
         }
-        match copy_entry(path_buf, &props_dir(), &wanted) {
+        match copy_entry(path_buf, &props_dir().join(&open.0), &wanted) {
             Ok(name) => {
-                info!("added the prop {name}");
-                commands.trigger(crate::multiplayer::PropFileAdded(name)); // multiplayer
+                let inside = inside_folder(&open.0, &name);
+                info!("added the prop {inside}");
+                commands.trigger(crate::multiplayer::PropFileAdded(inside)); // multiplayer
             }
             Err(err) => error!("could not copy {} in: {err}", path_buf.display()),
         }
@@ -147,6 +163,8 @@ fn rescan_props(
     mut since_secs: Local<f32>,
     kind: Option<Res<PropKind>>,
     mut library: ResMut<PropLibrary>,
+    mut folders: ResMut<PropFolders>,
+    mut open: ResMut<OpenFolder>,
 ) {
     // the state changes as the window opens: read at once rather than a second later
     *since_secs += time.delta_secs();
@@ -155,9 +173,18 @@ fn rescan_props(
     }
     *since_secs = 0.0;
     let extensions = kind.map_or(&[][..], |kind| kind.extensions);
-    let found = PropLibrary(read_props(extensions));
-    if *library != found {
-        *library = found;
+    let (found_props, found_folders) = read_props(extensions);
+    let found_props = PropLibrary(found_props);
+    if *library != found_props {
+        *library = found_props;
+    }
+    // the folder open is gone, deleted or renamed elsewhere: back to the props folder
+    if !open.0.is_empty() && !found_folders.contains(&open.0) {
+        open.0.clear();
+    }
+    let found_folders = PropFolders(found_folders);
+    if *folders != found_folders {
+        *folders = found_folders;
     }
 }
 
@@ -185,26 +212,71 @@ fn preferences_path() -> Option<PathBuf> {
     game_data_dir().map(|dir| dir.join(PREFERENCES_FILE_NAME))
 }
 
-/// Returns the files in the props folder whose extension is one of `extensions`, by name. A
+/// Returns the files in the props folder and every folder in it whose extension is one of
+/// `extensions`, sorted by asset path, and those folders, sorted by their path inside it. A
 /// missing folder, as in an Empty game, holds none.
-fn read_props(extensions: &[&str]) -> Vec<LibraryEntry> {
-    let Ok(folder) = std::fs::read_dir(props_dir()) else {
-        return Vec::new();
-    };
-    let mut entries: Vec<LibraryEntry> = folder
-        .flatten()
-        .filter_map(|entry| {
-            let metadata = entry.metadata().ok()?;
-            let name = entry.file_name().into_string().ok()?;
-            (metadata.is_file() && is_prop_file(&name, extensions)).then(|| LibraryEntry {
-                file: format!("{PROPS_DIR_NAME}/{name}"),
-                name,
-                size: metadata.len(),
-            })
-        })
-        .collect();
-    entries.sort_by(|a, b| a.name.cmp(&b.name));
-    entries
+pub(crate) fn read_props(extensions: &[&str]) -> (Vec<LibraryEntry>, Vec<String>) {
+    let mut entries = Vec::new();
+    let mut folders = Vec::new();
+    // folders still to read, by their path inside the props folder: no recursion, so no
+    // depth of folders runs the stack out
+    let mut to_read = vec![String::new()];
+    while let Some(folder) = to_read.pop() {
+        let Ok(read) = std::fs::read_dir(props_dir().join(&folder)) else {
+            continue;
+        };
+        for entry in read.flatten() {
+            let (Ok(metadata), Ok(name)) = (entry.metadata(), entry.file_name().into_string())
+            else {
+                continue;
+            };
+            let inside = inside_folder(&folder, &name);
+            if metadata.is_dir() {
+                folders.push(inside.clone());
+                to_read.push(inside);
+            } else if is_prop_file(&name, extensions) {
+                entries.push(LibraryEntry {
+                    file: format!("{PROPS_DIR_NAME}/{inside}"),
+                    name,
+                    size: metadata.len(),
+                });
+            }
+        }
+    }
+    entries.sort_by(|a, b| a.file.cmp(&b.file));
+    folders.sort();
+    (entries, folders)
+}
+
+/// Returns the path inside the props folder of `name`, in the folder at `folder` inside it,
+/// empty for the props folder itself: `trees/pine.glb`, with a `/` on every OS, as asset
+/// paths are written.
+pub(super) fn inside_folder(folder: &str, name: &str) -> String {
+    if folder.is_empty() {
+        name.to_string()
+    } else {
+        format!("{folder}/{name}")
+    }
+}
+
+/// Returns the folder a prop's file is in, by its path inside the props folder, from its asset
+/// path: `trees` for `props/trees/pine.glb`, empty for `props/pine.glb`.
+pub(super) fn folder_of(file: &str) -> &str {
+    parent_folder(inside_props(file))
+}
+
+/// Returns the path inside the props folder of a prop's file, from its asset path:
+/// `trees/pine.glb` for `props/trees/pine.glb`.
+pub(crate) fn inside_props(file: &str) -> &str {
+    file.strip_prefix(PROPS_DIR_NAME)
+        .and_then(|rest| rest.strip_prefix('/'))
+        .unwrap_or(file)
+}
+
+/// Returns the folder `path` is in, inside the props folder: `trees` for `trees/pines`, empty
+/// for `trees`.
+pub(super) fn parent_folder(path: &str) -> &str {
+    path.rsplit_once('/').map_or("", |(parent, _)| parent)
 }
 
 /// Tells whether a file named `name` is a prop the genre takes, by its extension, whatever
@@ -232,6 +304,29 @@ mod tests {
         assert!(is_prop_file("PINE.GLB", &["glb"]));
         assert!(!is_prop_file("pine.png", &["glb"]));
         assert!(!is_prop_file("pine", &["glb"]));
+    }
+
+    #[test]
+    fn a_path_inside_the_props_folder_names_its_folders() {
+        assert_eq!(inside_folder("", "pine.glb"), "pine.glb");
+        assert_eq!(
+            inside_folder("trees/pines", "pine.glb"),
+            "trees/pines/pine.glb"
+        );
+    }
+
+    #[test]
+    fn a_prop_is_in_the_folder_its_asset_path_names() {
+        assert_eq!(inside_props("props/trees/pine.glb"), "trees/pine.glb");
+        assert_eq!(folder_of("props/pine.glb"), "");
+        assert_eq!(folder_of("props/trees/pine.glb"), "trees");
+        assert_eq!(folder_of("props/trees/pines/pine.glb"), "trees/pines");
+    }
+
+    #[test]
+    fn a_folder_goes_up_one_level_at_a_time() {
+        assert_eq!(parent_folder("trees/pines"), "trees");
+        assert_eq!(parent_folder("trees"), "");
     }
 
     #[test]
