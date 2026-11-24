@@ -76,7 +76,9 @@ with `// multiplayer`) keeps where this game stands on the network in `Network`:
 
 The host runs a lightyear server (netcode over UDP, `GAME_PORT`) inside its own game and
 broadcasts on `DISCOVERY_PORT` every second; Find Server listens and lists each game heard, and
-takes an address typed; a joined game's pause menu has no Open to LAN. Each game sends its
+takes an address typed; a joined game's pause menu has no Open to LAN. A release build lists
+and connects to its own version only, by `DISCOVERY_TAG` and `PROTOCOL_ID`, both made from it;
+every dev build to every other, so friends changing the code play together. Each game sends its
 `NetworkedBody`'s pose (the genre puts that on its player); the host relays every pose to
 everyone, and each game shows the others as
 `RemotePlayer`s (`multiplayer/remote.rs`), which a player branch draws in its
