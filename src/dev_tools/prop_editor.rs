@@ -14,6 +14,8 @@ use crate::ui::{ClosesOnEsc, Dismiss, SMALL_FONT_SIZE_PX, floating_root, muted_t
 pub(crate) mod edits;
 // its thumbnails are made by each genre
 pub(crate) mod library;
+
+mod cell_menu;
 mod window;
 
 use edits::{DELETE_PROP, Held, PropsSheet, TURN_PROP, put_back};
@@ -38,8 +40,8 @@ const WINDOW_HEIGHT_PX: f32 = 280.0;
 /// `screens/gameplay/map.rs` reads. It knows no genre: a genre inserts its `PropKind`, shows
 /// the props, moves the held one and the camera. Esc puts a held prop back, then closes it,
 /// and anything that leaves `Pause::Off` closes it too, since its state lives inside it. Its
-/// parts are files of their own: the library of props on disk, the window that lists them,
-/// and the edits made to the map.
+/// parts are files of their own: the library of props on disk, the window that lists them, a
+/// prop file's right-click menu, and the edits made to the map.
 pub(super) fn plugin(app: &mut App) {
     register_action(
         app,
@@ -52,7 +54,12 @@ pub(super) fn plugin(app: &mut App) {
     );
     app.add_sub_state::<PropEditor>();
     // after F10, so the Dev page lists the editor's own keys under it
-    app.add_plugins((library::plugin, window::plugin, edits::plugin));
+    app.add_plugins((
+        library::plugin,
+        window::plugin,
+        cell_menu::plugin,
+        edits::plugin,
+    ));
     app.add_systems(
         Update,
         toggle_prop_editor.run_if(action_just_pressed(PROP_EDITOR)),

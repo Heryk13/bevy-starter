@@ -271,7 +271,7 @@ fn menu_items(place: Place, on_entry: bool, restorable: bool) -> Vec<MenuItem> {
 /// Returns where a menu opened at `pointer` in a window `window` big sits: its corner at the
 /// pointer, and the menu on the side of it with the most room, so it never runs off the
 /// window. The drawer is at the bottom, so a menu there opens upward.
-fn menu_place(pointer: Vec2, window: Vec2) -> Node {
+pub(in crate::dev_tools) fn menu_place(pointer: Vec2, window: Vec2) -> Node {
     let mut place = Node {
         position_type: PositionType::Absolute,
         ..default()

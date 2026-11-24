@@ -184,9 +184,10 @@ it was, and with none held closes it. F3 does nothing while it is open, as both 
 Its window is a drawer along the bottom, `ClosesOnEsc`, letting the pointer through around it,
 so `3d/player` frees the cursor while it is open and holds it again only while the right button
 turns the camera. The props are the files in `assets/props/` the genre takes (`PropKind`), read
-again every second while the window is open. Every change goes through one `MapEdit` (`Place`,
-`Update`, `Delete`), which `apply_map_edit` applies to the game in progress, `Session::game.map`,
-and to the world; the next save keeps it, an autosave included. Save as Default Map writes that
+again every second while the window is open; a right click on one's cell deletes it, the file to
+the file explorer's Trash and every prop placed from it. Every change goes through one
+`MapEdit` (`Place`, `Update`, `Delete`), which `apply_map_edit` applies to the game in progress,
+`Session::game.map`, and to the world; the next save keeps it, an autosave included. Save as Default Map writes that
 map, each prop where it was placed, to `assets/map.ron`. `screens/gameplay/map.rs`, in every
 build, spawns the game's props on entering gameplay, a game with no map yet (a new one, or one
 saved before props were) getting a copy of `assets/map.ron` first; each is a `Prop`, a
@@ -578,6 +579,7 @@ do this. The layers, bottom to top:
 | dev tools' windows, in dev builds | 300 | `DEV_TOOLS_Z_INDEX`, in `dev_tools.rs` |
 | the file explorer's rename field, in dev builds | 301 | `RENAME_FIELD_Z_INDEX`, in `dev_tools/file_explorer/rename.rs`, 1 above the dev tools: a modal only for Esc, inside the explorer |
 | the file explorer's questions and right-click menu, in dev builds | 310 | `EXPLORER_DIALOG_Z_INDEX`, in `dev_tools/file_explorer/dialog.rs`, 10 above the dev tools |
+| a prop file's right-click menu in the prop editor, in dev builds | 310 | `MENU_Z_INDEX`, in `dev_tools/prop_editor/cell_menu.rs`, 10 above the dev tools |
 | the prop editor's mode and depth menus, on `3d/player` and `2d/player`, in dev builds | 310 | `MENU_Z_INDEX`, in `dev_tools/prop_editor_3d/mode_menu.rs` and `dev_tools/prop_editor_2d.rs`, 10 above the dev tools |
 
 Those numbers order roots *within a camera*. Every floating layer (pause, overlays, dialogs) also
