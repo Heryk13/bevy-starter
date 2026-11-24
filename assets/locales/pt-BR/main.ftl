@@ -33,6 +33,7 @@ dialog-delete-save = Apagar este jogo salvo?
 dialog-reset-controls = Restaurar todos os controles para o padrão?
 notice-could-not-join = Não foi possível entrar nesse jogo.
 notice-host-ended = O host encerrou o jogo.
+notice-open-to-lan = Seu jogo está aberto para LAN. Amigos na sua rede podem entrar por Encontrar Servidor.
 
 ## overlays
 
