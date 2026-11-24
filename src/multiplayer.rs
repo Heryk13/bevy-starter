@@ -30,8 +30,10 @@ pub(crate) use host::LanButton;
 
 // ---- the connection: netcode over UDP ---------------------------------------
 const GAME_PORT: u16 = 5888;
+// a dev build's id, the same in every dev build whatever its version: friends changing the
+// code still play together. A release build's is made from its version, in `PROTOCOL_ID`
+const DEV_PROTOCOL_ID: u64 = 0xB5_7A_27_E2;
 // the same in every copy of the game: a game among friends, not a service to guard
-const PROTOCOL_ID: u64 = 0xB5_7A_27_E2;
 const PRIVATE_KEY: [u8; 32] = *b"bevy-starter lan co-op key 2026!";
 // how often the games tell each other where everyone is: 60 a second
 const TICK: Duration = Duration::from_micros(16_667);
@@ -45,7 +47,11 @@ const DISCOVERY_PORT: u16 = 5889;
 const DISCOVERY_EVERY_SECS: f32 = 1.0;
 // a game not heard for this long has closed, or left the network
 const DISCOVERY_STALE_SECS: f32 = 3.5;
-// the game's name and version: another game, or another version of this one, is not listed
+// the game's name and, in a release build, its version: another game, another version of a
+// release, or a build of the other kind, is not listed. Any dev build lists any other
+#[cfg(feature = "dev")]
+const DISCOVERY_TAG: &str = concat!(env!("CARGO_PKG_NAME"), "/dev");
+#[cfg(not(feature = "dev"))]
 const DISCOVERY_TAG: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 // ---- joining ----------------------------------------------------------------
@@ -56,6 +62,11 @@ const CONNECT_TIMEOUT_SECS: f32 = 6.0;
 const REMOTE_SILENT_SECS: f32 = 2.0;
 // how fast another body catches up with its last pose: most of the way in a tenth of a second
 const REMOTE_EASE_PER_S: f32 = 15.0;
+
+// ---- derived ----------------------------------------------------------------
+// netcode turns away a game whose id is not its own: a release build plays only with its own
+// version, and a dev build never with a release
+const PROTOCOL_ID: u64 = protocol_id(env!("CARGO_PKG_VERSION"), cfg!(feature = "dev"));
 
 // ==== Plugin =================================================================
 
@@ -235,6 +246,28 @@ fn pose_of(transform: &Transform, owner: u64) -> Pose {
     }
 }
 
+/// Returns the netcode protocol id of a build: `DEV_PROTOCOL_ID` for every dev build, and for
+/// a release one made from its `version`, so two releases of different versions never connect.
+const fn protocol_id(version: &str, dev: bool) -> u64 {
+    // FNV-1a: a few lines that give the same number on every machine, unlike std's hasher,
+    // which is seeded anew in every run
+    const FNV_OFFSET: u64 = 0xCBF2_9CE4_8422_2325;
+    const FNV_PRIME: u64 = 0x0100_0000_01B3;
+    if dev {
+        return DEV_PROTOCOL_ID;
+    }
+    let bytes = version.as_bytes();
+    let mut hash = FNV_OFFSET;
+    let mut index = 0;
+    // a `while`, since a `for` and an iterator are not allowed in a `const fn`
+    while index < bytes.len() {
+        hash ^= bytes[index] as u64;
+        hash = hash.wrapping_mul(FNV_PRIME);
+        index += 1;
+    }
+    hash
+}
+
 /// Returns what the host broadcasts: the tag, the game port, and how many play of how many.
 fn discovery_packet(players: u32) -> String {
     format!("{DISCOVERY_TAG} {GAME_PORT} {players} {MAX_PLAYERS}")
@@ -277,6 +310,22 @@ fn typed_address(text: &str) -> Option<SocketAddr> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_release_connects_only_to_its_own_version() {
+        assert_eq!(protocol_id("1.1.1", false), protocol_id("1.1.1", false));
+        assert_ne!(protocol_id("1.1.1", false), protocol_id("1.1.2", false));
+    }
+
+    #[test]
+    fn every_dev_build_connects_whatever_its_version() {
+        assert_eq!(protocol_id("1.1.1", true), protocol_id("2.0.0", true));
+    }
+
+    #[test]
+    fn a_dev_build_never_connects_to_a_release() {
+        assert_ne!(protocol_id("1.1.1", true), protocol_id("1.1.1", false));
+    }
 
     #[test]
     fn a_broadcast_reads_back_as_sent() {
