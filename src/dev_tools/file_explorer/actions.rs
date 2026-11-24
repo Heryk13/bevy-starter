@@ -367,7 +367,7 @@ fn root_of(place: Place) -> io::Result<PathBuf> {
 
 /// Makes a folder in `folder`, `New Folder` or the first number after it that is free, and
 /// returns its name. `folder` is made too when it is gone, as the gallery before a photo.
-fn new_folder(folder: &Path) -> io::Result<String> {
+pub(in crate::dev_tools) fn new_folder(folder: &Path) -> io::Result<String> {
     let name = free_name(NEW_FOLDER_NAME, true, &names_in(folder));
     std::fs::create_dir_all(folder.join(&name))?;
     Ok(name)

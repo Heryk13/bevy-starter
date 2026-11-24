@@ -8,7 +8,10 @@ use super::Network;
 use super::host::HostServer;
 use super::join::HostLink;
 use crate::dev_tools::prop_editor::PropKind;
-use crate::dev_tools::prop_editor::library::{PROPS_DIR_NAME, is_prop_file, props_dir};
+use crate::dev_tools::prop_editor::files::{PropFileChange, PropFileEdit, is_safe_path};
+use crate::dev_tools::prop_editor::library::{
+    PROPS_DIR_NAME, inside_props, is_prop_file, props_dir, read_props,
+};
 use crate::disk::write_atomic;
 use crate::save::Session;
 use crate::screens::Screen;
@@ -26,13 +29,16 @@ const LIST_EVERY_SECS: f32 = 2.0;
 
 // ==== Plugin =================================================================
 
-/// The props' files, through the host, dev builds only: the host tells each game that joins
-/// which props it has, and again whenever its folder changes; each asks for those it lacks,
-/// and gets them in pieces; a file dropped into a joined game's editor goes to the host, which
-/// lists it to the others. Receiving a file is a door into the PC, so only a bare name is
-/// kept, only a prop's extension is taken, nothing larger than `MAX_FILE_BYTES` is written, and
-/// it is written whole or not at all. The game only ever loads a file received as a model or
-/// an image, never runs it.
+/// The props' files and folders, through the host, dev builds only: the host tells each game
+/// that joins which props it has, in which folders, and again whenever its folder changes;
+/// each asks for those it lacks, and gets them in pieces; a file dropped into a joined game's
+/// editor goes to the host, which lists it to the others. A folder made, a name changed or a
+/// file deleted goes as the map's edits do: a joined game sends its `PropFileEdit` to the host,
+/// which makes it and sends the `PropFileChange` it made to every joined game, the asker too.
+/// Receiving a path is a door into the PC, so only a path inside the props folder is kept
+/// (`is_safe_path`), only a prop's extension is taken, nothing larger than `MAX_FILE_BYTES` is
+/// written, and a file is written whole or not at all. The game only ever loads a file
+/// received as a model or an image, never runs it.
 pub(super) fn plugin(app: &mut App) {
     app.register_message::<PropList>()
         .add_direction(NetworkDirection::ServerToClient);
@@ -40,6 +46,10 @@ pub(super) fn plugin(app: &mut App) {
         .add_direction(NetworkDirection::ClientToServer);
     app.register_message::<FileChunk>()
         .add_direction(NetworkDirection::Bidirectional);
+    app.register_message::<PropFileEdit>()
+        .add_direction(NetworkDirection::ClientToServer);
+    app.register_message::<PropFileChange>()
+        .add_direction(NetworkDirection::ServerToClient);
     app.add_channel::<FileChannel>(ChannelSettings {
         mode: ChannelMode::OrderedReliable(ReliableSettings::default()),
         ..default()
@@ -48,6 +58,8 @@ pub(super) fn plugin(app: &mut App) {
     app.init_resource::<Incoming>();
     app.add_observer(list_props_to_joiner);
     app.add_observer(upload_dropped_file);
+    app.add_observer(send_file_edit_to_host);
+    app.add_observer(send_file_change_to_joiners);
     app.add_systems(
         Update,
         (
@@ -55,11 +67,13 @@ pub(super) fn plugin(app: &mut App) {
                 list_props_when_they_change,
                 send_asked_files,
                 receive_uploads,
+                make_joiner_file_edits,
             )
                 .run_if(resource_equals(Network::Hosting)),
             // from the moment the host is reached, not only once in its game: the list it sends as
             // a player connects comes before the world, and a message unread in its frame is lost
             (ask_for_missing_props, receive_downloads),
+            hear_file_changes.run_if(resource_equals(Network::Joined)),
         ),
     );
 }
@@ -236,22 +250,75 @@ fn receive_uploads(
     }
 }
 
+/// Sends a file edit this joined game's player asks to the host, which makes it and sends back
+/// what it made.
+fn send_file_edit_to_host(
+    edit: On<PropFileEdit>,
+    network: Res<Network>,
+    mut senders: Query<&mut MessageSender<PropFileEdit>, (With<HostLink>, With<Connected>)>,
+) {
+    if *network != Network::Joined {
+        return;
+    }
+    for mut sender in &mut senders {
+        sender.send::<FileChannel>(edit.clone());
+    }
+}
+
+/// Makes the file edits the games that joined ask, as if this game's player had asked them:
+/// `apply_prop_file_edit` refuses any path that leaves the props folder.
+fn make_joiner_file_edits(
+    mut commands: Commands,
+    mut receivers: Query<&mut MessageReceiver<PropFileEdit>, With<ClientOf>>,
+) {
+    for mut receiver in &mut receivers {
+        for edit in receiver.receive() {
+            commands.trigger(edit);
+        }
+    }
+}
+
+/// Sends every file change the host makes to every game that joined, the one that asked
+/// included, on the files' channel, so it never overtakes a file still coming.
+fn send_file_change_to_joiners(
+    change: On<PropFileChange>,
+    network: Res<Network>,
+    server: Option<Single<&Endpoint, With<HostServer>>>,
+    mut sender: ServerMultiMessageSender,
+) {
+    let (Network::Hosting, Some(server)) = (*network, server) else {
+        return;
+    };
+    let _ = sender.send::<_, FileChannel>(&*change, *server, &NetworkTarget::All);
+}
+
+/// Makes the file changes the host sends on this game's disk, refusing any path that leaves
+/// the props folder: the host is a friend, but a path is still a door into the PC.
+fn hear_file_changes(
+    mut commands: Commands,
+    mut receivers: Query<&mut MessageReceiver<PropFileChange>, With<HostLink>>,
+) {
+    for mut receiver in &mut receivers {
+        for change in receiver.receive() {
+            if is_safe_change(&change) {
+                commands.trigger(change);
+            } else {
+                warn!("refused a change to the props from the host: {change:?}");
+            }
+        }
+    }
+}
+
 // ==== Helpers ================================================================
 
-/// Returns the props in the props folder the genre takes, by name and size, sorted.
+/// Returns the props the genre takes in the props folder and every folder in it, by their
+/// path inside it (`trees/pine.glb`) and size, sorted.
 fn props_on_disk(kind: Option<&PropKind>) -> Vec<(String, u64)> {
     let extensions = kind.map_or(&[][..], |kind| kind.extensions);
-    let Ok(folder) = std::fs::read_dir(props_dir()) else {
-        return Vec::new();
-    };
-    let mut props: Vec<(String, u64)> = folder
-        .flatten()
-        .filter_map(|entry| {
-            let metadata = entry.metadata().ok()?;
-            let name = entry.file_name().into_string().ok()?;
-            (metadata.is_file() && is_prop_file(&name, extensions))
-                .then_some((name, metadata.len()))
-        })
+    let (entries, _) = read_props(extensions);
+    let mut props: Vec<(String, u64)> = entries
+        .into_iter()
+        .map(|entry| (inside_props(&entry.file).to_string(), entry.size))
         .collect();
     props.sort();
     props
@@ -266,14 +333,20 @@ fn missing(listed: &[(String, u64)], have: &[(String, u64)]) -> Vec<(String, u64
         .collect()
 }
 
-/// Returns `name` when it is a bare file name of a prop the genre takes: no folder in it, no
-/// way up out of the props folder, a prop's extension.
+/// Returns `name` when it is the path of a prop the genre takes inside the props folder: no way
+/// out of it (`is_safe_path`), a prop's extension.
 fn safe_name(name: &str, extensions: &[&str]) -> Option<String> {
-    let bare = !name.is_empty()
-        && !name.contains(['/', '\\', ':'])
-        && !name.contains("..")
-        && !name.starts_with('.');
-    (bare && is_prop_file(name, extensions)).then(|| name.to_string())
+    (is_safe_path(name) && is_prop_file(name, extensions)).then(|| name.to_string())
+}
+
+/// Tells whether every path in a change from the host is inside the props folder.
+fn is_safe_change(change: &PropFileChange) -> bool {
+    match change {
+        PropFileChange::FolderMade { path } | PropFileChange::Deleted { path } => {
+            is_safe_path(path)
+        }
+        PropFileChange::Renamed { from, to } => is_safe_path(from) && is_safe_path(to),
+    }
 }
 
 /// Returns a prop's file in pieces, or none when it cannot be read or is too big to send.
@@ -357,13 +430,17 @@ mod tests {
     const EXTENSIONS: &[&str] = &["glb"];
 
     #[test]
-    fn only_a_bare_prop_name_is_taken() {
+    fn only_a_prop_path_inside_the_props_folder_is_taken() {
         assert_eq!(
             safe_name("pine.glb", EXTENSIONS),
             Some("pine.glb".to_string())
         );
         assert_eq!(safe_name("../pine.glb", EXTENSIONS), None);
-        assert_eq!(safe_name("dir/pine.glb", EXTENSIONS), None);
+        assert_eq!(
+            safe_name("trees/pine.glb", EXTENSIONS),
+            Some("trees/pine.glb".to_string())
+        );
+        assert_eq!(safe_name("trees/../../pine.glb", EXTENSIONS), None);
         assert_eq!(safe_name("dir\\pine.glb", EXTENSIONS), None);
         assert_eq!(safe_name("C:pine.glb", EXTENSIONS), None);
         assert_eq!(safe_name(".glb", EXTENSIONS), None);
