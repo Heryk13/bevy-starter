@@ -126,6 +126,15 @@ pub(in crate::dev_tools) fn copy_entry(
     Ok(name)
 }
 
+/// Moves the file `inside` the assets folder into the Trash, which can put it back. The prop
+/// editor deletes a prop's file with it.
+pub(in crate::dev_tools) fn trash_asset(inside: &Path) -> io::Result<()> {
+    change_disk(&Change::Delete {
+        place: Place::Assets,
+        inside: inside.to_path_buf(),
+    })
+}
+
 /// Deletes the file or folder at `path`, everything in a folder included.
 pub(super) fn remove_entry(path: &Path) -> io::Result<()> {
     if path.is_dir() {
