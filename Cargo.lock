@@ -729,7 +729,7 @@ dependencies = [
 
 [[package]]
 name = "bevy-starter"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "avian3d",
  "bevy",

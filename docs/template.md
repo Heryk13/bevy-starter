@@ -97,6 +97,7 @@ src/
     physics_debug.rs  F6: every collider's outline, then the third-person camera's rays
     prop_editor.rs  F10: props from assets/props/ placed into the game and its save, its state
     prop_editor/
+      cell_menu.rs  a prop file's right-click menu: Delete, the file to the Trash, its props gone
       edits.rs      every change to the map: place, update, delete; holding, R, the wheel
       library.rs    the props on disk, files dropped in, favourites and recents
       window.rs     the drawer's tabs, search, sort and grid of thumbnails
