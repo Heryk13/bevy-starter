@@ -82,7 +82,7 @@ everyone, and each game shows the others as
 `RemotePlayer`s (`multiplayer/remote.rs`), which a player branch draws in its
 `player/others.rs`, a joiner starting on a ring around the spawn point.
 A shared game never freezes: entering `Pause::On` or `Pause::Photo` pauses no time while hosting
-or joined (`is_shared_game`), and slow motion stays off. The host's game is the world, with an
+or joined (`is_shared_game`), nor stills the view the glass blurs, and slow motion stays off. The host's game is the world, with an
 id (`GameData::world_id`); a joiner gets it and its props (`WorldState`) as it connects, keeps
 only its own character, per world, in `characters.ron` (`multiplayer/world.rs`), and has no Save,
 Load Game nor autosave. Every prop edit goes through the host (`MapEdit` asked, `MapChange` made,
