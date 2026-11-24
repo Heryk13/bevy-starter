@@ -43,12 +43,13 @@ A starter template for building games with [Rust](https://www.rust-lang.org/) an
   `.mp4` of the game alone, its own UI and sound included and the dev UI never, into
   `gallery/`; the sound is Windows-only, and nothing is installed outside cargo), the prop
   editor (F10: a drawer of the files in `assets/props/` while the game keeps running; a click
-  on a thumbnail toggles it, and while it is on each click in the world places one; a click on
+  on a thumbnail toggles it, and while it is on each click in the world places one, a right
+  click on one deletes its file, into the Trash, and every prop placed from it; a click on
   a placed prop picks it up to move it, R turns it, the wheel scales it, Delete removes it,
   and the props are kept in each save, a new game starting from the default map,
   `assets/map.ron`, which Save as Default Map writes from the game being edited; on
-  `3d/player` a right click picks fixed, physics or no collision, on `2d/player` in front of
-  the player or behind) and the
+  `3d/player` a right click picks fixed, physics or no collision, or deletes the prop, on
+  `2d/player` in front of the player or behind) and the
   file explorer (Numpad 0: a drawer over the running game that browses the gallery and the
   game's `assets/` like the Windows explorer, with a preview, folders, renaming, dragging, a
   trash of its own, files dropped in from the OS, and a warning before changing an asset the
