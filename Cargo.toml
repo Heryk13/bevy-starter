@@ -6,10 +6,12 @@ publish = false
 
 [dependencies]
 # jpeg for photographic backgrounds, wav for short UI sounds.
-# bevy's defaults only cover png and ogg vorbis.
+# bevy's defaults only cover png and ogg vorbis. system_clipboard lets Ctrl+V paste what
+# another program copied, an address say: without it a text field pastes only what the game
+# itself copied.
 # only the 3d, ui, audio, jpeg and wav features: the defaults would also build 2d. And
 # area_light_luts, the table a RectLight, the sky portals' light, is drawn with
-bevy = { version = "0.20.0", default-features = false, features = ["3d", "ui", "audio", "jpeg", "wav", "area_light_luts"] }
+bevy = { version = "0.20.0", default-features = false, features = ["3d", "ui", "audio", "jpeg", "wav", "system_clipboard", "area_light_luts"] }
 # the translations: fluent turns a key and its arguments into a sentence in the
 # player's language, unic-langid names the language for its plural rules
 fluent-bundle = "0.16"
