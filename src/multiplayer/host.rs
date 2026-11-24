@@ -22,9 +22,11 @@ const CLOSE_LAN_KEY: &str = "pause-close-lan";
 
 /// Hosting: the pause menu's Open to LAN starts a server in this game, which keeps playing as
 /// one of the players, and says so on the network every `DISCOVERY_EVERY_SECS`; the same
-/// switch, or leaving gameplay, stops it. The host relays each joiner's pose to the others,
-/// sends its own to all, and shows the joiners' bodies.
+/// switch, or leaving gameplay, stops it. A joined game's pause menu has no switch: its world
+/// is the host's to open. The host relays each joiner's pose to the others, sends its own to
+/// all, and shows the joiners' bodies.
 pub(super) fn plugin(app: &mut App) {
+    app.add_observer(remove_lan_button_when_joined);
     app.add_observer(press_lan_button);
     app.add_observer(hear_player_leave);
     app.add_systems(
@@ -58,6 +60,17 @@ struct Broadcast {
 
 // ==== Systems ================================================================
 
+/// Takes the switch out of a joined game's pause menu as it spawns.
+fn remove_lan_button_when_joined(
+    add: On<Add<LanButton>>,
+    mut commands: Commands,
+    network: Res<Network>,
+) {
+    if *network == Network::Joined {
+        commands.entity(add.entity).despawn();
+    }
+}
+
 /// Opens the game to the LAN, or closes it, when the switch is pressed: the game under the pause
 /// menu runs while it is open, and freezes again once it closes.
 fn press_lan_button(
@@ -89,7 +102,7 @@ fn press_lan_button(
                 time.pause();
             }
         }
-        // a joiner's pause menu has no switch to press
+        // a joiner's pause menu has no switch to press: `remove_lan_button_when_joined`
         Network::Joining { .. } | Network::Joined => {}
     }
 }
