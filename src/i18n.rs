@@ -154,15 +154,16 @@ fn use_ui_font(mut fonts: ResMut<Assets<Font>>) {
     }
 }
 
-/// Writes every `Localized` text the frame it spawns, and all of them again the frame the
-/// language changes, which is what switches the menu behind the Settings panel too.
+/// Writes every `Localized` text the frame it spawns or its key changes, and all of them again
+/// the frame the language changes, which is what switches the menu behind the Settings panel
+/// too.
 fn translate_texts(
     language: Res<Language>,
     translations: Res<Translations>,
     mut texts: Query<(&mut Text, Ref<Localized>)>,
 ) {
     for (mut text, localized) in &mut texts {
-        if language.is_changed() || localized.is_added() {
+        if language.is_changed() || localized.is_changed() {
             text.0 = translations.text(*language, localized.0);
         }
     }
