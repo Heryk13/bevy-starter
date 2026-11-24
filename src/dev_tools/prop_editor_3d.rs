@@ -1,4 +1,4 @@
-use avian3d::prelude::RigidBody;
+use avian3d::prelude::{AngularVelocity, Collider, ColliderDisabled, LinearVelocity, RigidBody};
 use bevy::camera::RenderTarget;
 use bevy::camera::primitives::Aabb;
 use bevy::camera::visibility::RenderLayers;
@@ -56,7 +56,8 @@ const THUMBNAIL_FOV_RAD: f32 = THUMBNAIL_FOV_DEG.to_radians();
 /// The prop editor in 3D: the props are models, R turns them about the vertical, and a held
 /// prop rests its lowest point where the cursor points. Every model gets a thumbnail, drawn
 /// once by a camera of its own. A held physics prop is kinematic, so it neither falls from
-/// the mouse nor is pushed while held, and a quick right click on a placed prop opens its
+/// the mouse nor is pushed while held; a held prop of any mode collides with nothing, so it
+/// never shoves the player holding it; and a quick right click on a placed prop opens its
 /// mode menu (`mode_menu.rs`). The camera is photo mode's free camera
 /// (`free_camera.rs`), which the editor lifts off the body.
 pub(super) fn plugin(app: &mut App) {
@@ -76,6 +77,8 @@ pub(super) fn plugin(app: &mut App) {
     app.add_observer(check_thumbnail_drawn);
     app.add_observer(hold_physics_still);
     app.add_observer(let_physics_go);
+    app.add_observer(disable_held_colliders);
+    app.add_observer(enable_put_down_colliders);
 }
 
 // ==== Components =============================================================
@@ -365,7 +368,13 @@ fn hold_physics_still(
     props: Query<&PropMode, With<Prop>>,
 ) {
     if props.get(add.entity) == Ok(&PropMode::Physics) {
-        commands.entity(add.entity).insert(RigidBody::Kinematic);
+        // still, too: a kinematic body keeps the speed it had, so one picked up while it fell
+        // would go on falling out of the hand
+        commands.entity(add.entity).insert((
+            RigidBody::Kinematic,
+            LinearVelocity::ZERO,
+            AngularVelocity::ZERO,
+        ));
     }
 }
 
@@ -379,6 +388,36 @@ fn let_physics_go(
         commands
             .entity(remove.entity)
             .try_insert(RigidBody::Dynamic);
+    }
+}
+
+/// Turns off every collider of a prop as it is taken into the hand: moved by the mouse, it
+/// would shove whatever it passes through, the player holding it first of all. The model is
+/// still aimed at by its meshes, which the editor ray casts, not by its colliders.
+fn disable_held_colliders(
+    add: On<Add<Held>>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    colliders: Query<(), With<Collider>>,
+) {
+    for part in descendants([add.entity], &children) {
+        if colliders.contains(part) {
+            commands.entity(part).insert(ColliderDisabled);
+        }
+    }
+}
+
+/// Turns a prop's colliders back on as it leaves the hand: put down, put back, or gone.
+fn enable_put_down_colliders(
+    remove: On<Remove<Held>>,
+    mut commands: Commands,
+    children: Query<&Children>,
+    disabled: Query<(), With<ColliderDisabled>>,
+) {
+    for part in descendants([remove.entity], &children) {
+        if disabled.contains(part) {
+            commands.entity(part).try_remove::<ColliderDisabled>();
+        }
     }
 }
 
