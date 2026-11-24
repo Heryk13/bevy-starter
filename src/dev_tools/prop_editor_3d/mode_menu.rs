@@ -8,7 +8,7 @@ use super::super::prop_editor::PropEditor;
 use super::super::prop_editor::edits::{Held, HoveredProp, MapEdit, PropsSheet};
 use super::super::{DEV_TOOLS_Z_INDEX, DevUi, dev_window};
 use crate::screens::gameplay::map::{Prop, PropMode};
-use crate::ui::{ButtonKind, ClosesOnEsc, Dismiss, floating_root, words_button};
+use crate::ui::{ButtonKind, ClosesOnEsc, Dismiss, Icon, floating_root, icon_button, words_button};
 
 // ==== Config =================================================================
 
@@ -21,6 +21,7 @@ const RIGHT_CLICK_MAX_MOVE_PX: f32 = 6.0;
 const FIXED_WORDS: &str = "Fixed";
 const PHYSICS_WORDS: &str = "Physics";
 const NO_COLLISION_WORDS: &str = "No Collision";
+const DELETE_WORDS: &str = "Delete";
 
 // ---- menu: over the props window, as the explorer's menu is over the explorer
 const MENU_Z_INDEX: GlobalZIndex = GlobalZIndex(DEV_TOOLS_Z_INDEX.0 + 10);
@@ -28,14 +29,14 @@ const MENU_Z_INDEX: GlobalZIndex = GlobalZIndex(DEV_TOOLS_Z_INDEX.0 + 10);
 // ==== Plugin =================================================================
 
 /// A placed prop's mode, chosen from a menu a quick right click on it opens: Fixed, Physics or
-/// No Collision, the current one the primary button. Holding the right button turns the
-/// camera instead, as in Unreal.
+/// No Collision, the current one the primary button, and a trash can under them that deletes
+/// the prop. Holding the right button turns the camera instead, as in Unreal.
 pub(super) fn plugin(app: &mut App) {
     app.add_systems(
         Update,
         (open_mode_menu, close_mode_menu_on_click_outside).run_if(in_state(PropEditor::On)),
     );
-    app.add_observer(choose_mode.run_if(in_state(PropEditor::On)));
+    app.add_observer(apply_mode_choice.run_if(in_state(PropEditor::On)));
     app.add_observer(dismiss_mode_menu.run_if(in_state(PropEditor::On)));
 }
 
@@ -49,9 +50,12 @@ struct ModeMenu(Entity);
 #[derive(Component)]
 struct ModeMenuSheet;
 
-/// A mode menu item, with the mode it gives.
+/// What a mode menu item does: give the prop a mode, or delete it.
 #[derive(Component)]
-struct ModeItem(PropMode);
+enum ModeChoice {
+    Mode(PropMode),
+    Delete,
+}
 
 // ==== Systems ================================================================
 
@@ -110,7 +114,7 @@ fn open_mode_menu(
         } else {
             ButtonKind::Choice
         };
-        (words_button(words, kind), ModeItem(item_mode))
+        (words_button(words, kind), ModeChoice::Mode(item_mode))
     };
     commands.spawn((
         floating_root(MENU_Z_INDEX),
@@ -133,6 +137,11 @@ fn open_mode_menu(
                 item(FIXED_WORDS, PropMode::Fixed),
                 item(PHYSICS_WORDS, PropMode::Physics),
                 item(NO_COLLISION_WORDS, PropMode::NoCollision),
+                (
+                    icon_button(Icon::Trash2, ButtonKind::Danger),
+                    AccessibleLabel::new(DELETE_WORDS),
+                    ModeChoice::Delete,
+                ),
             ],
         )],
     ));
@@ -154,23 +163,27 @@ fn close_mode_menu_on_click_outside(
     }
 }
 
-/// Gives the prop the mode pressed, keeping where it stands, and closes the menu.
-fn choose_mode(
+/// Gives the prop the mode pressed, keeping where it stands, or deletes it, and closes the
+/// menu.
+fn apply_mode_choice(
     activate: On<Activate>,
     mut commands: Commands,
-    items: Query<&ModeItem>,
+    choices: Query<&ModeChoice>,
     menus: Query<(Entity, &ModeMenu)>,
     props: Query<(&Prop, &Transform)>,
 ) {
-    let Ok(item) = items.get(activate.entity) else {
+    let Ok(choice) = choices.get(activate.entity) else {
         return;
     };
     for (menu, for_prop) in &menus {
         if let Ok((prop, transform)) = props.get(for_prop.0) {
-            commands.trigger(MapEdit::Update {
-                id: prop.0,
-                transform: *transform,
-                mode: item.0,
+            commands.trigger(match choice {
+                ModeChoice::Mode(mode) => MapEdit::Update {
+                    id: prop.0,
+                    transform: *transform,
+                    mode: *mode,
+                },
+                ModeChoice::Delete => MapEdit::Delete { id: prop.0 },
             });
         }
         commands.entity(menu).despawn();
