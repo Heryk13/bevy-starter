@@ -1,6 +1,6 @@
 # Prop folders: the prop editor's window as a small file explorer, shared in a shared game
 
-Status: **in progress** 2026-11-24, on `main`.
+Status: **built** 2026-11-24, on `main`, merged down to every branch. Not yet tried in the game.
 Date: 2026-11-24
 Bevy: 0.20.0
 
@@ -55,4 +55,11 @@ One commit per step, each with `just check`.
 
 ## What changed while building it
 
-Nothing yet.
+- The star left in step 3, not step 2: Favourite moved to the menu in the same commit, and a
+  step 2 without the star would have left `toggle_favourite` unused, which `just check` fails.
+- A rename also writes the default map, `assets/map.ron`, again, on the host or alone: a new
+  game would otherwise start with the props of a name that no longer exists.
+- `read_props` is shared: `multiplayer/files.rs` lists the host's props with it instead of a
+  read of its own, and `inside_props` moved to `library.rs`, which both use.
+- The rename field took the explorer's rules (`is_name_allowed`) and its folder maker
+  (`new_folder`), shared from `file_explorer.rs` as `copy_entry` already was.
