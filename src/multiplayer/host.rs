@@ -7,7 +7,7 @@ use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
 use super::remote::{Heading, RemoteIndex, forget_player, hear_pose};
 use super::{
     DISCOVERY_EVERY_SECS, DISCOVERY_PORT, GAME_PORT, HOST_ID, MAX_PLAYERS, Network, NetworkedBody,
-    PRIVATE_KEY, PROTOCOL_ID, Pose, PoseChannel, discovery_packet, pose_of,
+    PRIVATE_KEY, PROTOCOL_ID, Pose, PoseChannel, discovery_packet, notice, pose_of,
 };
 use crate::i18n::Localized;
 use crate::screens::{Pause, Screen};
@@ -17,14 +17,18 @@ use crate::screens::{Pause, Screen};
 // ---- the pause menu's switch: what it says, open or not ---------------------
 const OPEN_TO_LAN_KEY: &str = "pause-open-to-lan";
 const CLOSE_LAN_KEY: &str = "pause-close-lan";
+// what the game tells the player as it opens, the pause menu gone to show the game behind
+const OPENED_NOTICE_KEY: &str = "notice-open-to-lan";
 
 // ==== Plugin =================================================================
 
 /// Hosting: the pause menu's Open to LAN starts a server in this game, which keeps playing as
-/// one of the players, and says so on the network every `DISCOVERY_EVERY_SECS`; the same
-/// switch, or leaving gameplay, stops it. The host relays each joiner's pose to the others,
-/// sends its own to all, and shows the joiners' bodies.
+/// one of the players, closes the pause menu over a notice that the game is open, and says so
+/// on the network every `DISCOVERY_EVERY_SECS`; the same switch, or leaving gameplay, stops it.
+/// A joined game's pause menu has no switch: its world is the host's to open. The host relays
+/// each joiner's pose to the others, sends its own to all, and shows the joiners' bodies.
 pub(super) fn plugin(app: &mut App) {
+    app.add_observer(remove_lan_button_when_joined);
     app.add_observer(press_lan_button);
     app.add_observer(hear_player_leave);
     app.add_systems(
@@ -58,8 +62,19 @@ struct Broadcast {
 
 // ==== Systems ================================================================
 
-/// Opens the game to the LAN, or closes it, when the switch is pressed: the game under the pause
-/// menu runs while it is open, and freezes again once it closes.
+/// Takes the switch out of a joined game's pause menu as it spawns.
+fn remove_lan_button_when_joined(
+    add: On<Add<LanButton>>,
+    mut commands: Commands,
+    network: Res<Network>,
+) {
+    if *network == Network::Joined {
+        commands.entity(add.entity).despawn();
+    }
+}
+
+/// Opens the game to the LAN when the switch is pressed, back in the game with a notice that
+/// says so, or closes it, under the pause menu, which freezes the game again.
 fn press_lan_button(
     activate: On<Activate>,
     mut commands: Commands,
@@ -67,6 +82,7 @@ fn press_lan_button(
     mut network: ResMut<Network>,
     servers: Query<Entity, With<HostServer>>,
     pause: Option<Res<State<Pause>>>,
+    mut next_pause: ResMut<NextState<Pause>>,
     mut time: ResMut<Time<Virtual>>,
 ) {
     if !buttons.contains(activate.entity) {
@@ -76,10 +92,11 @@ fn press_lan_button(
         Network::Offline => {
             open_lan(&mut commands);
             *network = Network::Hosting;
-            // pressed in the pause menu, which froze the game: a shared game never freezes, nor
-            // runs slowed, since the host runs the world for everyone
-            time.unpause();
+            // leaving the pause menu starts the clock again; a shared game never runs slowed
+            // either, since the host runs the world for everyone
+            next_pause.set(Pause::Off);
             time.set_relative_speed(1.0);
+            commands.spawn((notice(OPENED_NOTICE_KEY), DespawnOnExit(Screen::Gameplay)));
         }
         Network::Hosting => {
             stop_servers(&mut commands, &servers);
@@ -89,7 +106,7 @@ fn press_lan_button(
                 time.pause();
             }
         }
-        // a joiner's pause menu has no switch to press
+        // a joiner's pause menu has no switch to press: `remove_lan_button_when_joined`
         Network::Joining { .. } | Network::Joined => {}
     }
 }
