@@ -8,5 +8,7 @@ accepted = [
     "Zlib",
     "Unicode-3.0",
     "CC0-1.0",
+    # the system clipboard's Windows crates: permissive, no notice needed in a binary
+    "BSL-1.0",
 ]
 private = { ignore = true }
